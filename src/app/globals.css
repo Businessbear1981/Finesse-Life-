@@ -5,11 +5,25 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  /* shadcn system tokens — mapped to Finesse palette */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -18,103 +32,86 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Font families — CSS vars injected by next/font on <html> */
+  --font-sans: var(--font-cormorant), Georgia, serif;
+  --font-mono: 'Courier New', monospace;
+  --font-display: var(--font-playfair), 'Playfair Display', serif;
+  --font-body: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  --font-label: var(--font-cinzel), 'Cinzel', serif;
+  --font-heading: var(--font-playfair), 'Playfair Display', serif;
+
+  /* Finesse brand palette — available as Tailwind utilities */
+  /* Short names match after-dark class usage: bg-ink, text-brass, etc. */
+  --color-ink: #0a0406;
+  --color-oxblood: #4a1922;
+  --color-brass: #c9a961;
+  --color-brass-highlight: #e8c87a;
+  --color-brass-shadow: #6b5028;
+  --color-cream: #f4e8d0;
+  --color-neon-pink: #ff4d7d;
+  --color-lamp: #ffa96b;
+  /* Aliases */
+  --color-f-black: #0a0406;
+  --color-f-black-2: #0d0809;
+  --color-f-burgundy: #4a1922;
+  --color-f-burgundy-2: #6b1e2e;
+  --color-f-brass: #c9a961;
+  --color-f-brass-hi: #e8c87a;
+  --color-f-brass-lo: #6b5028;
+  --color-f-cream: #f4e8d0;
+  --color-f-neon: #ff4d7d;
+  --color-f-warm: #ffa96b;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* shadcn vars remapped to Finesse palette */
+  --background: #0a0406;
+  --foreground: #f4e8d0;
+  --card: #0d0809;
+  --card-foreground: #f4e8d0;
+  --popover: #140709;
+  --popover-foreground: #f4e8d0;
+  --primary: #c9a961;
+  --primary-foreground: #0a0406;
+  --secondary: #4a1922;
+  --secondary-foreground: #f4e8d0;
+  --muted: #1a0a0d;
+  --muted-foreground: #8b6f3a;
+  --accent: #6b1e2e;
+  --accent-foreground: #f4e8d0;
+  --destructive: #7f1d1d;
+  --border: rgb(201 169 97 / 20%);
+  --input: rgb(201 169 97 / 12%);
+  --ring: #c9a961;
+  --radius: 0.125rem;
+  --sidebar: #0d0809;
+  --sidebar-foreground: #f4e8d0;
+  --sidebar-primary: #c9a961;
+  --sidebar-primary-foreground: #0a0406;
+  --sidebar-accent: #4a1922;
+  --sidebar-accent-foreground: #f4e8d0;
+  --sidebar-border: rgb(201 169 97 / 20%);
+  --sidebar-ring: #c9a961;
+  --chart-1: #c9a961;
+  --chart-2: #e8c87a;
+  --chart-3: #6b1e2e;
+  --chart-4: #ff4d7d;
+  --chart-5: #ffa96b;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+/* Always dark — no light mode for Finesse */
+html {
+  color-scheme: dark;
 }
 
 @layer base {
@@ -122,9 +119,217 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: #0a0406;
+    color: #f4e8d0;
+    font-family: var(--font-body);
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-body);
   }
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────── */
+
+@keyframes neon-flicker {
+  0%, 89%, 91%, 93%, 100% { opacity: 1; }
+  90% { opacity: 0.6; }
+  92% { opacity: 0.9; }
+  94% { opacity: 0.3; }
+}
+
+@keyframes chandelier-pulse {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.82; filter: brightness(0.88); }
+}
+
+@keyframes curtain-close-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes curtain-close-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes curtain-open-left {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+
+@keyframes curtain-open-right {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2%, -3%); }
+  20% { transform: translate(3%, 1%); }
+  30% { transform: translate(-1%, 4%); }
+  40% { transform: translate(2%, -2%); }
+  50% { transform: translate(-3%, 2%); }
+  60% { transform: translate(1%, -1%); }
+  70% { transform: translate(-2%, 3%); }
+  80% { transform: translate(3%, -3%); }
+  90% { transform: translate(-1%, 2%); }
+}
+
+@keyframes room-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes door-glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px 4px rgb(255 169 107 / 30%); }
+  50% { box-shadow: 0 0 35px 8px rgb(255 169 107 / 50%); }
+}
+
+@keyframes brass-shimmer {
+  0%, 100% { background-position: 200% center; }
+  50% { background-position: 0% center; }
+}
+
+/* ─── Utility classes ────────────────────────────────────────────────── */
+
+.neon-text {
+  color: #ff4d7d;
+  text-shadow:
+    0 0 7px #ff4d7d,
+    0 0 21px #ff4d7d,
+    0 0 42px #ff4d7d,
+    0 0 82px rgb(255 77 125 / 50%);
+  animation: neon-flicker 6s infinite;
+}
+
+.neon-brass {
+  color: #e8c87a;
+  text-shadow:
+    0 0 7px #c9a961,
+    0 0 21px #c9a961,
+    0 0 42px rgb(201 169 97 / 60%);
+  animation: neon-flicker 8s 1.5s infinite;
+}
+
+.chandelier-light {
+  animation: chandelier-pulse 4s ease-in-out infinite;
+}
+
+.door-glow {
+  animation: door-glow-pulse 3s ease-in-out infinite;
+}
+
+.room-enter {
+  animation: room-enter 0.6s ease-out forwards;
+}
+
+.grain-overlay {
+  animation: grain 0.2s steps(1) infinite;
+}
+
+.font-display  { font-family: var(--font-display); }
+.font-body     { font-family: var(--font-body); }
+.font-label    { font-family: var(--font-label); }
+
+/* ─── Ported from after-dark index.css ─────────────────────────────── */
+
+::selection {
+  background-color: #c9a961;
+  color: #0a0406;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  text-shadow: 0 0 8px rgba(201,169,97,0.2), 0 0 20px rgba(201,169,97,0.08);
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0406; }
+::-webkit-scrollbar-thumb { background: #6b5028; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #c9a961; }
+
+.film-grain {
+  position: fixed;
+  top: -50%; left: -50%; right: -50%; bottom: -50%;
+  width: 200%; height: 200%;
+  background: transparent
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E")
+    repeat;
+  pointer-events: none;
+  z-index: 9999;
+  animation: grain 0.2s steps(1) infinite;
+  opacity: 0.5;
+}
+
+.neon-glow {
+  text-shadow: 0 0 7px #ff4d7d, 0 0 10px #ff4d7d, 0 0 21px #ff4d7d, 0 0 42px #ff4d7d;
+}
+
+.neon-glow-brass {
+  text-shadow: 0 0 7px #c9a961, 0 0 10px #c9a961, 0 0 21px #c9a961, 0 0 42px #c9a961;
+}
+
+.brass-border {
+  border: 1px solid #c9a961;
+  box-shadow: 0 0 4px rgba(201,169,97,0.3), inset 0 0 4px rgba(201,169,97,0.1);
+}
+
+.lamp-glow {
+  background: radial-gradient(ellipse at center, rgba(255,169,107,0.15) 0%, transparent 70%);
+}
+
+.curtain-fabric {
+  background: linear-gradient(180deg, #4a1922 0%, #3a1119 30%, #4a1922 50%, #3a1119 70%, #4a1922 100%);
+}
+
+.door-panel-left,
+.door-panel-right {
+  background: linear-gradient(135deg, #0c0608 0%, #12090b 25%, #0e070a 50%, #12090b 75%, #0c0608 100%);
+}
+
+.vault-door {
+  background: linear-gradient(180deg, #1a1a1e 0%, #222226 20%, #1a1a1e 40%, #222226 60%, #1a1a1e 80%, #222226 100%);
+  box-shadow: inset 0 0 80px rgba(0,0,0,0.5);
+}
+
+.fog-overlay {
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(244,232,208,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(244,232,208,0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(255,169,107,0.08) 0%, transparent 40%),
+    linear-gradient(180deg, rgba(244,232,208,0.06) 0%, rgba(10,4,6,0.95) 100%);
+  backdrop-filter: blur(8px);
+}
+
+.static-wipe { background: #0a0406; }
+
+.scanlines {
+  background: repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(255,169,107,0.03) 2px, rgba(255,169,107,0.03) 4px);
+}
+
+.lair-grid {
+  background-image:
+    linear-gradient(rgba(201,169,97,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(201,169,97,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.connector-active {
+  animation: statusPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(34,197,94,0.3), 0 0 40px rgba(34,197,94,0.1);
+  border-color: rgba(34,197,94,0.4);
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Animate chandelier — used by Lobby and VaultEntrance */
+@keyframes chandelierPulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.animate-chandelier-pulse {
+  animation: chandelierPulse 4s ease-in-out infinite;
 }
