@@ -232,11 +232,13 @@ function LoungeTile({active}: {active: boolean}) {
 export function FinesseLayout({children}: {children: ReactNode}) {
   const pathname = usePathname();
 
-  // SSR-safe gender filtering
   const [gender, setGender] = useState<string | null>(null);
   useEffect(() => {
     setGender(localStorage.getItem('finesse_gender'));
   }, []);
+
+  const isMasc = gender === 'masculine';
+  const brandName = isMasc ? 'CARPE DIEM' : 'FINESSE';
 
   const filteredPublicRooms = PUBLIC_ROOMS.filter((room) => {
     if (room.path === '/lounge') return false; // rendered separately as LoungeTile
@@ -281,13 +283,15 @@ export function FinesseLayout({children}: {children: ReactNode}) {
                 </div>
 
                 <h1
-                  className="font-display text-[22px] italic tracking-[0.18em] select-none"
+                  className="font-display italic select-none"
                   style={{
                     color: '#E8C87A',
                     textShadow: '0 0 30px rgba(201,169,97,0.2), 0 1px 2px rgba(0,0,0,0.8)',
+                    fontSize: isMasc ? '16px' : '22px',
+                    letterSpacing: isMasc ? '0.12em' : '0.18em',
                   }}
                 >
-                  FINESSE
+                  {brandName}
                 </h1>
 
                 {/* Right ornament */}
