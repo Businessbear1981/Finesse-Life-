@@ -534,5 +534,29 @@ create policy "notifications_own_update"
 
 
 -- =============================================================================
+-- DUAL PROFILE SYSTEM — Private / VIP profile columns
+-- =============================================================================
+
+alter table public.profiles
+  add column if not exists private_display_name  text,
+  add column if not exists private_avatar_url    text,
+  add column if not exists private_bio           text,
+  add column if not exists private_vibe          text,
+  add column if not exists private_photos        text[],
+  add column if not exists has_private_profile   boolean not null default false,
+  add column if not exists public_photos         text[],
+  add column if not exists public_links          jsonb;
+
+comment on column public.profiles.private_display_name is 'Alter ego or real name shown only to VIP members.';
+comment on column public.profiles.private_avatar_url   is 'Private avatar (R2 URL); shown only to VIP members.';
+comment on column public.profiles.private_bio          is 'Intimate bio up to 400 chars; shown only to VIP members.';
+comment on column public.profiles.private_vibe         is 'Private energy/vibe; shown only to VIP members.';
+comment on column public.profiles.private_photos       is 'Up to 6 private photo URLs (R2); VIP-only.';
+comment on column public.profiles.has_private_profile  is 'Whether the user has configured and enabled a VIP private profile.';
+comment on column public.profiles.public_photos        is 'Up to 6 public photo URLs (R2); visible to all members.';
+comment on column public.profiles.public_links         is 'Optional social handles e.g. {"instagram":"handle","twitter":"handle"}.';
+
+
+-- =============================================================================
 -- END OF MIGRATION
 -- =============================================================================

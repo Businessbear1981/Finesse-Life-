@@ -5,7 +5,6 @@ import {cookies} from 'next/headers';
 async function getServiceClient() {
   const cookieStore = await cookies();
 
-  // Use service role key so we can write to profiles without RLS blocking
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -26,6 +25,24 @@ async function getServiceClient() {
       },
     },
   );
+}
+
+function isR2Url(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  try {
+    const u = new URL(v);
+    return u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function sanitizePhotos(arr: unknown): string[] | null {
+  if (!Array.isArray(arr)) return null;
+  const cleaned = arr
+    .filter((u) => isR2Url(u))
+    .slice(0, 6) as string[];
+  return cleaned.length > 0 ? cleaned : null;
 }
 
 export async function PATCH(request: Request) {
@@ -70,6 +87,16 @@ export async function PATCH(request: Request) {
       intake_complete,
       telegram_handle,
       avatar_url,
+      // public profile extras
+      public_photos,
+      public_links,
+      // private / VIP profile
+      private_display_name,
+      private_avatar_url,
+      private_bio,
+      private_vibe,
+      private_photos,
+      has_private_profile,
     } = body as {
       display_name?: string;
       gender?: string;
@@ -80,12 +107,52 @@ export async function PATCH(request: Request) {
       intake_complete?: boolean;
       telegram_handle?: string | null;
       avatar_url?: string | null;
+      public_photos?: unknown;
+      public_links?: Record<string, string> | null;
+      private_display_name?: string | null;
+      private_avatar_url?: string | null;
+      private_bio?: string | null;
+      private_vibe?: string | null;
+      private_photos?: unknown;
+      has_private_profile?: boolean;
     };
+
+    // If any private fields are being written, verify the user is VIP
+    const touchesPrivate =
+      private_display_name !== undefined ||
+      private_avatar_url !== undefined ||
+      private_bio !== undefined ||
+      private_vibe !== undefined ||
+      private_photos !== undefined ||
+      has_private_profile !== undefined;
+
+    if (touchesPrivate) {
+      const serviceClient = await getServiceClient();
+      const {data: currentProfile} = await serviceClient
+        .from('profiles')
+        .select('is_vip, vip_expires_at')
+        .eq('id', user.id)
+        .single();
+
+      const isVipActive =
+        currentProfile?.is_vip === true &&
+        (currentProfile.vip_expires_at === null ||
+          new Date(currentProfile.vip_expires_at) > new Date());
+
+      if (!isVipActive) {
+        return NextResponse.json(
+          {error: 'VIP membership required to update private profile.'},
+          {status: 403},
+        );
+      }
+    }
 
     // Build the update payload — only include defined fields
     const update: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
+
+    // Public fields
     if (display_name !== undefined) update.display_name = display_name;
     if (gender !== undefined) update.gender = gender;
     if (age !== undefined) update.age = age;
@@ -97,10 +164,26 @@ export async function PATCH(request: Request) {
       update.telegram_handle =
         telegram_handle ? String(telegram_handle).replace(/^@/, '').slice(0, 32) : null;
     if (avatar_url !== undefined) update.avatar_url = avatar_url;
+    if (public_photos !== undefined) update.public_photos = sanitizePhotos(public_photos);
+    if (public_links !== undefined)
+      update.public_links =
+        public_links && typeof public_links === 'object' ? public_links : null;
+
+    // Private / VIP fields
+    if (private_display_name !== undefined)
+      update.private_display_name = private_display_name
+        ? String(private_display_name).slice(0, 60)
+        : null;
+    if (private_avatar_url !== undefined) update.private_avatar_url = private_avatar_url;
+    if (private_bio !== undefined)
+      update.private_bio = private_bio ? String(private_bio).slice(0, 400) : null;
+    if (private_vibe !== undefined) update.private_vibe = private_vibe;
+    if (private_photos !== undefined) update.private_photos = sanitizePhotos(private_photos);
+    if (has_private_profile !== undefined)
+      update.has_private_profile = Boolean(has_private_profile);
 
     const serviceClient = await getServiceClient();
 
-    // Upsert so new accounts (where profile row may not exist yet) work correctly
     const {data: profile, error} = await serviceClient
       .from('profiles')
       .upsert({id: user.id, ...update}, {onConflict: 'id'})
