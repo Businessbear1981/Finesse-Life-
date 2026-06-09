@@ -44,6 +44,11 @@ type Message = {id: string; role: 'concierge' | 'guest'; text: string};
 function FinesseScene() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Hotel photo base */}
+      <div className="absolute inset-0"
+        style={{backgroundImage: 'url(/scenes/lobby-finesse.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top'}} />
+      {/* Dark veil — keeps text readable while photo glows through */}
+      <div className="absolute inset-0" style={{background: 'rgba(10,4,6,0.82)'}} />
       {/* Pale warm base */}
       <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,184,200,0.06) 0%, rgba(26,10,15,0.0) 60%)'}} />
       {/* Three chandeliers — pink-gold glow */}
@@ -93,6 +98,11 @@ function FinesseScene() {
 function CarpeDiemScene() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
+      {/* Hotel photo base */}
+      <div className="absolute inset-0"
+        style={{backgroundImage: 'url(/scenes/lobby-carpe.jpg)', backgroundSize: 'cover', backgroundPosition: 'center'}} />
+      {/* Dark veil */}
+      <div className="absolute inset-0" style={{background: 'rgba(10,4,6,0.80)'}} />
       {/* Warm amber base */}
       <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,169,107,0.08) 0%, rgba(10,4,6,0.0) 60%)'}} />
       {/* Crystal chandelier — warmer gold */}
@@ -284,30 +294,30 @@ export default function LobbyPage() {
 
         {/* Mezzanine */}
         <motion.div initial={{opacity: 0}} animate={{opacity: 1}} transition={{delay: 1.0}} className="mb-6">
-          <div className="flex items-center gap-3 mb-3 justify-center">
-            <div className="w-10 h-px bg-brass/10" />
-            <span className="font-label text-[7px] tracking-[0.4em] uppercase" style={{color: 'rgba(201,169,97,0.18)'}}>
-              mezzanine
+          <div className="flex items-center gap-2 mb-2 justify-center">
+            <div className="w-6 h-px bg-brass/8" />
+            <span className="font-label text-[6px] tracking-[0.5em] uppercase" style={{color: 'rgba(201,169,97,0.12)'}}>
+              upstairs
             </span>
-            <div className="w-10 h-px bg-brass/10" />
+            <div className="w-6 h-px bg-brass/8" />
           </div>
-          <div className="flex flex-wrap gap-2 justify-center">
+          <div className="flex flex-wrap gap-1.5 justify-center">
             {mezzanine.map(door => (
               <Link key={door.path} href={door.path}
-                className="px-3 py-1.5 border transition-all duration-300"
-                style={{borderColor: 'rgba(201,169,97,0.07)',
-                  color: 'rgba(201,169,97,0.28)',
-                  fontSize: '8px',
-                  letterSpacing: '0.15em',
+                className="px-2 py-1 border transition-all duration-300"
+                style={{borderColor: 'rgba(201,169,97,0.05)',
+                  color: 'rgba(201,169,97,0.18)',
+                  fontSize: '6px',
+                  letterSpacing: '0.18em',
                   fontFamily: 'var(--font-label)',
                   textTransform: 'uppercase'}}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.28)';
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.65)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.22)';
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.55)';
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.07)';
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.28)';
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.05)';
+                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.18)';
                 }}
               >
                 {door.label}

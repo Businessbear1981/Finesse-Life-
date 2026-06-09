@@ -10,11 +10,21 @@
 
 import {generateText, streamText, type LanguageModel} from 'ai';
 import {createGateway} from '@ai-sdk/gateway';
+import {createAnthropic} from '@ai-sdk/anthropic';
 
-const gateway = createGateway({
-  apiKey: process.env.AI_GATEWAY_API_KEY ?? '',
-  baseURL: process.env.AI_GATEWAY_BASE_URL,   // optional override
-});
+// Gateway takes priority when configured; falls back to direct Anthropic for local dev.
+const hasGateway = !!process.env.AI_GATEWAY_API_KEY;
+
+const gateway = hasGateway
+  ? createGateway({
+      apiKey: process.env.AI_GATEWAY_API_KEY!,
+      baseURL: process.env.AI_GATEWAY_BASE_URL,
+    })
+  : null;
+
+const directAnthropic = !hasGateway
+  ? createAnthropic({apiKey: process.env.ANTHROPIC_API_KEY ?? ''})
+  : null;
 
 // Default model — change with one string. Examples:
 //   anthropic/claude-opus-4-6
@@ -22,10 +32,13 @@ const gateway = createGateway({
 //   openai/gpt-4o
 //   google/gemini-2.5-pro
 //   meta/llama-4-maverick
-export const DEFAULT_MODEL = 'anthropic/claude-opus-4-6';
+export const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-6';
 
 export function model(name: string = DEFAULT_MODEL): LanguageModel {
-  return gateway(name);
+  if (gateway) return gateway(name);
+  // Direct Anthropic fallback: strip provider prefix
+  const modelId = name.replace(/^anthropic\//, '');
+  return directAnthropic!(modelId);
 }
 
 // Convenience: one-shot text generation.

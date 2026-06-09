@@ -1,8 +1,11 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  experimental: {
-    instrumentationHook: true,
+  serverExternalPackages: ['@middleware.io/node-apm', '@pyroscope/nodejs', 'pprof'],
+  images: {
+    remotePatterns: [
+      {protocol: 'https', hostname: 'images.unsplash.com'},
+    ],
   },
 };
 
