@@ -2,12 +2,12 @@
 
 import {useActionState} from 'react';
 import Link from 'next/link';
-import {signIn} from './actions';
+import {signUp} from './actions';
 
 const initialState = {error: null as string | null};
 
-export default function LoginPage() {
-  const [state, formAction, pending] = useActionState(signIn, initialState);
+export default function SignupPage() {
+  const [state, formAction, pending] = useActionState(signUp, initialState);
 
   return (
     <div
@@ -23,7 +23,6 @@ export default function LoginPage() {
           animation: 'chandelier-pulse 4s ease-in-out infinite',
         }}
       />
-      {/* Floor warmth */}
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 h-[40%]"
         style={{
@@ -32,7 +31,7 @@ export default function LoginPage() {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-[360px] px-6 py-10">
+      <div className="relative z-10 w-full max-w-[380px] px-6 py-10">
         {/* Chandelier ornament */}
         <div className="flex flex-col items-center mb-8">
           <div
@@ -81,7 +80,7 @@ export default function LoginPage() {
               className="font-label text-[7px] tracking-[0.5em] uppercase"
               style={{color: 'rgba(201,169,97,0.22)'}}
             >
-              member entrance
+              request membership
             </span>
             <div className="w-8 h-px" style={{background: 'rgba(201,169,97,0.2)'}} />
           </div>
@@ -93,13 +92,9 @@ export default function LoginPage() {
           style={{
             borderColor: 'rgba(201,169,97,0.12)',
             background: 'rgba(10,4,6,0.8)',
-            boxShadow:
-              '0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
+            boxShadow: '0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
           }}
         >
-          {/* Top deco line */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brass/20 to-transparent" />
-
           <form action={formAction} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <label
@@ -142,7 +137,7 @@ export default function LoginPage() {
                 id="password"
                 name="password"
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
                 className="w-full px-4 py-3 border bg-transparent font-body text-sm focus:outline-none transition-colors duration-200"
                 style={{
@@ -159,6 +154,118 @@ export default function LoginPage() {
               />
             </div>
 
+            <div className="flex flex-col gap-1.5">
+              <label
+                htmlFor="confirmPassword"
+                className="font-label text-[9px] tracking-[0.3em] uppercase"
+                style={{color: 'rgba(201,169,97,0.45)'}}
+              >
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                className="w-full px-4 py-3 border bg-transparent font-body text-sm focus:outline-none transition-colors duration-200"
+                style={{
+                  borderColor: 'rgba(201,169,97,0.15)',
+                  color: '#F4E8D0',
+                  caretColor: '#C9A961',
+                }}
+                onFocus={(e) =>
+                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.45)')
+                }
+                onBlur={(e) =>
+                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.15)')
+                }
+              />
+            </div>
+
+            {/* Checkboxes */}
+            <div className="flex flex-col gap-3 pt-1">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    name="ageConfirmed"
+                    value="true"
+                    required
+                    className="sr-only peer"
+                  />
+                  <div
+                    className="w-4 h-4 border peer-checked:border-brass/60 transition-colors duration-200 flex items-center justify-center"
+                    style={{borderColor: 'rgba(201,169,97,0.25)'}}
+                  >
+                    <svg
+                      className="w-2.5 h-2.5 hidden peer-checked:block"
+                      viewBox="0 0 10 8"
+                      fill="none"
+                    >
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="#C9A961"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <span
+                  className="font-body text-xs leading-relaxed"
+                  style={{color: 'rgba(244,232,208,0.45)'}}
+                >
+                  I confirm I am 18 or older
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    name="termsAccepted"
+                    value="true"
+                    required
+                    className="sr-only peer"
+                  />
+                  <div
+                    className="w-4 h-4 border peer-checked:border-brass/60 transition-colors duration-200 flex items-center justify-center"
+                    style={{borderColor: 'rgba(201,169,97,0.25)'}}
+                  >
+                    <svg
+                      className="w-2.5 h-2.5 hidden peer-checked:block"
+                      viewBox="0 0 10 8"
+                      fill="none"
+                    >
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="#C9A961"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <span
+                  className="font-body text-xs leading-relaxed"
+                  style={{color: 'rgba(244,232,208,0.45)'}}
+                >
+                  I agree to the{' '}
+                  <Link
+                    href="/terms"
+                    className="underline underline-offset-2"
+                    style={{color: 'rgba(201,169,97,0.5)'}}
+                    tabIndex={-1}
+                  >
+                    terms of membership
+                  </Link>
+                </span>
+              </label>
+            </div>
+
             {state.error && (
               <p
                 className="font-body text-sm italic text-center"
@@ -171,7 +278,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="relative w-full py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-40"
+              className="w-full py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-40"
               style={{
                 borderColor: 'rgba(201,169,97,0.35)',
                 color: '#E8C87A',
@@ -196,17 +303,23 @@ export default function LoginPage() {
               {pending ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" style={{animationDelay: '150ms'}} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" style={{animationDelay: '300ms'}} />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse"
+                    style={{animationDelay: '150ms'}}
+                  />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse"
+                    style={{animationDelay: '300ms'}}
+                  />
                 </span>
               ) : (
-                'Enter'
+                'Create Account'
               )}
             </button>
           </form>
         </div>
 
-        {/* Bottom ornament + link */}
+        {/* Bottom link */}
         <div className="flex flex-col items-center mt-7 gap-4">
           <div className="flex items-center gap-2">
             <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
@@ -214,19 +327,21 @@ export default function LoginPage() {
             <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
           </div>
           <p className="font-body text-sm" style={{color: 'rgba(244,232,208,0.3)'}}>
-            Not a member?{' '}
+            Already a member?{' '}
             <Link
-              href="/signup"
+              href="/login"
               className="transition-colors duration-200"
               style={{color: 'rgba(201,169,97,0.55)'}}
               onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(201,169,97,0.85)')
+                ((e.currentTarget as HTMLAnchorElement).style.color =
+                  'rgba(201,169,97,0.85)')
               }
               onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(201,169,97,0.55)')
+                ((e.currentTarget as HTMLAnchorElement).style.color =
+                  'rgba(201,169,97,0.55)')
               }
             >
-              Request membership
+              Sign in
             </Link>
           </p>
         </div>

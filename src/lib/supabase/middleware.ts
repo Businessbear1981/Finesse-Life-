@@ -26,15 +26,65 @@ export async function updateSession(request: NextRequest) {
   // IMPORTANT: do not put logic between client creation and getUser().
   const {data: {user}} = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
-    request.nextUrl.pathname.startsWith('/signup');
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthRoute = pathname.startsWith('/login') ||
+    pathname.startsWith('/signup');
+
+  // /intake is accessible to authenticated users only — not publicly reachable
+  const isIntakeRoute = pathname.startsWith('/intake');
 
   // Public hotel routes — no login required
-  const isPublicRoute = request.nextUrl.pathname === '/' ||
-    request.nextUrl.pathname.startsWith('/lobby') ||
-    request.nextUrl.pathname.startsWith('/perdiem') ||
-    request.nextUrl.pathname.startsWith('/lounge') ||
-    request.nextUrl.pathname.startsWith('/concierge');
+  const isPublicRoute = pathname === '/' ||
+    pathname.startsWith('/lobby') ||
+    pathname.startsWith('/perdiem') ||
+    pathname.startsWith('/lounge') ||
+    pathname.startsWith('/concierge');
+
+  // ── VIP gate ─────────────────────────────────────────────────────────
+  // /vip routes require is_vip=true with a valid (non-expired) grant.
+  // Authenticated but non-VIP users are redirected to /profile?upgrade=true.
+  const isVipRoute = pathname.startsWith('/vip');
+
+  if (isVipRoute && user) {
+    const profileRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_vip,vip_expires_at`,
+      {
+        headers: {
+          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
+          Accept: 'application/json',
+        },
+        cache: 'no-store',
+      },
+    );
+
+    if (profileRes.ok) {
+      const profiles = (await profileRes.json()) as Array<{
+        is_vip: boolean;
+        vip_expires_at: string | null;
+      }>;
+      const profile = profiles[0];
+      const isVip =
+        profile?.is_vip === true &&
+        (!profile.vip_expires_at || new Date(profile.vip_expires_at) > new Date());
+
+      if (!isVip) {
+        const url = request.nextUrl.clone();
+        url.pathname = '/profile';
+        url.searchParams.set('upgrade', 'true');
+        return NextResponse.redirect(url);
+      }
+    }
+    // If the fetch failed we let the page's own server-side check handle it
+  }
+
+  // /intake without auth → send to /login
+  if (!user && isIntakeRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
 
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
