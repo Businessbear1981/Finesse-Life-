@@ -29,7 +29,14 @@ export async function updateSession(request: NextRequest) {
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/signup');
 
-  if (!user && !isAuthRoute && request.nextUrl.pathname !== '/') {
+  // Public hotel routes — no login required
+  const isPublicRoute = request.nextUrl.pathname === '/' ||
+    request.nextUrl.pathname.startsWith('/lobby') ||
+    request.nextUrl.pathname.startsWith('/perdiem') ||
+    request.nextUrl.pathname.startsWith('/lounge') ||
+    request.nextUrl.pathname.startsWith('/concierge');
+
+  if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
