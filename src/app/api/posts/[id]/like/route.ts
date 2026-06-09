@@ -1,13 +1,12 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
 
-export async function POST(request: NextRequest, {params}: {params: {id: string}}) {
+export async function POST(request: NextRequest, context: {params: Promise<{id: string}>}) {
+  const {id: postId} = await context.params;
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
 
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
-
-  const postId = params.id;
 
   // Check existing like
   const {data: existing} = await supabase
