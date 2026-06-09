@@ -7,35 +7,34 @@ import {motion} from 'framer-motion';
 /* ─── Edition-aware door configs ─── */
 const FINESSE_LOBBY_DOORS = [
   {path: '/lounge',    label: 'The Lounge',     sub: 'cocktails & conversation',  glow: '#FFB8C8'},
-  {path: '/salon',     label: 'The Salon',       sub: 'beauty & appointments',     glow: '#FFB8C8'},
-  {path: '/scale',     label: 'The Scale',       sub: 'group buying',              glow: '#E8C87A'},
-  {path: '/market',    label: 'The Market',      sub: 'buy & sell',                glow: '#E8C87A'},
+  {path: '/perdiem',   label: 'Per Diem',        sub: 'date planner',              glow: '#E8C87A'},
+  {path: '/concierge', label: 'Concierge',       sub: 'nova · your ai host',       glow: '#FFB8C8'},
+  {path: '/salon',     label: 'The Salon',       sub: 'beauty & appointments',     glow: '#FFB8C8', soon: true},
 ];
 
 const CARPE_DIEM_LOBBY_DOORS = [
   {path: '/lounge',    label: 'The Lounge',      sub: 'whiskey & conversation',   glow: '#FFA96B'},
-  {path: '/clubhouse', label: 'The Card Room',   sub: 'coming soon · mmxxvii',    glow: '#C9A961', soon: true},
-  {path: '/scale',     label: 'The Scale',       sub: 'group buying',             glow: '#E8C87A'},
-  {path: '/market',    label: 'The Market',      sub: 'buy & sell',               glow: '#E8C87A'},
+  {path: '/perdiem',   label: 'Per Diem',         sub: 'date planner',             glow: '#E8C87A'},
+  {path: '/concierge', label: 'Concierge',        sub: 'nova · your ai host',      glow: '#FFA96B'},
+  {path: '/clubhouse', label: 'The Card Room',    sub: 'coming soon · mmxxvii',    glow: '#C9A961', soon: true},
 ];
 
 const FINESSE_MEZZANINE = [
-  {path: '/wardrobe',   label: 'Wardrobe'},
-  {path: '/vault',      label: 'Vault'},
-  {path: '/bag',        label: 'The Bag'},
-  {path: '/lab',        label: 'The Lab'},
-  {path: '/archive',    label: 'Scrapbook'},
-  {path: '/entourage',  label: 'Entourage'},
+  {path: '/wardrobe',   label: 'Wardrobe',   soon: true},
+  {path: '/vault',      label: 'Vault',      soon: true},
+  {path: '/bag',        label: 'The Bag',    soon: true},
+  {path: '/lab',        label: 'The Lab',    soon: true},
+  {path: '/archive',    label: 'Scrapbook',  soon: true},
+  {path: '/entourage',  label: 'Entourage',  soon: true},
 ];
 
 const CARPE_DIEM_MEZZANINE = [
-  {path: '/wardrobe',   label: 'Wardrobe'},
-  {path: '/vault',      label: 'Vault'},
-  {path: '/perdiem',    label: 'Per Diem'},
-  {path: '/bag',        label: 'The Bag'},
-  {path: '/lab',        label: 'The Lab'},
-  {path: '/archive',    label: 'Scrapbook'},
-  {path: '/entourage',  label: 'Entourage'},
+  {path: '/wardrobe',   label: 'Wardrobe',   soon: true},
+  {path: '/vault',      label: 'Vault',      soon: true},
+  {path: '/bag',        label: 'The Bag',    soon: true},
+  {path: '/lab',        label: 'The Lab',    soon: true},
+  {path: '/archive',    label: 'Scrapbook',  soon: true},
+  {path: '/entourage',  label: 'Entourage',  soon: true},
 ];
 
 type Message = {id: string; role: 'concierge' | 'guest'; text: string};
@@ -219,14 +218,19 @@ export default function LobbyPage() {
     setInput('');
     setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'guest', text}]);
     setSending(true);
-    await new Promise(r => setTimeout(r, 900));
-    const fallbacks = edition === 'carpe_diem'
-      ? ['Consider it handled.', 'I\'ll make the call.', 'Noted. Give me a moment.']
-      : ['On it. I\'ll confirm shortly.', 'Noted. Leave it with me.', 'I\'ll have that arranged.'];
-    setMessages(prev => [...prev, {
-      id: crypto.randomUUID(), role: 'concierge',
-      text: fallbacks[Math.floor(Math.random() * fallbacks.length)],
-    }]);
+    try {
+      const system = edition === 'carpe_diem'
+        ? 'You are Nova, the concierge at Carpe Diem, an old-money men\'s club. Speak with understated authority. Short, direct responses. One or two sentences max.'
+        : 'You are Nova, the concierge at Finesse, a luxury couture hotel. Speak with warmth and elegance. Short, graceful responses. One or two sentences max.';
+      const res = await fetch('/api/nova', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text, system})});
+      const data = await res.json();
+      setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'concierge', text: data.text}]);
+    } catch {
+      const fallbacks = edition === 'carpe_diem'
+        ? ['Consider it handled.', 'I\'ll make the call.', 'Noted. Give me a moment.']
+        : ['On it. I\'ll confirm shortly.', 'Noted. Leave it with me.', 'I\'ll have that arranged.'];
+      setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'concierge', text: fallbacks[Math.floor(Math.random() * fallbacks.length)]}]);
+    }
     setSending(false);
   };
 
@@ -303,25 +307,39 @@ export default function LobbyPage() {
           </div>
           <div className="flex flex-wrap gap-1.5 justify-center">
             {mezzanine.map(door => (
-              <Link key={door.path} href={door.path}
-                className="px-2 py-1 border transition-all duration-300"
-                style={{borderColor: 'rgba(201,169,97,0.05)',
-                  color: 'rgba(201,169,97,0.18)',
-                  fontSize: '6px',
-                  letterSpacing: '0.18em',
-                  fontFamily: 'var(--font-label)',
-                  textTransform: 'uppercase'}}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.22)';
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.55)';
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.05)';
-                  (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.18)';
-                }}
-              >
-                {door.label}
-              </Link>
+              door.soon ? (
+                <span key={door.path}
+                  className="px-2 py-1 border cursor-default"
+                  style={{borderColor: 'rgba(201,169,97,0.03)',
+                    color: 'rgba(201,169,97,0.08)',
+                    fontSize: '6px',
+                    letterSpacing: '0.18em',
+                    fontFamily: 'var(--font-label)',
+                    textTransform: 'uppercase'}}
+                  title="Opening soon">
+                  {door.label}
+                </span>
+              ) : (
+                <Link key={door.path} href={door.path}
+                  className="px-2 py-1 border transition-all duration-300"
+                  style={{borderColor: 'rgba(201,169,97,0.05)',
+                    color: 'rgba(201,169,97,0.18)',
+                    fontSize: '6px',
+                    letterSpacing: '0.18em',
+                    fontFamily: 'var(--font-label)',
+                    textTransform: 'uppercase'}}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.22)';
+                    (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.55)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.05)';
+                    (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.18)';
+                  }}
+                >
+                  {door.label}
+                </Link>
+              )
             ))}
           </div>
         </motion.div>
