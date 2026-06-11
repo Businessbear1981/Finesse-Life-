@@ -32,7 +32,7 @@ export default async function VipPage() {
   // Verify VIP — middleware handles redirect but double-check server-side
   const {data: profile} = await supabase
     .from('profiles')
-    .select('is_vip, vip_expires_at, username')
+    .select('is_vip, vip_expires_at, username, telegram_handle')
     .eq('id', user.id)
     .single();
 
@@ -208,6 +208,42 @@ export default async function VipPage() {
           >
             Text · Voice · Video · All encrypted
           </p>
+
+          {/* Telegram link status */}
+          {profile?.telegram_handle ? (
+            <div
+              className="inline-flex items-center gap-2 mt-5 px-4 py-2 font-label text-[9px] tracking-[0.25em] uppercase"
+              style={{
+                border: '1px solid rgba(201,169,97,0.3)',
+                color: '#C9A961',
+                background: 'rgba(201,169,97,0.06)',
+              }}
+            >
+              <span>◆</span>
+              <span>@{profile.telegram_handle} linked</span>
+            </div>
+          ) : (
+            <div className="mt-5 space-y-2">
+              <p
+                className="font-label text-[9px] tracking-[0.3em] uppercase"
+                style={{color: 'rgba(244,232,208,0.25)'}}
+              >
+                Link your account for VIP notifications
+              </p>
+              <Link
+                href="/vip/link-telegram"
+                className="inline-flex items-center gap-2 px-6 py-3 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
+                style={{
+                  border: '1px solid rgba(201,169,97,0.35)',
+                  color: '#C9A961',
+                  background: 'rgba(201,169,97,0.04)',
+                }}
+              >
+                <span>CONNECT TELEGRAM</span>
+                <span>→</span>
+              </Link>
+            </div>
+          )}
         </div>
 
         {/* ── DIVIDER ── */}

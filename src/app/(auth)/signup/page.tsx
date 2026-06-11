@@ -1,6 +1,6 @@
 'use client';
 
-import {useActionState} from 'react';
+import {useActionState, useState} from 'react';
 import Link from 'next/link';
 import {signUp} from './actions';
 
@@ -8,6 +8,8 @@ const initialState = {error: null as string | null};
 
 export default function SignupPage() {
   const [state, formAction, pending] = useActionState(signUp, initialState);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   return (
     <div
@@ -184,86 +186,57 @@ export default function SignupPage() {
             </div>
 
             {/* Checkboxes */}
+            <input type="hidden" name="ageConfirmed" value={ageConfirmed ? 'true' : ''} />
+            <input type="hidden" name="termsAccepted" value={termsAccepted ? 'true' : ''} />
             <div className="flex flex-col gap-3 pt-1">
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="relative mt-0.5">
-                  <input
-                    type="checkbox"
-                    name="ageConfirmed"
-                    value="true"
-                    required
-                    className="sr-only peer"
-                  />
-                  <div
-                    className="w-4 h-4 border peer-checked:border-brass/60 transition-colors duration-200 flex items-center justify-center"
-                    style={{borderColor: 'rgba(201,169,97,0.25)'}}
-                  >
-                    <svg
-                      className="w-2.5 h-2.5 hidden peer-checked:block"
-                      viewBox="0 0 10 8"
-                      fill="none"
-                    >
-                      <path
-                        d="M1 4L3.5 6.5L9 1"
-                        stroke="#C9A961"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <span
-                  className="font-body text-xs leading-relaxed"
-                  style={{color: 'rgba(244,232,208,0.45)'}}
+              <button
+                type="button"
+                onClick={() => setAgeConfirmed(v => !v)}
+                className="flex items-start gap-3 text-left"
+              >
+                <div
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 border flex items-center justify-center transition-colors duration-200"
+                  style={{
+                    borderColor: ageConfirmed ? 'rgba(201,169,97,0.6)' : 'rgba(201,169,97,0.25)',
+                    background: ageConfirmed ? 'rgba(201,169,97,0.08)' : 'transparent',
+                  }}
                 >
+                  {ageConfirmed && (
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="#C9A961" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <span className="font-body text-xs leading-relaxed" style={{color: 'rgba(244,232,208,0.45)'}}>
                   I confirm I am 18 or older
                 </span>
-              </label>
+              </button>
 
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="relative mt-0.5">
-                  <input
-                    type="checkbox"
-                    name="termsAccepted"
-                    value="true"
-                    required
-                    className="sr-only peer"
-                  />
-                  <div
-                    className="w-4 h-4 border peer-checked:border-brass/60 transition-colors duration-200 flex items-center justify-center"
-                    style={{borderColor: 'rgba(201,169,97,0.25)'}}
-                  >
-                    <svg
-                      className="w-2.5 h-2.5 hidden peer-checked:block"
-                      viewBox="0 0 10 8"
-                      fill="none"
-                    >
-                      <path
-                        d="M1 4L3.5 6.5L9 1"
-                        stroke="#C9A961"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <span
-                  className="font-body text-xs leading-relaxed"
-                  style={{color: 'rgba(244,232,208,0.45)'}}
+              <button
+                type="button"
+                onClick={() => setTermsAccepted(v => !v)}
+                className="flex items-start gap-3 text-left"
+              >
+                <div
+                  className="mt-0.5 w-4 h-4 flex-shrink-0 border flex items-center justify-center transition-colors duration-200"
+                  style={{
+                    borderColor: termsAccepted ? 'rgba(201,169,97,0.6)' : 'rgba(201,169,97,0.25)',
+                    background: termsAccepted ? 'rgba(201,169,97,0.08)' : 'transparent',
+                  }}
                 >
+                  {termsAccepted && (
+                    <svg className="w-2.5 h-2.5" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="#C9A961" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <span className="font-body text-xs leading-relaxed" style={{color: 'rgba(244,232,208,0.45)'}}>
                   I agree to the{' '}
-                  <Link
-                    href="/terms"
-                    className="underline underline-offset-2"
-                    style={{color: 'rgba(201,169,97,0.5)'}}
-                    tabIndex={-1}
-                  >
+                  <Link href="/terms" className="underline underline-offset-2" style={{color: 'rgba(201,169,97,0.5)'}} onClick={e => e.stopPropagation()} tabIndex={-1}>
                     terms of membership
                   </Link>
                 </span>
-              </label>
+              </button>
             </div>
 
             {state.error && (

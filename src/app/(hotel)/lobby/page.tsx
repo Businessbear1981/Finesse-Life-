@@ -4,53 +4,16 @@ import {useEffect, useState, useRef} from 'react';
 import Link from 'next/link';
 import {motion} from 'framer-motion';
 
-/* ─── Edition-aware door configs ─── */
-const FINESSE_LOBBY_DOORS = [
-  {path: '/lounge',    label: 'The Lounge',     sub: 'cocktails & conversation',  glow: '#FFB8C8'},
-  {path: '/perdiem',   label: 'Per Diem',        sub: 'date planner',              glow: '#E8C87A'},
-  {path: '/concierge', label: 'Concierge',       sub: 'nova · your ai host',       glow: '#FFB8C8'},
-  {path: '/salon',     label: 'The Salon',       sub: 'beauty & appointments',     glow: '#FFB8C8', soon: true},
-];
-
-const CARPE_DIEM_LOBBY_DOORS = [
-  {path: '/lounge',    label: 'The Lounge',      sub: 'whiskey & conversation',   glow: '#FFA96B'},
-  {path: '/perdiem',   label: 'Per Diem',         sub: 'date planner',             glow: '#E8C87A'},
-  {path: '/concierge', label: 'Concierge',        sub: 'nova · your ai host',      glow: '#FFA96B'},
-  {path: '/clubhouse', label: 'The Card Room',    sub: 'coming soon · mmxxvii',    glow: '#C9A961', soon: true},
-];
-
-const FINESSE_MEZZANINE = [
-  {path: '/wardrobe',   label: 'Wardrobe',   soon: true},
-  {path: '/vault',      label: 'Vault',      soon: true},
-  {path: '/bag',        label: 'The Bag',    soon: true},
-  {path: '/lab',        label: 'The Lab',    soon: true},
-  {path: '/archive',    label: 'Scrapbook',  soon: true},
-  {path: '/entourage',  label: 'Entourage',  soon: true},
-];
-
-const CARPE_DIEM_MEZZANINE = [
-  {path: '/wardrobe',   label: 'Wardrobe',   soon: true},
-  {path: '/vault',      label: 'Vault',      soon: true},
-  {path: '/bag',        label: 'The Bag',    soon: true},
-  {path: '/lab',        label: 'The Lab',    soon: true},
-  {path: '/archive',    label: 'Scrapbook',  soon: true},
-  {path: '/entourage',  label: 'Entourage',  soon: true},
-];
-
 type Message = {id: string; role: 'concierge' | 'guest'; text: string};
 
-/* ─── Finesse Lobby — couture house at golden hour ─── */
+/* ─── Finesse Lobby scene — couture house, golden hour ─── */
 function FinesseScene() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Hotel photo base */}
       <div className="absolute inset-0"
         style={{backgroundImage: 'url(/scenes/lobby-finesse.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top'}} />
-      {/* Dark veil — keeps text readable while photo glows through */}
       <div className="absolute inset-0" style={{background: 'rgba(10,4,6,0.82)'}} />
-      {/* Pale warm base */}
       <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,184,200,0.06) 0%, rgba(26,10,15,0.0) 60%)'}} />
-      {/* Three chandeliers — pink-gold glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[380px] h-[440px]"
         style={{background: 'radial-gradient(ellipse at top, rgba(255,184,200,0.12) 0%, rgba(232,200,122,0.05) 40%, transparent 70%)',
           animation: 'chandelier-pulse 4s ease-in-out infinite'}} />
@@ -60,53 +23,32 @@ function FinesseScene() {
       <div className="absolute top-0 right-[12%] w-[180px] h-[280px]"
         style={{background: 'radial-gradient(ellipse at top, rgba(255,184,200,0.06) 0%, transparent 60%)',
           animation: 'chandelier-pulse 4s ease-in-out infinite', animationDelay: '2.6s'}} />
-      {/* Blush carpet glow at floor */}
       <div className="absolute bottom-0 left-0 right-0 h-[45%]"
         style={{background: 'linear-gradient(to top, rgba(216,168,160,0.08) 0%, rgba(74,25,34,0.04) 40%, transparent 70%)'}} />
-      {/* Brass columns */}
       <div className="absolute left-[4%] top-0 bottom-0 w-[10px]"
-        style={{background: 'linear-gradient(to right, #1A0A0F, #2A1520, #1A0A0F)',
-          boxShadow: 'inset 2px 0 4px rgba(0,0,0,0.6), inset -2px 0 4px rgba(0,0,0,0.6)'}}>
+        style={{background: 'linear-gradient(to right, #1A0A0F, #2A1520, #1A0A0F)'}}>
         <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1.5px]"
           style={{background: 'linear-gradient(to bottom, rgba(255,184,200,0.25), rgba(201,169,97,0.15), rgba(255,184,200,0.1))'}} />
       </div>
       <div className="absolute right-[4%] top-0 bottom-0 w-[10px]"
-        style={{background: 'linear-gradient(to right, #1A0A0F, #2A1520, #1A0A0F)',
-          boxShadow: 'inset 2px 0 4px rgba(0,0,0,0.6), inset -2px 0 4px rgba(0,0,0,0.6)'}}>
+        style={{background: 'linear-gradient(to right, #1A0A0F, #2A1520, #1A0A0F)'}}>
         <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1.5px]"
           style={{background: 'linear-gradient(to bottom, rgba(255,184,200,0.25), rgba(201,169,97,0.15), rgba(255,184,200,0.1))'}} />
-      </div>
-      {/* Carpet pattern */}
-      <div className="absolute bottom-0 left-[6%] right-[6%] h-[180px] opacity-8">
-        <svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
-          <defs>
-            <pattern id="carpet-f" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <rect width="40" height="40" fill="#4A1922" />
-              <polygon points="20,0 40,20 20,40 0,20" fill="none" stroke="#FFB8C8" strokeWidth="0.4" opacity="0.5"/>
-              <polygon points="20,6 34,20 20,34 6,20" fill="none" stroke="#C9A961" strokeWidth="0.25" opacity="0.3"/>
-            </pattern>
-          </defs>
-          <rect width="400" height="100" fill="url(#carpet-f)" />
-        </svg>
       </div>
     </div>
   );
 }
 
-/* ─── Carpe Diem Lobby — old-money men's club ─── */
+/* ─── Carpe Diem scene — old money club, firelight ─── */
 function CarpeDiemScene() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      {/* Hotel photo base */}
       <div className="absolute inset-0"
-        style={{backgroundImage: 'url(/scenes/lobby-carpe.jpg)', backgroundSize: 'cover', backgroundPosition: 'center'}} />
-      {/* Dark veil */}
-      <div className="absolute inset-0" style={{background: 'rgba(10,4,6,0.80)'}} />
-      {/* Warm amber base */}
-      <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse 120% 80% at 50% 0%, rgba(255,169,107,0.08) 0%, rgba(10,4,6,0.0) 60%)'}} />
-      {/* Crystal chandelier — warmer gold */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[360px] h-[420px]"
-        style={{background: 'radial-gradient(ellipse at top, rgba(255,169,107,0.18) 0%, rgba(201,169,97,0.06) 45%, transparent 70%)',
+        style={{backgroundImage: 'url(/scenes/lobby-carpe.jpg)', backgroundSize: 'cover', backgroundPosition: 'center top'}} />
+      <div className="absolute inset-0" style={{background: 'rgba(10,4,6,0.85)'}} />
+      <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse 100% 70% at 50% 0%, rgba(255,169,107,0.07) 0%, transparent 60%)'}} />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[320px] h-[380px]"
+        style={{background: 'radial-gradient(ellipse at top, rgba(255,169,107,0.1) 0%, rgba(201,169,97,0.04) 50%, transparent 70%)',
           animation: 'chandelier-pulse 4s ease-in-out infinite'}} />
       <div className="absolute top-0 left-[10%] w-[160px] h-[260px]"
         style={{background: 'radial-gradient(ellipse at top, rgba(255,169,107,0.09) 0%, transparent 60%)',
@@ -114,98 +56,93 @@ function CarpeDiemScene() {
       <div className="absolute top-0 right-[10%] w-[160px] h-[260px]"
         style={{background: 'radial-gradient(ellipse at top, rgba(255,169,107,0.09) 0%, transparent 60%)',
           animation: 'chandelier-pulse 4s ease-in-out infinite', animationDelay: '3s'}} />
-      {/* Fireplace glow at back wall */}
       <div className="absolute top-[20%] left-1/2 -translate-x-1/2 w-[120px] h-[200px]"
         style={{background: 'radial-gradient(ellipse at bottom, rgba(255,100,30,0.06) 0%, transparent 70%)',
           animation: 'chandelier-pulse 2s ease-in-out infinite'}} />
-      {/* Deep oxblood carpet glow */}
       <div className="absolute bottom-0 left-0 right-0 h-[50%]"
         style={{background: 'linear-gradient(to top, rgba(58,36,24,0.15) 0%, rgba(74,25,34,0.06) 40%, transparent 70%)'}} />
-      {/* Mahogany columns */}
       <div className="absolute left-[4%] top-0 bottom-0 w-[12px]"
-        style={{background: 'linear-gradient(to right, #1A0A06, #3A2418, #1A0A06)',
-          boxShadow: 'inset 2px 0 4px rgba(0,0,0,0.7), inset -2px 0 4px rgba(0,0,0,0.7)'}}>
+        style={{background: 'linear-gradient(to right, #1A0A06, #3A2418, #1A0A06)'}}>
         <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1.5px]"
           style={{background: 'linear-gradient(to bottom, rgba(201,169,97,0.3), rgba(201,169,97,0.1), rgba(201,169,97,0.2))'}} />
       </div>
       <div className="absolute right-[4%] top-0 bottom-0 w-[12px]"
-        style={{background: 'linear-gradient(to right, #1A0A06, #3A2418, #1A0A06)',
-          boxShadow: 'inset 2px 0 4px rgba(0,0,0,0.7), inset -2px 0 4px rgba(0,0,0,0.7)'}}>
+        style={{background: 'linear-gradient(to right, #1A0A06, #3A2418, #1A0A06)'}}>
         <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[1.5px]"
           style={{background: 'linear-gradient(to bottom, rgba(201,169,97,0.3), rgba(201,169,97,0.1), rgba(201,169,97,0.2))'}} />
-      </div>
-      {/* Persian rug pattern */}
-      <div className="absolute bottom-0 left-[6%] right-[6%] h-[180px] opacity-10">
-        <svg width="100%" height="100%" viewBox="0 0 400 100" preserveAspectRatio="none">
-          <defs>
-            <pattern id="carpet-cd" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
-              <rect width="40" height="40" fill="#3A2418" />
-              <polygon points="20,0 40,20 20,40 0,20" fill="none" stroke="#C9A961" strokeWidth="0.5" opacity="0.6"/>
-              <polygon points="20,5 35,20 20,35 5,20" fill="none" stroke="#6B1E2E" strokeWidth="0.3" opacity="0.4"/>
-              <rect x="17" y="17" width="6" height="6" fill="none" stroke="#C9A961" strokeWidth="0.3" opacity="0.3"/>
-            </pattern>
-          </defs>
-          <rect width="400" height="100" fill="url(#carpet-cd)" />
-        </svg>
       </div>
     </div>
   );
 }
 
-/* ─── Doorway card ─── */
-function Door({path, label, sub, glow, soon}: {path: string; label: string; sub: string; glow: string; soon?: boolean}) {
-  const inner = (
-    <div className={`group relative border bg-ink/50 backdrop-blur-sm p-5 text-center transition-all duration-500 overflow-hidden ${
-      soon ? 'border-cream/5 opacity-50 cursor-default' : 'border-brass/10 hover:border-brass/30 hover:bg-oxblood/10'
-    }`}>
-      {/* Deco arch top */}
-      <div className="absolute top-0 left-0 right-0 h-[3px]">
-        <div className="h-px bg-gradient-to-r from-transparent via-brass/20 to-transparent" />
-        <div className="h-px mt-px bg-gradient-to-r from-transparent via-oxblood/30 to-transparent mx-6" />
-      </div>
-      {/* Hover glow */}
-      {!soon && (
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-          style={{background: `radial-gradient(ellipse at center, ${glow}10 0%, transparent 70%)`}} />
-      )}
-      <h3 className="relative z-10 font-display text-lg tracking-[0.12em] mb-1 transition-colors"
-        style={{color: soon ? '#C9A96140' : '#C9A961AA',
-          textShadow: soon ? 'none' : `0 0 8px ${glow}20`}}>
-        {label}
-      </h3>
-      <p className="relative z-10 font-body text-[10px] italic"
-        style={{color: soon ? '#F4E0A020' : '#F4E0A040'}}>
-        {sub}
-      </p>
-      {soon && (
-        <p className="relative z-10 font-label text-[7px] tracking-[0.3em] uppercase mt-1"
-          style={{color: '#C9A96130'}}>mmxxvii</p>
-      )}
-    </div>
-  );
+/* ─── Time-aware greeting ─── */
+function greeting(hour: number, masc: boolean): string {
+  if (hour < 12) return masc ? 'Good morning, sir.' : 'Good morning.';
+  if (hour < 17) return masc ? 'Good afternoon.' : 'Good afternoon.';
+  if (hour < 21) return masc ? 'Good evening, sir.' : 'Good evening.';
+  return masc ? 'Late night, sir.' : 'The night is yours.';
+}
 
-  if (soon) return inner;
-  return <Link href={path}>{inner}</Link>;
+/* ─── Feature tile ─── */
+function FeatureTile({href, label, sub, accent, delay}: {href: string; label: string; sub: string; accent: string; delay: number}) {
+  return (
+    <motion.div
+      initial={{opacity: 0, y: 10}}
+      animate={{opacity: 1, y: 0}}
+      transition={{delay}}
+    >
+      <Link href={href}
+        className="block border p-4 transition-all duration-500 group relative overflow-hidden"
+        style={{borderColor: 'rgba(201,169,97,0.08)', background: 'rgba(10,4,6,0.55)'}}>
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+          style={{background: `radial-gradient(ellipse at center, ${accent}08 0%, transparent 70%)`}} />
+        <div className="flex items-center justify-between relative z-10">
+          <div>
+            <p className="font-display italic text-base tracking-[0.08em] mb-0.5"
+              style={{color: 'rgba(201,169,97,0.75)'}}>
+              {label}
+            </p>
+            <p className="font-body text-[11px] italic"
+              style={{color: 'rgba(244,224,160,0.32)'}}>
+              {sub}
+            </p>
+          </div>
+          <span className="font-label text-[8px] tracking-[0.25em] uppercase opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{color: accent}}>
+            enter →
+          </span>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-px"
+          style={{background: `linear-gradient(to right, transparent, ${accent}20, transparent)`}} />
+      </Link>
+    </motion.div>
+  );
 }
 
 /* ─── Main Lobby ─── */
 export default function LobbyPage() {
   const [edition, setEdition] = useState<'finesse' | 'carpe_diem'>('finesse');
+  const [hour, setHour] = useState(12);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [memberCount] = useState(() => 47 + Math.floor(Math.random() * 30));
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const g = localStorage.getItem('finesse_gender');
     const ed = g === 'masculine' ? 'carpe_diem' : 'finesse';
     setEdition(ed);
+    setHour(new Date().getHours());
 
-    const greeting = ed === 'carpe_diem'
-      ? 'Evening, sir. What\'s the plan tonight?'
-      : 'Welcome back. What can I arrange for you?';
-
-    setMessages([{id: 'welcome', role: 'concierge', text: greeting}]);
+    const isMasc = ed === 'carpe_diem';
+    setMessages([{
+      id: 'welcome',
+      role: 'concierge',
+      text: isMasc
+        ? 'The card room opens at nine. Shall I hold a seat?'
+        : 'Your usual table is available. What can I arrange?',
+    }]);
   }, []);
 
   useEffect(() => {
@@ -220,25 +157,40 @@ export default function LobbyPage() {
     setSending(true);
     try {
       const system = edition === 'carpe_diem'
-        ? 'You are Nova, the concierge at Carpe Diem, an old-money men\'s club. Speak with understated authority. Short, direct responses. One or two sentences max.'
-        : 'You are Nova, the concierge at Finesse, a luxury couture hotel. Speak with warmth and elegance. Short, graceful responses. One or two sentences max.';
-      const res = await fetch('/api/nova', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({prompt: text, system})});
-      const data = await res.json();
-      setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'concierge', text: data.text}]);
+        ? 'You are Nova, the concierge at Carpe Diem, an old-money men\'s club. Speak with understated authority. Short, direct. One or two sentences max.'
+        : 'You are Nova, the concierge at Finesse, a luxury lifestyle hotel. Warm and elegant. Short, graceful responses. One or two sentences max.';
+      const res = await fetch('/api/nova', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({prompt: text, system}),
+      });
+      const data = await res.json() as {text?: string};
+      setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'concierge', text: data.text ?? 'Leave it with me.'}]);
     } catch {
       const fallbacks = edition === 'carpe_diem'
-        ? ['Consider it handled.', 'I\'ll make the call.', 'Noted. Give me a moment.']
-        : ['On it. I\'ll confirm shortly.', 'Noted. Leave it with me.', 'I\'ll have that arranged.'];
+        ? ['Consider it handled.', 'I\'ll make the call.', 'Noted.']
+        : ['On it. I\'ll confirm shortly.', 'Leave it with me.', 'Noted — give me a moment.'];
       setMessages(prev => [...prev, {id: crypto.randomUUID(), role: 'concierge', text: fallbacks[Math.floor(Math.random() * fallbacks.length)]}]);
     }
     setSending(false);
   };
 
   const isMasc = edition === 'carpe_diem';
-  const doors = isMasc ? CARPE_DIEM_LOBBY_DOORS : FINESSE_LOBBY_DOORS;
-  const mezzanine = isMasc ? CARPE_DIEM_MEZZANINE : FINESSE_MEZZANINE;
-  const accentGlow = isMasc ? 'rgba(255,169,107,0.15)' : 'rgba(255,184,200,0.12)';
-  const tagline = isMasc ? 'The gentleman who arranges the evening' : 'The woman who deserves it';
+  const accentColor = isMasc ? '#FFA96B' : '#FFB8C8';
+
+  const featureTiles = isMasc
+    ? [
+        {href: '/lounge',   label: 'The Lounge',    sub: 'whiskey & conversation',   accent: '#FFA96B'},
+        {href: '/perdiem',  label: 'Per Diem',       sub: 'tonight\'s itinerary',     accent: '#E8C87A'},
+        {href: '/scale',    label: 'Scale',          sub: 'big moves · members only', accent: '#00FF88'},
+        {href: '/clubhouse',label: 'The Card Room',  sub: 'high stakes',              accent: '#C9A961'},
+      ]
+    : [
+        {href: '/lounge',   label: 'The Lounge',    sub: 'cocktails & conversation', accent: '#FFB8C8'},
+        {href: '/salon',    label: 'The Salon',     sub: 'beauty & appointments',    accent: '#E8C87A'},
+        {href: '/scale',    label: 'Scale',         sub: 'big moves · members only', accent: '#00FF88'},
+        {href: '/vip',      label: 'VIP',           sub: 'members only',             accent: '#FF4D7D'},
+      ];
 
   return (
     <motion.div
@@ -248,115 +200,88 @@ export default function LobbyPage() {
       className="min-h-screen relative overflow-hidden"
       style={{background: '#0A0406'}}
     >
-      {/* Edition scene background */}
       {isMasc ? <CarpeDiemScene /> : <FinesseScene />}
 
-      <div className="relative z-10 max-w-2xl mx-auto px-5">
+      <div className="relative z-10 max-w-lg mx-auto px-4 pt-6 pb-10">
 
-        {/* Chandelier ornament */}
-        <motion.div initial={{opacity: 0, y: -16}} animate={{opacity: 1, y: 0}} transition={{delay: 0.3}}
-          className="flex flex-col items-center pt-5 mb-4">
-          <div className="w-px h-5 bg-gradient-to-b from-brass/40 to-brass/15" />
-          <div className="w-2.5 h-2.5 rotate-45 border mb-0.5"
-            style={{borderColor: 'rgba(201,169,97,0.35)', boxShadow: `0 0 10px ${accentGlow}`}} />
-          <div className="w-8 h-1.5 border-x border-b" style={{borderColor: 'rgba(201,169,97,0.2)', background: 'rgba(201,169,97,0.04)'}} />
-          <div className="w-12 h-1.5 border-x border-b" style={{borderColor: 'rgba(201,169,97,0.12)', background: 'rgba(201,169,97,0.02)'}} />
-        </motion.div>
-
-        {/* Hotel nameplate */}
-        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} transition={{delay: 0.5}}
-          className="text-center mb-7">
-          <h1 className="font-display text-4xl italic tracking-[0.22em]"
-            style={{color: '#E8C87A', textShadow: `0 0 30px rgba(232,200,122,0.2), 0 0 60px ${accentGlow}, 0 2px 4px rgba(0,0,0,0.9)`}}>
-            {isMasc ? 'CARPE DIEM' : 'FINESSE'}
-          </h1>
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <div className="w-8 h-px bg-brass/20" />
-            <div className="w-1 h-1 rotate-45 border" style={{borderColor: 'rgba(201,169,97,0.3)'}} />
-            <span className="font-label text-[7px] tracking-[0.5em] uppercase" style={{color: 'rgba(201,169,97,0.22)'}}>
-              mmxxvi
+        {/* ── Arrival greeting ── */}
+        <motion.div
+          initial={{opacity: 0, y: -12}}
+          animate={{opacity: 1, y: 0}}
+          transition={{delay: 0.3}}
+          className="mb-6"
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-6 h-px" style={{background: `rgba(201,169,97,0.2)`}} />
+            <span className="font-label text-[7px] tracking-[0.5em] uppercase"
+              style={{color: 'rgba(201,169,97,0.2)'}}>
+              {new Date().toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric'})}
             </span>
-            <div className="w-1 h-1 rotate-45 border" style={{borderColor: 'rgba(201,169,97,0.3)'}} />
-            <div className="w-8 h-px bg-brass/20" />
+            <div className="w-6 h-px" style={{background: `rgba(201,169,97,0.2)`}} />
           </div>
-          <p className="font-body text-xs italic mt-3" style={{color: 'rgba(244,224,160,0.18)'}}>
-            {tagline}
-          </p>
+
+          <h2 className="font-display italic text-2xl tracking-[0.12em]"
+            style={{color: '#E8C87A', textShadow: `0 0 30px rgba(232,200,122,0.15), 0 0 60px ${accentColor}08`}}>
+            {greeting(hour, isMasc)}
+          </h2>
+
+          <div className="flex items-center gap-3 mt-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"
+              style={{boxShadow: '0 0 6px rgba(0,255,136,0.7)'}} />
+            <span className="font-body text-[11px] italic"
+              style={{color: 'rgba(244,224,160,0.28)'}}>
+              {memberCount} members in the building
+            </span>
+          </div>
         </motion.div>
 
-        {/* Lobby floor doorways */}
-        <div className="grid grid-cols-2 gap-3 mb-7">
-          {doors.map((door, i) => (
-            <motion.div key={door.path}
-              initial={{opacity: 0, y: 12}}
-              animate={{opacity: 1, y: 0}}
-              transition={{delay: 0.65 + i * 0.08}}>
-              <Door {...door} />
-            </motion.div>
+        {/* ── Divider ── */}
+        <motion.div
+          initial={{scaleX: 0}} animate={{scaleX: 1}} transition={{delay: 0.5, duration: 0.6}}
+          className="flex items-center gap-2 mb-6"
+          style={{transformOrigin: 'left'}}
+        >
+          <div className="flex-1 h-px" style={{background: 'linear-gradient(to right, rgba(201,169,97,0.15), transparent)'}} />
+          <div className="w-1 h-1 rotate-45 border" style={{borderColor: 'rgba(201,169,97,0.25)'}} />
+          <div className="flex-1 h-px" style={{background: 'linear-gradient(to left, rgba(201,169,97,0.15), transparent)'}} />
+        </motion.div>
+
+        {/* ── Tonight ── */}
+        <motion.div
+          initial={{opacity: 0}} animate={{opacity: 1}} transition={{delay: 0.55}}
+          className="mb-1"
+        >
+          <span className="font-label text-[7px] tracking-[0.5em] uppercase"
+            style={{color: 'rgba(201,169,97,0.18)'}}>tonight</span>
+        </motion.div>
+
+        <div className="space-y-2 mb-6">
+          {featureTiles.map((tile, i) => (
+            <FeatureTile key={tile.href} {...tile} delay={0.6 + i * 0.07} />
           ))}
         </div>
 
-        {/* Mezzanine */}
-        <motion.div initial={{opacity: 0}} animate={{opacity: 1}} transition={{delay: 1.0}} className="mb-6">
-          <div className="flex items-center gap-2 mb-2 justify-center">
-            <div className="w-6 h-px bg-brass/8" />
-            <span className="font-label text-[6px] tracking-[0.5em] uppercase" style={{color: 'rgba(201,169,97,0.12)'}}>
-              upstairs
-            </span>
-            <div className="w-6 h-px bg-brass/8" />
-          </div>
-          <div className="flex flex-wrap gap-1.5 justify-center">
-            {mezzanine.map(door => (
-              door.soon ? (
-                <span key={door.path}
-                  className="px-2 py-1 border cursor-default"
-                  style={{borderColor: 'rgba(201,169,97,0.03)',
-                    color: 'rgba(201,169,97,0.08)',
-                    fontSize: '6px',
-                    letterSpacing: '0.18em',
-                    fontFamily: 'var(--font-label)',
-                    textTransform: 'uppercase'}}
-                  title="Opening soon">
-                  {door.label}
-                </span>
-              ) : (
-                <Link key={door.path} href={door.path}
-                  className="px-2 py-1 border transition-all duration-300"
-                  style={{borderColor: 'rgba(201,169,97,0.05)',
-                    color: 'rgba(201,169,97,0.18)',
-                    fontSize: '6px',
-                    letterSpacing: '0.18em',
-                    fontFamily: 'var(--font-label)',
-                    textTransform: 'uppercase'}}
-                  onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.22)';
-                    (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.55)';
-                  }}
-                  onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.borderColor = 'rgba(201,169,97,0.05)';
-                    (e.currentTarget as HTMLElement).style.color = 'rgba(201,169,97,0.18)';
-                  }}
-                >
-                  {door.label}
-                </Link>
-              )
-            ))}
-          </div>
-        </motion.div>
+        {/* ── Divider ── */}
+        <div className="flex items-center gap-2 mb-5">
+          <div className="flex-1 h-px" style={{background: 'linear-gradient(to right, rgba(201,169,97,0.08), transparent)'}} />
+          <span className="font-label text-[6px] tracking-[0.4em] uppercase"
+            style={{color: 'rgba(201,169,97,0.1)'}}>front desk</span>
+          <div className="flex-1 h-px" style={{background: 'linear-gradient(to left, rgba(201,169,97,0.08), transparent)'}} />
+        </div>
 
-        {/* Concierge front desk */}
-        <motion.div initial={{opacity: 0, y: 16}} animate={{opacity: 1, y: 0}} transition={{delay: 1.2}}>
-          <div className="flex items-center gap-3 mb-2.5 justify-center">
-            <div className="w-6 h-px bg-brass/12" />
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"
-                style={{boxShadow: '0 0 5px rgba(0,255,136,0.6)'}} />
-              <span className="font-label text-[8px] tracking-[0.28em] uppercase"
-                style={{color: 'rgba(201,169,97,0.28)'}}>
-                Nova · at the desk
-              </span>
-            </div>
-            <div className="w-6 h-px bg-brass/12" />
+        {/* ── Nova front desk ── */}
+        <motion.div
+          initial={{opacity: 0, y: 12}}
+          animate={{opacity: 1, y: 0}}
+          transition={{delay: 0.9}}
+        >
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"
+              style={{boxShadow: '0 0 5px rgba(0,255,136,0.6)'}} />
+            <span className="font-label text-[8px] tracking-[0.28em] uppercase"
+              style={{color: 'rgba(201,169,97,0.28)'}}>
+              Nova · at the desk
+            </span>
           </div>
 
           <div className="border border-brass/10 bg-ink/55 backdrop-blur-sm"
@@ -405,7 +330,9 @@ export default function LobbyPage() {
                 className="flex-1 px-4 py-3 bg-transparent text-sm focus:outline-none font-body"
                 style={{color: '#F4E0A0', caretColor: '#C9A961'}}
               />
-              <button onClick={send} disabled={sending || !input.trim()}
+              <button
+                onClick={send}
+                disabled={sending || !input.trim()}
                 className="px-4 py-3 font-label text-[9px] tracking-[0.22em] uppercase transition-colors disabled:opacity-20"
                 style={{color: 'rgba(201,169,97,0.45)'}}>
                 send
@@ -422,7 +349,7 @@ export default function LobbyPage() {
         </motion.div>
 
         {/* Bottom ornament */}
-        <div className="flex items-center justify-center gap-2 mt-7 mb-6">
+        <div className="flex items-center justify-center gap-2 mt-8">
           <div className="w-10 h-px bg-oxblood/12" />
           <div className="w-1 h-1 rotate-45 bg-brass/10" />
           <div className="w-1.5 h-1.5 rotate-45 border border-brass/10" />

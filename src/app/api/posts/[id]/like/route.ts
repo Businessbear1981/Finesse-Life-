@@ -19,10 +19,6 @@ export async function POST(request: NextRequest, context: {params: Promise<{id: 
   if (existing) {
     // Unlike
     await supabase.from('post_likes').delete().eq('id', existing.id);
-    await supabase.rpc('decrement_post_likes', {post_id: postId}).catch(() =>
-      supabase.from('posts').update({like_count: supabase.rpc('greatest', {a: 0}) as any}).eq('id', postId)
-    );
-    // Simple decrement
     const {data: post} = await supabase.from('posts').select('like_count').eq('id', postId).single();
     await supabase.from('posts').update({like_count: Math.max(0, (post?.like_count || 1) - 1)}).eq('id', postId);
     return NextResponse.json({liked: false});

@@ -29,7 +29,8 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const isAuthRoute = pathname.startsWith('/login') ||
-    pathname.startsWith('/signup');
+    pathname.startsWith('/signup') ||
+    pathname.startsWith('/demo');
 
   // /intake is accessible to authenticated users only — not publicly reachable
   const isIntakeRoute = pathname.startsWith('/intake');
@@ -39,7 +40,29 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/perdiem') ||
     pathname.startsWith('/lounge') ||
-    pathname.startsWith('/concierge');
+    pathname.startsWith('/concierge') ||
+    pathname.startsWith('/salon') ||
+    pathname.startsWith('/vault') ||
+    pathname.startsWith('/wardrobe') ||
+    pathname.startsWith('/bag') ||
+    pathname.startsWith('/lab') ||
+    pathname.startsWith('/archive') ||
+    pathname.startsWith('/entourage') ||
+    pathname.startsWith('/backstage') ||
+    pathname.startsWith('/clubhouse') ||
+    pathname.startsWith('/scale') ||
+    pathname.startsWith('/profile') ||
+    pathname.startsWith('/market') ||
+    pathname.startsWith('/registry') ||
+    pathname.startsWith('/exchange') ||
+    pathname.startsWith('/departures') ||
+    pathname.startsWith('/switchboard') ||
+    pathname.startsWith('/embassy') ||
+    pathname.startsWith('/nightvision') ||
+    pathname.startsWith('/stylist') ||
+    pathname.startsWith('/carpe-diem') ||
+    // Agent dispatch API — callable from authenticated or public contexts
+    pathname.startsWith('/api/agents');
 
   // ── VIP gate ─────────────────────────────────────────────────────────
   // /vip routes require is_vip=true with a valid (non-expired) grant.

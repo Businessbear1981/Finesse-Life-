@@ -227,6 +227,10 @@ html {
   animation: grain 0.2s steps(1) infinite;
 }
 
+.lab-textarea::placeholder {
+  color: rgba(244, 232, 208, 0.2);
+}
+
 .font-display  { font-family: var(--font-display); }
 .font-body     { font-family: var(--font-body); }
 .font-label    { font-family: var(--font-label); }

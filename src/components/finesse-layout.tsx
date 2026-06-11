@@ -15,6 +15,7 @@ import {
   Hotel,
   User,
   Bell,
+  Eye,
   Users,
   Shirt,
   Lock,
@@ -27,6 +28,7 @@ import {
   Wallet,
   TrendingUp,
   Plane,
+  Scissors,
 } from 'lucide-react';
 
 /* ─── Room Config ─── */
@@ -68,6 +70,8 @@ const PROFILE_TILE: RoomDef = {
 
 const PRIVATE_ROOMS: RoomDef[] = [
   {path: '/concierge', label: 'Concierge', icon: (p) => <Bell {...p} />, color: '#FFA96B'},
+  {path: '/nightvision', label: 'NightVision', icon: (p) => <Eye {...p} />, color: '#69C9D0'},
+  {path: '/stylist', label: 'Stylist', icon: (p) => <Scissors {...p} />, color: '#FF4D7D'},
   {path: '/entourage', label: 'Entourage', icon: (p) => <Users {...p} />, color: '#69C9D0'},
   {path: '/wardrobe', label: 'Wardrobe', icon: (p) => <Shirt {...p} />, color: '#E8C87A'},
   {path: '/vault', label: 'Vault', icon: (p) => <Lock {...p} />, color: '#C9A961'},
@@ -362,7 +366,10 @@ export function FinesseLayout({children}: {children: ReactNode}) {
           borderLeft: '1px solid rgba(201,169,97,0.06)',
         }}
       >
-        {PRIVATE_ROOMS.map((room) => (
+        {PRIVATE_ROOMS.filter(room => {
+          if (room.path === '/perdiem' && !isMasc) return false;
+          return true;
+        }).map((room) => (
           <RoomTile key={room.path} room={room} active={pathname === room.path} />
         ))}
       </div>

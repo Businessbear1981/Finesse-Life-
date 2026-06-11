@@ -605,7 +605,7 @@ export default function EditProfilePage() {
               >
                 {tab === 'private' ? (
                   <>
-                    Private{' '}
+                    Backstage{' '}
                     <span
                       style={{
                         fontSize: '8px',
@@ -618,7 +618,7 @@ export default function EditProfilePage() {
                     </span>
                   </>
                 ) : (
-                  'Public'
+                  'Frontstage'
                 )}
                 {/* Active underline */}
                 {active && (
@@ -840,14 +840,14 @@ export default function EditProfilePage() {
                   className="relative font-display text-xl tracking-wide mb-2"
                   style={{color: 'rgba(228,200,122,0.7)'}}
                 >
-                  Private Profile
+                  Backstage
                 </p>
                 <p
                   className="relative font-body text-sm italic leading-relaxed"
                   style={{color: 'rgba(244,232,208,0.35)'}}
                 >
-                  VIP members can create a completely separate identity — different name,
-                  different photos, different energy. Only seen by VIP.
+                  A second private persona — different name, private photos, different energy.
+                  Yours to control. Seen only by VIP members you allow in.
                 </p>
                 <Link
                   href="/profile?upgrade=true"
@@ -876,13 +876,13 @@ export default function EditProfilePage() {
                       className="font-label text-[9px] tracking-[0.3em] uppercase"
                       style={{color: 'rgba(201,169,97,0.6)'}}
                     >
-                      Enable Private Profile
+                      Open Backstage
                     </p>
                     <p
                       className="font-body text-xs italic mt-0.5"
                       style={{color: 'rgba(244,232,208,0.25)'}}
                     >
-                      VIP members will see your alter ego
+                      VIP members can find you backstage
                     </p>
                   </div>
                   <button

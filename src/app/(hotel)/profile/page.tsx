@@ -394,7 +394,7 @@ export default async function ProfilePage({
                     className="font-body text-xs italic text-center"
                     style={{color: 'rgba(255,77,125,0.4)'}}
                   >
-                    VIP members see more of this profile
+                    VIP members see backstage
                   </p>
                 </div>
               )}
@@ -442,7 +442,7 @@ export default async function ProfilePage({
                       className="font-label text-[8px] tracking-[0.3em] uppercase"
                       style={{color: 'rgba(255,77,125,0.5)'}}
                     >
-                      Private Profile
+                      Backstage
                     </p>
                     <p
                       className="font-body text-sm"
