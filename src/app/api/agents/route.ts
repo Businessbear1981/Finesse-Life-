@@ -11,6 +11,8 @@ import {
   huntPrice,
   type ScoutResult,
 } from '@/lib/agents';
+import { emit } from '@/lib/intelligence';
+import { createClient } from '@/lib/supabase/server';
 
 interface AgentRequest {
   agent: 'scout' | 'stylist' | 'outing-planner' | 'procurement' | 'price-hunter';
@@ -26,6 +28,17 @@ export async function POST(req: Request) {
   }
 
   const {agent, payload} = body;
+
+  // Emit agent_query signal (non-blocking)
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    void emit({
+      user_id: user.id,
+      kind: 'agent_query',
+      payload: { agent, category: payload.category, query: payload.query },
+    });
+  }
 
   try {
     switch (agent) {

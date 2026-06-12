@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { emit } from '@/lib/intelligence';
 
 interface ListPayload {
   title: string;
@@ -70,6 +71,19 @@ export async function POST(req: Request) {
         seller_receives_cents: body.asking_price_cents - fee,
       });
     }
+
+    // Emit behavioral signal (fire-and-forget)
+    void emit({
+      user_id: user.id,
+      kind: 'list_item',
+      payload: {
+        title: body.title,
+        brand: body.brand,
+        category: body.category,
+        asking_price_cents: body.asking_price_cents,
+        condition: body.condition,
+      },
+    });
 
     return NextResponse.json({
       success: true,
