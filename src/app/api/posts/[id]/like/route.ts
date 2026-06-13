@@ -19,14 +19,14 @@ export async function POST(request: NextRequest, context: {params: Promise<{id: 
   if (existing) {
     // Unlike
     await supabase.from('post_likes').delete().eq('id', existing.id);
-    const {data: post} = await supabase.from('posts').select('like_count').eq('id', postId).single();
-    await supabase.from('posts').update({like_count: Math.max(0, (post?.like_count || 1) - 1)}).eq('id', postId);
+    const {data: post} = await supabase.from('posts').select('likes_count').eq('id', postId).single();
+    await supabase.from('posts').update({likes_count: Math.max(0, (post?.likes_count || 1) - 1)}).eq('id', postId);
     return NextResponse.json({liked: false});
   } else {
     // Like
     await supabase.from('post_likes').insert({post_id: postId, user_id: user.id});
-    const {data: post} = await supabase.from('posts').select('like_count').eq('id', postId).single();
-    await supabase.from('posts').update({like_count: (post?.like_count || 0) + 1}).eq('id', postId);
+    const {data: post} = await supabase.from('posts').select('likes_count').eq('id', postId).single();
+    await supabase.from('posts').update({likes_count: (post?.likes_count || 0) + 1}).eq('id', postId);
     return NextResponse.json({liked: true});
   }
 }

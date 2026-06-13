@@ -1,43 +1,80 @@
 import {NextResponse} from 'next/server';
+import Anthropic from '@anthropic-ai/sdk';
+import {createClient} from '@/lib/supabase/server';
 
-const MOCK: {style_labels: string[]; similar_brands: string[]; price_range: string} = {
+const client = new Anthropic({apiKey: process.env.ANTHROPIC_API_KEY});
+
+const FALLBACK = {
+  style_archetype: 'Dark Luxe Editorial',
   style_labels: ['Dark luxury', 'Sculptural silhouette', 'Minimalist'],
   similar_brands: ['The Row', 'Bottega Veneta', 'Toteme', 'Lemaire'],
   price_range: '$800–$3,200',
+  buying_tendencies: ['designer ready-to-wear', 'luxury leather goods', 'fine jewelry', 'high-end skincare'],
 };
 
 export async function POST(req: Request) {
   try {
-    // Parse FormData — file field present but not sent to a vision API in MVP
-    await req.formData();
+    const formData = await req.formData();
+    const file = formData.get('file') as File | null;
 
-    const prompt = `You are Nova, a luxury personal stylist AI. Based on a fashion photo uploaded by a client, provide a style analysis. Generate a realistic analysis as if you had seen the image. The client's style DNA says: [luxury/editorial, 25-34, ATL]. Respond ONLY with valid JSON: {"style_labels":["...","...","..."],"similar_brands":["...","...","...","..."],"price_range":"$X–$Y"}`;
+    let imageContent: Anthropic.ImageBlockParam | null = null;
 
-    const novaRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ''}/api/nova`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        prompt,
-        system: 'You are Nova, a luxury personal stylist AI. Always respond with valid JSON only, no markdown, no explanation.',
-      }),
-    });
-
-    if (!novaRes.ok) {
-      return NextResponse.json(MOCK);
+    if (file && file.size > 0) {
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const mediaType = (file.type || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+      imageContent = {
+        type: 'image',
+        source: {type: 'base64', media_type: mediaType, data: base64},
+      };
     }
 
-    const {text} = (await novaRes.json()) as {text: string};
+    const textPrompt = `You are Nova, a luxury personal stylist AI with deep knowledge of fashion, consumer psychology, and buying behavior.
+${imageContent ? 'Analyze this photo for style cues.' : 'Provide a general luxury style analysis.'}
+Return ONLY valid JSON with these exact keys:
+{
+  "style_archetype": "2-4 word label (e.g. Dark Luxe Editorial, Quiet Money, Street Luxe)",
+  "style_labels": ["3 specific style descriptors"],
+  "similar_brands": ["4 luxury/premium brands that match this aesthetic"],
+  "price_range": "$X–$Y typical spend per piece",
+  "buying_tendencies": ["4-6 product categories this person most likely buys (e.g. designer bags, fine jewelry, luxury skincare, tailored suits, sneaker culture, home decor)"]
+}`;
 
-    // Strip markdown code fences if present
-    const cleaned = text.replace(/```(?:json)?/gi, '').trim();
-    const parsed = JSON.parse(cleaned) as {
-      style_labels: string[];
-      similar_brands: string[];
-      price_range: string;
-    };
+    const messages: Anthropic.MessageParam[] = [
+      {
+        role: 'user',
+        content: imageContent
+          ? [imageContent, {type: 'text', text: textPrompt}]
+          : [{type: 'text', text: textPrompt}],
+      },
+    ];
 
-    return NextResponse.json(parsed);
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages,
+    });
+
+    const raw = response.content[0].type === 'text' ? response.content[0].text : '';
+    const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+    const result = JSON.parse(cleaned) as typeof FALLBACK;
+
+    // Persist style_dna to the caller's profile if authenticated
+    try {
+      const supabase = await createClient();
+      const {data: {user}} = await supabase.auth.getUser();
+      if (user) {
+        await supabase
+          .from('profiles')
+          .update({style_dna: result})
+          .eq('id', user.id);
+      }
+    } catch {
+      // non-blocking — save failure doesn't break the response
+    }
+
+    return NextResponse.json(result);
   } catch {
-    return NextResponse.json(MOCK);
+    return NextResponse.json(FALLBACK);
   }
 }

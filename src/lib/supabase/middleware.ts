@@ -62,7 +62,12 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/stylist') ||
     pathname.startsWith('/carpe-diem') ||
     // Agent dispatch API — callable from authenticated or public contexts
-    pathname.startsWith('/api/agents');
+    pathname.startsWith('/api/agents') ||
+    // AI APIs — auth is optional; routes handle no-session gracefully
+    pathname.startsWith('/api/nova') ||
+    pathname.startsWith('/api/intelligence') ||
+    pathname.startsWith('/api/stylist') ||
+    pathname.startsWith('/api/nightvision');
 
   // ── VIP gate ─────────────────────────────────────────────────────────
   // /vip routes require is_vip=true with a valid (non-expired) grant.

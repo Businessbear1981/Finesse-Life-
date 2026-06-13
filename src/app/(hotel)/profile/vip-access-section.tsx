@@ -1,8 +1,9 @@
 'use client';
 
-import {useState} from 'react';
+import {useState, useRef, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
+import {motion, AnimatePresence, useAnimation} from 'framer-motion';
 
 interface Props {
   isVip: boolean;
@@ -11,209 +12,324 @@ interface Props {
   showUpgrade: boolean;
 }
 
-export function VipAccessSection({isVip, vipExpiresAt, memberSince, showUpgrade}: Props) {
+/* ─── KeyCard — animates when VIP code is entered ─── */
+function KeyCard({
+  code, setCode, onRedeem, loading, error, success,
+}: {
+  code: string;
+  setCode: (v: string) => void;
+  onRedeem: () => void;
+  loading: boolean;
+  error: string;
+  success: string;
+}) {
+  const shakeCtrl = useAnimation();
+
+  const handleKey = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') onRedeem();
+  }, [onRedeem]);
+
+  return (
+    <div className="space-y-3">
+      <motion.div animate={shakeCtrl}
+        className="relative border overflow-hidden"
+        style={{borderColor: error ? 'rgba(255,77,125,0.35)' : 'rgba(201,169,97,0.2)', background: 'rgba(10,4,6,0.85)'}}>
+        {/* Scan line */}
+        <motion.div
+          className="absolute left-0 right-0 h-px pointer-events-none"
+          style={{background: 'linear-gradient(to right, transparent, rgba(201,169,97,0.25), transparent)'}}
+          animate={{top: ['0%', '100%', '0%']}}
+          transition={{duration: 3.5, repeat: Infinity, ease: 'linear'}}
+        />
+
+        <div className="flex items-center">
+          {/* Lock icon side panel */}
+          <div className="w-10 h-full flex items-center justify-center flex-shrink-0 py-3.5"
+            style={{borderRight: '1px solid rgba(201,169,97,0.1)', background: 'rgba(201,169,97,0.03)'}}>
+            <span className="font-label text-[10px]" style={{color: 'rgba(201,169,97,0.3)'}}>⬡</span>
+          </div>
+
+          <input
+            type="text"
+            value={code}
+            onChange={e => setCode(e.target.value.toUpperCase())}
+            onKeyDown={handleKey}
+            placeholder="FNS-XXXXXXXX"
+            maxLength={12}
+            autoFocus
+            className="flex-1 px-4 py-3.5 bg-transparent font-label text-sm tracking-[0.25em] placeholder:opacity-15 focus:outline-none"
+            style={{color: '#C9A961'}}
+          />
+
+          <button onClick={onRedeem} disabled={loading || !code.trim()}
+            className="flex-shrink-0 px-4 py-3.5 font-label text-[9px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-30"
+            style={{
+              borderLeft: '1px solid rgba(201,169,97,0.15)',
+              color: loading ? 'rgba(201,169,97,0.4)' : 'rgba(201,169,97,0.7)',
+              background: loading ? 'transparent' : 'rgba(201,169,97,0.05)',
+            }}>
+            {loading ? '·  ·  ·' : 'Unlock'}
+          </button>
+        </div>
+      </motion.div>
+
+      <AnimatePresence>
+        {(error || success) && (
+          <motion.p initial={{opacity: 0, y: -4}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}
+            className="font-body text-xs italic text-center"
+            style={{color: error ? 'rgba(255,77,125,0.7)' : 'rgba(201,169,97,0.8)'}}>
+            {error || success}
+          </motion.p>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* ─── VIP Access (not yet VIP) ─── */
+function VipGate({showUpgrade}: {showUpgrade: boolean}) {
   const router = useRouter();
-  const [showCodeInput, setShowCodeInput] = useState(showUpgrade);
+  const [mode, setMode] = useState<'idle' | 'code'>(showUpgrade ? 'code' : 'idle');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const handleRedeem = async () => {
+  const handleRedeem = useCallback(async () => {
     const trimmed = code.trim().toUpperCase();
-    if (!trimmed) return;
+    if (!trimmed || loading) return;
     setLoading(true);
     setError('');
     setSuccess('');
-
     try {
       const res = await fetch('/api/vip/redeem', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({code: trimmed}),
       });
-      const data = (await res.json()) as {error?: string; message?: string};
-
+      const data = await res.json() as {error?: string; message?: string};
       if (!res.ok) {
-        setError(data.error ?? 'Something went wrong.');
+        setError(data.error ?? 'Code not recognised.');
       } else {
-        setSuccess(data.message ?? 'VIP access granted.');
-        setTimeout(() => {
-          router.refresh();
-        }, 1200);
+        setSuccess(data.message ?? 'Access granted. Welcome.');
+        setTimeout(() => router.refresh(), 1400);
       }
     } catch {
       setError('Network error — try again.');
-    } finally {
-      setLoading(false);
     }
-  };
-
-  if (isVip) {
-    const expiry = vipExpiresAt
-      ? new Date(vipExpiresAt).toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})
-      : null;
-
-    return (
-      <div
-        className="p-6 mb-6"
-        style={{
-          border: '1px solid rgba(201,169,97,0.3)',
-          background: 'linear-gradient(135deg, rgba(74,25,34,0.15) 0%, rgba(10,4,6,0.8) 100%)',
-          boxShadow: '0 0 30px rgba(201,169,97,0.06)',
-        }}
-      >
-        <div className="flex items-center gap-3 mb-3">
-          {/* VIP badge */}
-          <span
-            className="inline-flex items-center px-3 py-1 font-label text-[9px] tracking-[0.3em] uppercase"
-            style={{
-              background: 'rgba(201,169,97,0.15)',
-              border: '1px solid rgba(201,169,97,0.4)',
-              color: '#C9A961',
-            }}
-          >
-            ◆ VIP Member
-          </span>
-        </div>
-        {memberSince && (
-          <p
-            className="font-body text-sm italic mb-4"
-            style={{color: 'rgba(244,232,208,0.4)'}}
-          >
-            Member since {memberSince}
-            {expiry && (
-              <span style={{color: 'rgba(244,232,208,0.25)'}}> · active until {expiry}</span>
-            )}
-          </p>
-        )}
-        <Link
-          href="/vip"
-          className="inline-flex items-center gap-2 px-6 py-3 font-label text-[10px] tracking-[0.3em] uppercase transition-all duration-300"
-          style={{
-            background: 'linear-gradient(135deg, #C9A961, #E8C87A)',
-            color: '#0A0406',
-          }}
-        >
-          Enter The Inner Room →
-        </Link>
-      </div>
-    );
-  }
+    setLoading(false);
+  }, [code, loading, router]);
 
   return (
-    <div
-      className="p-6 mb-6"
+    <div className="relative overflow-hidden mb-6"
       style={{
-        border: '1px solid rgba(201,169,97,0.12)',
-        background: 'rgba(10,4,6,0.6)',
-      }}
-    >
-      <div className="flex items-center gap-3 mb-3">
-        <div
-          className="w-1.5 h-1.5 rotate-45"
-          style={{background: 'rgba(201,169,97,0.3)'}}
-        />
-        <h3
-          className="font-label text-[10px] tracking-[0.4em] uppercase"
-          style={{color: 'rgba(201,169,97,0.5)'}}
-        >
-          VIP Access
-        </h3>
-      </div>
+        border: '1px solid rgba(201,169,97,0.1)',
+        background: 'linear-gradient(145deg, rgba(10,4,6,0.9) 0%, rgba(20,8,12,0.95) 100%)',
+      }}>
 
-      <p
-        className="font-body text-sm italic mb-5"
-        style={{color: 'rgba(244,232,208,0.3)'}}
-      >
-        The inner room is reserved for members.
-      </p>
+      {/* Corner markers */}
+      {[['top-0 left-0', 'border-t border-l'], ['top-0 right-0', 'border-t border-r'],
+        ['bottom-0 left-0', 'border-b border-l'], ['bottom-0 right-0', 'border-b border-r']].map(([pos, border], i) => (
+        <div key={i} className={`absolute ${pos} w-4 h-4 ${border}`}
+          style={{borderColor: 'rgba(201,169,97,0.2)'}} />
+      ))}
 
-      {!showCodeInput ? (
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <button
-            onClick={() => setShowCodeInput(true)}
-            className="flex-1 py-3 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
-            style={{
-              border: '1px solid rgba(201,169,97,0.2)',
-              color: 'rgba(201,169,97,0.6)',
-            }}
-          >
-            Unlock with Code
-          </button>
-          <Link
-            href="/subscribe"
-            className="flex-1 py-3 text-center font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
-            style={{
-              background: 'rgba(201,169,97,0.08)',
-              border: '1px solid rgba(201,169,97,0.15)',
-              color: 'rgba(201,169,97,0.5)',
-            }}
-          >
-            Subscribe — $24.99/mo
-          </Link>
-        </div>
-      ) : (
-        <div>
-          <div
-            className="flex items-center border overflow-hidden mb-3"
-            style={{borderColor: 'rgba(201,169,97,0.2)'}}
-          >
-            <input
-              type="text"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === 'Enter' && handleRedeem()}
-              placeholder="FNS-XXXXXXXX"
-              maxLength={12}
-              className="flex-1 px-4 py-3 bg-transparent font-label text-sm tracking-[0.2em] placeholder:opacity-20 focus:outline-none"
-              style={{color: '#C9A961', background: 'rgba(10,4,6,0.8)'}}
-              autoFocus
-            />
-            <button
-              onClick={handleRedeem}
-              disabled={loading || !code.trim()}
-              className="px-5 py-3 font-label text-[9px] tracking-[0.25em] uppercase transition-all duration-300 disabled:opacity-30"
-              style={{
-                background: loading ? 'rgba(201,169,97,0.1)' : 'rgba(201,169,97,0.15)',
-                borderLeft: '1px solid rgba(201,169,97,0.2)',
-                color: '#C9A961',
-              }}
-            >
-              {loading ? '...' : 'Apply'}
-            </button>
+      <div className="p-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="relative w-8 h-8 border flex items-center justify-center"
+            style={{borderColor: 'rgba(201,169,97,0.2)', background: 'rgba(201,169,97,0.04)'}}>
+            <span className="font-display text-sm" style={{color: 'rgba(201,169,97,0.4)'}}>⬡</span>
           </div>
-
-          {error && (
-            <p
-              className="font-body text-xs italic mb-2"
-              style={{color: 'rgba(255,77,125,0.7)'}}
-            >
-              {error}
+          <div>
+            <p className="font-label text-[9px] tracking-[0.45em] uppercase"
+              style={{color: 'rgba(201,169,97,0.5)'}}>
+              Inner Room
             </p>
-          )}
-          {success && (
-            <p
-              className="font-body text-xs italic mb-2"
-              style={{color: 'rgba(201,169,97,0.8)'}}
-            >
-              {success}
+            <p className="font-body text-[11px] italic mt-0.5"
+              style={{color: 'rgba(244,232,208,0.2)'}}>
+              Access restricted to members
             </p>
-          )}
-
-          <button
-            onClick={() => {
-              setShowCodeInput(false);
-              setCode('');
-              setError('');
-            }}
-            className="font-body text-xs italic transition-colors"
-            style={{color: 'rgba(244,232,208,0.2)'}}
-          >
-            cancel
-          </button>
+          </div>
         </div>
-      )}
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px" style={{background: 'rgba(201,169,97,0.06)'}} />
+          <div className="w-1 h-1 rotate-45" style={{background: 'rgba(201,169,97,0.15)'}} />
+          <div className="flex-1 h-px" style={{background: 'rgba(201,169,97,0.06)'}} />
+        </div>
+
+        {/* Benefits teaser */}
+        <div className="grid grid-cols-2 gap-2 mb-5">
+          {[
+            ['Backstage Profile', 'Private persona layer'],
+            ['The Vault', 'Prepaid lifestyle card'],
+            ['Priority Access', 'Exclusive rooms first'],
+            ['Scale Events', 'Group buy privileges'],
+          ].map(([title, sub]) => (
+            <div key={title} className="px-3 py-2.5"
+              style={{border: '1px solid rgba(201,169,97,0.06)', background: 'rgba(201,169,97,0.02)'}}>
+              <p className="font-label text-[8px] tracking-[0.2em] uppercase"
+                style={{color: 'rgba(201,169,97,0.45)'}}>{title}</p>
+              <p className="font-body text-[10px] italic mt-0.5"
+                style={{color: 'rgba(244,232,208,0.2)'}}>{sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <AnimatePresence mode="wait">
+          {mode === 'idle' ? (
+            <motion.div key="idle" initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}}
+              className="flex gap-2">
+              <button onClick={() => setMode('code')}
+                className="flex-1 py-3 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
+                style={{border: '1px solid rgba(201,169,97,0.18)', color: 'rgba(201,169,97,0.55)'}}>
+                I Have a Code
+              </button>
+              <Link href="/subscribe"
+                className="flex-1 py-3 text-center font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(201,169,97,0.12), rgba(232,200,122,0.08))',
+                  border: '1px solid rgba(201,169,97,0.2)',
+                  color: '#C9A961',
+                }}>
+                $24.99 / month
+              </Link>
+            </motion.div>
+          ) : (
+            <motion.div key="code" initial={{opacity: 0, y: 6}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}>
+              <KeyCard code={code} setCode={setCode}
+                onRedeem={handleRedeem} loading={loading} error={error} success={success} />
+              {!success && (
+                <button onClick={() => { setMode('idle'); setCode(''); setError(''); }}
+                  className="mt-3 w-full text-center font-body text-[11px] italic transition-colors"
+                  style={{color: 'rgba(244,232,208,0.18)'}}>
+                  back
+                </button>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
+}
+
+/* ─── VIP Card (active member) ─── */
+function VipCard({vipExpiresAt, memberSince}: {vipExpiresAt: string | null; memberSince: string | null}) {
+  const expiry = vipExpiresAt
+    ? new Date(vipExpiresAt).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric'})
+    : null;
+
+  return (
+    <div className="relative overflow-hidden mb-6"
+      style={{
+        background: 'linear-gradient(135deg, #1A0C0E 0%, #0A0406 40%, #1C1008 100%)',
+        border: '1px solid rgba(201,169,97,0.35)',
+        boxShadow: '0 0 40px rgba(201,169,97,0.08), inset 0 0 60px rgba(201,169,97,0.03)',
+      }}>
+
+      {/* Holographic shimmer bar */}
+      <motion.div className="absolute top-0 left-0 right-0 h-[1px]"
+        style={{background: 'linear-gradient(to right, transparent, #E8C87A, #FFA96B, #C9A961, transparent)'}}
+        animate={{opacity: [0.4, 1, 0.4]}}
+        transition={{duration: 3, repeat: Infinity, ease: 'easeInOut'}}
+      />
+
+      {/* Gold foil background pattern */}
+      <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage: 'repeating-linear-gradient(45deg, #C9A961 0px, #C9A961 1px, transparent 1px, transparent 8px)',
+        }}
+      />
+
+      <div className="relative p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <motion.span
+                className="font-label text-[8px] tracking-[0.5em] uppercase px-2 py-0.5"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(201,169,97,0.2), rgba(232,200,122,0.12))',
+                  border: '1px solid rgba(201,169,97,0.4)',
+                  color: '#E8C87A',
+                }}
+                animate={{boxShadow: ['0 0 6px rgba(201,169,97,0.2)', '0 0 14px rgba(201,169,97,0.4)', '0 0 6px rgba(201,169,97,0.2)']}}
+                transition={{duration: 2.5, repeat: Infinity}}
+              >
+                ◆ VIP Member
+              </motion.span>
+            </div>
+            {memberSince && (
+              <p className="font-body text-xs italic" style={{color: 'rgba(244,232,208,0.3)'}}>
+                Since {memberSince}
+              </p>
+            )}
+          </div>
+
+          {/* Chip */}
+          <div className="w-10 h-8 border grid grid-cols-2 gap-[2px] p-1"
+            style={{
+              borderColor: 'rgba(201,169,97,0.4)',
+              background: 'linear-gradient(135deg, rgba(201,169,97,0.15), rgba(232,200,122,0.08))',
+            }}>
+            {Array.from({length: 6}).map((_, i) => (
+              <div key={i} className="rounded-[1px]"
+                style={{background: 'rgba(201,169,97,0.2)'}} />
+            ))}
+          </div>
+        </div>
+
+        {/* Card number style */}
+        <div className="flex gap-3 mb-5">
+          {['∙∙∙∙', '∙∙∙∙', '∙∙∙∙', 'FINESSE'].map((seg, i) => (
+            <span key={i} className="font-label text-[9px] tracking-[0.2em]"
+              style={{color: i === 3 ? 'rgba(201,169,97,0.6)' : 'rgba(201,169,97,0.2)'}}>
+              {seg}
+            </span>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-end justify-between">
+          <div>
+            {expiry && (
+              <>
+                <p className="font-label text-[7px] tracking-[0.3em] uppercase"
+                  style={{color: 'rgba(201,169,97,0.3)'}}>Valid thru</p>
+                <p className="font-label text-xs tracking-[0.15em]" style={{color: '#C9A961'}}>{expiry}</p>
+              </>
+            )}
+          </div>
+
+          <Link href="/vip"
+            className="flex items-center gap-2 px-5 py-2.5 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
+            style={{
+              background: 'linear-gradient(135deg, #C9A961, #E8C87A)',
+              color: '#0A0406',
+              boxShadow: '0 0 16px rgba(201,169,97,0.25)',
+            }}>
+            Inner Room →
+          </Link>
+        </div>
+      </div>
+
+      {/* Bottom shimmer */}
+      <motion.div className="absolute bottom-0 left-0 right-0 h-[1px]"
+        style={{background: 'linear-gradient(to right, transparent, #C9A961, transparent)'}}
+        animate={{opacity: [0.2, 0.6, 0.2]}}
+        transition={{duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 1.5}}
+      />
+    </div>
+  );
+}
+
+/* ─── Export ─── */
+export function VipAccessSection({isVip, vipExpiresAt, memberSince, showUpgrade}: Props) {
+  if (isVip) {
+    return <VipCard vipExpiresAt={vipExpiresAt} memberSince={memberSince} />;
+  }
+  return <VipGate showUpgrade={showUpgrade} />;
 }

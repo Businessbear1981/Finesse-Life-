@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const {data, error} = await supabase
     .from('posts')
     .select(`
-      id, content, media_urls, like_count, created_at,
+      id, content, media_urls, likes_count, created_at,
       profiles!author_id(id, display_name, username, avatar_url, vibe)
     `)
     .order('created_at', {ascending: false})
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     .from('posts')
     .insert({author_id: user.id, content: content.trim(), media_urls: media_urls || []})
     .select(`
-      id, content, media_urls, like_count, created_at,
+      id, content, media_urls, likes_count, created_at,
       profiles!author_id(id, display_name, username, avatar_url, vibe)
     `)
     .single();

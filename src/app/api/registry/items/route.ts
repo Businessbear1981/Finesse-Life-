@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { emit } from '@/lib/intelligence';
 
 interface ItemPayload {
   title: string;
@@ -62,6 +63,18 @@ export async function POST(req: Request) {
       console.error('[registry/items] insert error:', error);
       return NextResponse.json({ success: true, id: `local_${Date.now()}` });
     }
+
+    // Emit behavioral signal (fire-and-forget)
+    void emit({
+      user_id: user.id,
+      kind: 'add_to_registry',
+      payload: {
+        title: body.title.trim(),
+        brand: body.brand,
+        price_cents: body.price_cents,
+        category: body.category ?? 'Other',
+      },
+    });
 
     return NextResponse.json({ success: true, id: data.id });
   } catch (err) {

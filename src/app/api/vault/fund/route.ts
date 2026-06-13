@@ -1,5 +1,6 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
+import {emit} from '@/lib/intelligence';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
     balance_cents: new_balance_cents,
     updated_at: new Date().toISOString(),
   }).eq('user_id', user.id);
+
+  // Emit behavioral signal (fire-and-forget)
+  void emit({
+    user_id: user.id,
+    kind: 'vault_fund',
+    payload: {amount_cents, new_balance_cents},
+  });
 
   return NextResponse.json({
     funded: true,

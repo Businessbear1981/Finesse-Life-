@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { emit } from '@/lib/intelligence';
 
 // POST { deal_id: string, amount_cents: number }
 // MVP: auth check + record join intent. Full CCBill payment wired in phase 2.
@@ -41,6 +42,13 @@ export async function POST(req: NextRequest) {
     amount_cents,
     cashback_cents,
     status: 'pending',
+  });
+
+  // Emit behavioral signal (fire-and-forget)
+  void emit({
+    user_id: user.id,
+    kind: 'scale_join',
+    payload: {deal_id, amount_cents, cashback_cents},
   });
 
   return NextResponse.json({
