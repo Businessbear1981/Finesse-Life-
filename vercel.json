@@ -3,5 +3,6 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "installCommand": "npm install",
-  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- backend/"
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- backend/",
+  "alias": ["finesselife.vip", "finesselife.app"]
 }
