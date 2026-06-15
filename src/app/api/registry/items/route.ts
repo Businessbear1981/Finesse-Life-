@@ -3,6 +3,47 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { emit } from '@/lib/intelligence';
 
+export async function GET() {
+  try {
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => cookieStore.getAll(),
+          setAll: () => {},
+        },
+      },
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ items: [] });
+    }
+
+    const { data, error } = await supabase
+      .from('registry_items')
+      .select('id, title, brand, price_cents, pledged_cents, category, occasion, photo_url, source')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[GET /api/registry/items]', error);
+      return NextResponse.json({ items: [] });
+    }
+
+    return NextResponse.json({ items: data ?? [] });
+  } catch (err) {
+    console.error('[GET /api/registry/items] error:', err);
+    return NextResponse.json({ items: [] });
+  }
+}
+
 interface ItemPayload {
   title: string;
   brand?: string;

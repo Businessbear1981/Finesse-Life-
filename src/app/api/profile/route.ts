@@ -45,6 +45,55 @@ function sanitizePhotos(arr: unknown): string[] | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+export async function GET() {
+  try {
+    const cookieStore = await cookies();
+    const anonClient = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({name, value, options}) =>
+                cookieStore.set(name, value, options),
+              );
+            } catch {}
+          },
+        },
+      },
+    );
+
+    const {
+      data: {user},
+    } = await anonClient.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({profile: null});
+    }
+
+    const serviceClient = await getServiceClient();
+    const {data: profile, error} = await serviceClient
+      .from('profiles')
+      .select('id, display_name, username, avatar_url, gender, is_vip, vip_expires_at')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('[GET /api/profile]', error);
+      return NextResponse.json({profile: null});
+    }
+
+    return NextResponse.json({profile});
+  } catch (e) {
+    console.error('[GET /api/profile] unexpected', e);
+    return NextResponse.json({profile: null});
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     // Verify the caller is authenticated using the anon client

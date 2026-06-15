@@ -35,6 +35,8 @@ export async function GET() {
       unconfigured: total - configured,
       by_status: byStatus,
       by_category: byCategory,
+      // Full list with all health fields — consumed by the Backstage dashboard
+      list: integrations,
     },
     status: byStatus['down'] ? 'degraded' : byStatus['degraded'] ? 'degraded' : 'operational',
   });

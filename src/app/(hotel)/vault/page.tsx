@@ -23,18 +23,6 @@ interface VaultBalance {
   transactions: VaultTransaction[];
 }
 
-// Fallback mock when the member has no real transactions yet
-const MOCK_TRANSACTIONS: VaultTransaction[] = [
-  { id: '1', merchant: 'Carbone NYC', amount_cents: -28500, cashback_cents: 3420, category: 'dining', direction: 'debit', created_at: new Date('2026-06-08').toISOString() },
-  { id: '2', merchant: 'Vault Top-Up', amount_cents: 50000, cashback_cents: 0, category: 'funding', direction: 'credit', created_at: new Date('2026-06-07').toISOString() },
-  { id: '3', merchant: 'Eventbrite — Rooftop Jazz', amount_cents: -8500, cashback_cents: 1020, category: 'events', direction: 'debit', created_at: new Date('2026-06-06').toISOString() },
-  { id: '4', merchant: 'Per Diem Car Service', amount_cents: -14500, cashback_cents: 1740, category: 'transport', direction: 'debit', created_at: new Date('2026-06-05').toISOString() },
-  { id: '5', merchant: 'The Salon — Silk Press', amount_cents: -22000, cashback_cents: 2640, category: 'beauty', direction: 'debit', created_at: new Date('2026-06-03').toISOString() },
-];
-
-const MOCK_BALANCE_CENTS = 76450;
-const MOCK_CASHBACK_CENTS = 11025;
-
 const CATEGORY_ICONS: Record<string, string> = {
   dining: '🍽',
   funding: '💳',
@@ -130,7 +118,7 @@ export default function VaultPage() {
         setVaultData(data);
       }
     } catch {
-      // Network error — stay on null, will fall back to mock
+      // Network error — stay on null, zero defaults will show empty state
     } finally {
       setVaultLoading(false);
     }
@@ -140,11 +128,10 @@ export default function VaultPage() {
     fetchVault();
   }, [fetchVault]);
 
-  // Derive display values: use real data when available, mock as fallback
-  const useMock = !vaultData || (vaultData.balance_cents === 0 && vaultData.transactions.length === 0);
-  const balanceCents = useMock ? MOCK_BALANCE_CENTS : vaultData.balance_cents;
-  const cashbackCents = useMock ? MOCK_CASHBACK_CENTS : vaultData.cashback_earned_cents;
-  const transactions = useMock ? MOCK_TRANSACTIONS : vaultData.transactions;
+  // Derive display values from real vault data (zero defaults until funded)
+  const balanceCents = vaultData?.balance_cents ?? 0;
+  const cashbackCents = vaultData?.cashback_earned_cents ?? 0;
+  const transactions = vaultData?.transactions ?? [];
 
   function showToast(message: string, type: 'success' | 'error' = 'success') {
     setToast({ message, type });
@@ -563,6 +550,24 @@ export default function VaultPage() {
                 </div>
               ))}
             </div>
+          ) : transactions.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.65 }}
+              className="text-center py-12 border border-cream/5"
+              style={{ background: 'rgba(201,169,97,0.02)' }}
+            >
+              <p className="font-display text-lg italic text-cream/30 mb-2">Your Vault is empty.</p>
+              <p className="font-body text-sm text-cream/20 mb-6">Fund it to start earning cashback.</p>
+              <button
+                onClick={() => setShowFundModal(true)}
+                className="px-6 py-2.5 font-label text-[9px] tracking-[0.35em] uppercase text-ink transition-all hover:scale-[1.01]"
+                style={{ background: 'linear-gradient(90deg, #C9A961, #E8C87A, #C9A961)' }}
+              >
+                Fund Your Vault
+              </button>
+            </motion.div>
           ) : (
             <div className="space-y-1">
               {transactions.map((tx, i) => (

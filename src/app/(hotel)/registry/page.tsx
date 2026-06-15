@@ -43,27 +43,6 @@ interface VipItem {
   partner_logo: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_ITEMS: RegistryItem[] = [
-  { id: '1', title: 'Chanel Classic Flap', brand: 'Chanel', price_cents: 950000, pledged_cents: 420000, category: 'Bags', occasion: 'Birthday', photo_url: null, source: 'nova' },
-  { id: '2', title: 'Loro Piana Cashmere Throw', brand: 'Loro Piana', price_cents: 89500, pledged_cents: 89500, category: 'Home', occasion: 'Anniversary', photo_url: null, source: 'upload' },
-  { id: '3', title: 'Weekend in Tulum', brand: '', price_cents: 350000, pledged_cents: 187500, category: 'Travel', occasion: 'Vacation', photo_url: null, source: 'wardrobe' },
-  { id: '4', title: 'Manolo Blahnik Hangisi', brand: 'Manolo Blahnik', price_cents: 110000, pledged_cents: 0, category: 'Shoes', occasion: 'No occasion', photo_url: null, source: 'nova' },
-];
-
-const MOCK_OUTINGS: OutingCard[] = [
-  { id: '1', title: 'Art Basel Weekend', partner: '@devonte_m', occasion_type: 'Cultural', date: '2026-12-04', note: 'Miami Basel. Dinner at Carbone after.', status: 'confirmed' },
-  { id: '2', title: 'Omakase at Masa', partner: '@simone_r', occasion_type: 'Dining', date: '2026-07-19', note: 'The $950 counter. Birthday treat.', status: 'proposed' },
-  { id: '3', title: 'Maldives Overwater', partner: '@amara_k', occasion_type: 'Travel', date: '2026-09-01', note: 'One villa, five nights. No phones after 6pm.', status: 'proposed' },
-];
-
-const MOCK_VIP: VipItem[] = [
-  { id: '1', title: 'Genesis GV80 Prestige', brand: 'Carvana', price_cents: 6499900, pledged_cents: 2200000, category: 'Automotive', description: 'White on cognac leather. 2025 model. 14-day return window.', partner_logo: 'CARVANA' },
-  { id: '2', title: 'Private Studio Package', brand: 'Electric Lady Studios', price_cents: 450000, pledged_cents: 450000, category: 'Experience', description: '8 hours. Engineer included. Mixing session after.', partner_logo: 'ELS' },
-  { id: '3', title: 'Santorini Cave Suite — 7 nights', brand: 'Andronis Luxury Suites', price_cents: 1250000, pledged_cents: 320000, category: 'Travel', description: 'Cliffside. Caldera view. Butler service. Private plunge pool.', partner_logo: 'ANDRONIS' },
-];
-
 const OCCASION_TYPES = ['Birthday', 'Anniversary', 'Milestone', 'Vacation', 'Cultural', 'Dining', 'Travel', 'Romance', 'No occasion'];
 const CATEGORIES = ['Bags', 'Shoes', 'Jewelry', 'Clothing', 'Beauty', 'Home', 'Travel', 'Experience', 'Other'];
 
@@ -230,7 +209,7 @@ function OutingItemCard({ outing, accent, index }: { outing: OutingCard; accent:
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={{ width: '6px', height: '6px', background: accent, opacity: 0.6 }} />
         <span style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.2)' }}>
-          {new Date(outing.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          {outing.date ? new Date(outing.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD'}
         </span>
       </div>
     </motion.div>
@@ -347,6 +326,9 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // suppress unused warning
+  void photoFile;
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -1025,18 +1007,72 @@ const MAIN_TABS: MainTab[] = ['MY LIST', 'OUTINGS', 'VIP BOARD'];
 export default function RegistryPage() {
   const [activeTab, setActiveTab] = useState<MainTab>('MY LIST');
   const [accent, setAccent] = useState('#FF4D7D');
-  const [isVip] = useState(true); // mock — swap for real session check
-  const [items, setItems] = useState<RegistryItem[]>(MOCK_ITEMS);
-  const [outings, setOutings] = useState<OutingCard[]>(MOCK_OUTINGS);
+  const [isVip, setIsVip] = useState<boolean | null>(null); // null = loading
+  const [items, setItems] = useState<RegistryItem[]>([]);
+  const [outings, setOutings] = useState<OutingCard[]>([]);
+  const [vipExclusives, setVipExclusives] = useState<VipItem[]>([]);
+  const [loadingItems, setLoadingItems] = useState(true);
+  const [loadingOutings, setLoadingOutings] = useState(true);
+  const [loadingVip, setLoadingVip] = useState(true);
   const [showAddItem, setShowAddItem] = useState(false);
   const [showNewOuting, setShowNewOuting] = useState(false);
   const [tokenItem, setTokenItem] = useState<VipItem | null>(null);
 
+  // Gender accent
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const g = localStorage.getItem('finesse_gender') as Gender | null;
     setAccent(g === 'masculine' ? '#FFA96B' : '#FF4D7D');
   }, []);
+
+  // Load profile (for is_vip)
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(r => r.json())
+      .then((d: { profile: { is_vip?: boolean; vip_expires_at?: string | null } | null }) => {
+        const p = d.profile;
+        if (!p) {
+          setIsVip(false);
+          return;
+        }
+        const active =
+          p.is_vip === true &&
+          (p.vip_expires_at == null || new Date(p.vip_expires_at) > new Date());
+        setIsVip(active);
+      })
+      .catch(() => setIsVip(false));
+  }, []);
+
+  // Load registry items
+  useEffect(() => {
+    setLoadingItems(true);
+    fetch('/api/registry/items')
+      .then(r => r.json())
+      .then((d: { items: RegistryItem[] }) => setItems(d.items ?? []))
+      .catch(() => setItems([]))
+      .finally(() => setLoadingItems(false));
+  }, []);
+
+  // Load outings
+  useEffect(() => {
+    setLoadingOutings(true);
+    fetch('/api/registry/outings')
+      .then(r => r.json())
+      .then((d: { outings: OutingCard[] }) => setOutings(d.outings ?? []))
+      .catch(() => setOutings([]))
+      .finally(() => setLoadingOutings(false));
+  }, []);
+
+  // Load VIP exclusives (only when on VIP BOARD tab and VIP confirmed)
+  useEffect(() => {
+    if (activeTab !== 'VIP BOARD' || isVip !== true) return;
+    setLoadingVip(true);
+    fetch('/api/registry/vip')
+      .then(r => r.json())
+      .then((d: { exclusives: VipItem[] }) => setVipExclusives(d.exclusives ?? []))
+      .catch(() => setVipExclusives([]))
+      .finally(() => setLoadingVip(false));
+  }, [activeTab, isVip]);
 
   const totalPledged = items.reduce((s, i) => s + i.pledged_cents, 0);
   const fundedCount = items.filter(i => i.pledged_cents >= i.price_cents).length;
@@ -1157,9 +1193,26 @@ export default function RegistryPage() {
           {/* ── MY LIST ── */}
           {activeTab === 'MY LIST' && (
             <motion.div key="mylist" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.3 }}>
-              {items.map((item, i) => (
-                <RegistryItemCard key={item.id} item={item} accent={accent} index={i} />
-              ))}
+              {loadingItems ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <span style={{ fontFamily: 'Cinzel,serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.2)' }}>
+                    loading...
+                  </span>
+                </div>
+              ) : items.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <p style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '17px', color: 'rgba(244,232,208,0.3)', marginBottom: '6px' }}>
+                    Your registry is empty.
+                  </p>
+                  <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.15)' }}>
+                    Add your first item below.
+                  </p>
+                </div>
+              ) : (
+                items.map((item, i) => (
+                  <RegistryItemCard key={item.id} item={item} accent={accent} index={i} />
+                ))
+              )}
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ textAlign: 'center', marginTop: '8px' }}>
                 <button
@@ -1197,9 +1250,26 @@ export default function RegistryPage() {
                 <div style={{ flex: 1, height: '1px', background: 'rgba(244,232,208,0.05)' }} />
               </div>
 
-              {outings.map((outing, i) => (
-                <OutingItemCard key={outing.id} outing={outing} accent={accent} index={i} />
-              ))}
+              {loadingOutings ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <span style={{ fontFamily: 'Cinzel,serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.2)' }}>
+                    loading...
+                  </span>
+                </div>
+              ) : outings.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <p style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '17px', color: 'rgba(244,232,208,0.3)', marginBottom: '6px' }}>
+                    No outings planned yet.
+                  </p>
+                  <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.15)' }}>
+                    Create your first outing below.
+                  </p>
+                </div>
+              ) : (
+                outings.map((outing, i) => (
+                  <OutingItemCard key={outing.id} outing={outing} accent={accent} index={i} />
+                ))
+              )}
 
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }} style={{ textAlign: 'center', marginTop: '10px' }}>
                 <button
@@ -1228,7 +1298,14 @@ export default function RegistryPage() {
           {/* ── VIP BOARD ── */}
           {activeTab === 'VIP BOARD' && (
             <motion.div key="vipboard" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} transition={{ duration: 0.3 }}>
-              {!isVip ? (
+              {isVip === null ? (
+                /* Profile still loading */
+                <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                  <span style={{ fontFamily: 'Cinzel,serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.2)' }}>
+                    loading...
+                  </span>
+                </div>
+              ) : !isVip ? (
                 /* Lock screen */
                 <motion.div
                   initial={{ opacity: 0, scale: 0.97 }}
@@ -1293,9 +1370,26 @@ export default function RegistryPage() {
                     </span>
                   </div>
 
-                  {MOCK_VIP.map((v, i) => (
-                    <VipItemCard key={v.id} item={v} accent="#C9A961" index={i} onGenerate={setTokenItem} />
-                  ))}
+                  {loadingVip ? (
+                    <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                      <span style={{ fontFamily: 'Cinzel,serif', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.2)' }}>
+                        loading...
+                      </span>
+                    </div>
+                  ) : vipExclusives.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '48px 0' }}>
+                      <p style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '17px', color: 'rgba(244,232,208,0.3)', marginBottom: '6px' }}>
+                        No VIP exclusives available yet.
+                      </p>
+                      <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.15)' }}>
+                        Check back soon.
+                      </p>
+                    </div>
+                  ) : (
+                    vipExclusives.map((v, i) => (
+                      <VipItemCard key={v.id} item={v} accent="#C9A961" index={i} onGenerate={setTokenItem} />
+                    ))
+                  )}
                 </>
               )}
             </motion.div>

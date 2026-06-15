@@ -33,22 +33,8 @@ interface BrandCard {
   status: 'active' | 'prospect';
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_DEALS: Deal[] = [
-  { id: '1', brand: 'Jacquemus', item: 'Le Chiquito Bag', source: 'Direct', retail: 650, members_price: 420, status: 'live', category: 'Bags', tier: 'premium', margin_pct: 35 },
-  { id: '2', brand: 'Fashion Nova', item: 'Curve Blazer Set', source: 'Fashion Nova API', retail: 89, members_price: 52, status: 'pending', category: 'Clothes', tier: 'mid', margin_pct: 28 },
-  { id: '3', brand: 'Toteme', item: 'Scarf Coat', source: 'Factory Direct', retail: 890, members_price: 490, status: 'review', category: 'Outerwear', tier: 'premium', margin_pct: 42 },
-  { id: '4', brand: 'Shein', item: 'Minimalist Midi Set x5', source: 'Shein API', retail: 45, members_price: 28, status: 'live', category: 'Clothes', tier: 'budget', margin_pct: 22 },
-  { id: '5', brand: 'Amina Muaddi', item: 'Gilda Mule', source: 'Direct', retail: 750, members_price: 510, status: 'live', category: 'Shoes', tier: 'premium', margin_pct: 32 },
-  { id: '6', brand: 'Temu', item: 'Y2K Accessory Bundle', source: 'Temu API', retail: 32, members_price: 19, status: 'pending', category: 'Accessories', tier: 'budget', margin_pct: 18 },
-  { id: '7', brand: 'Cult Gaia', item: 'Ark Bag', source: 'Direct Outreach', retail: 398, members_price: 260, status: 'review', category: 'Bags', tier: 'contemporary', margin_pct: 38 },
-  // Men's side deals
-  { id: '8', brand: 'G-Shock x Off-White', item: 'DW-6900 Collab', source: 'Direct', retail: 280, members_price: 180, status: 'live', category: 'Watches', tier: 'contemporary', margin_pct: 33 },
-  { id: '9', brand: 'Jordan Brand', item: 'AJ1 Lost & Found', source: 'StockX API', retail: 180, members_price: 155, status: 'pending', category: 'Sneakers', tier: 'mid', margin_pct: 14 },
-  { id: '10', brand: 'Alibaba Verified', item: 'Tailored Suit Bundle', source: 'Factory Direct', retail: 800, members_price: 290, status: 'review', category: 'Formalwear', tier: 'factory', margin_pct: 65 },
-];
-
-const TRENDS: Trend[] = [
+// ─── Fallback data (shown only if Nova call fails) ────────────────────────────
+const FALLBACK_TRENDS: Trend[] = [
   { category: 'Bags', trend: '+34%', period: 'this week', top_brand: 'Bottega Veneta', insight: 'Members upgrading from mid-tier. Premium bag sourcing opportunity.' },
   { category: 'Fragrance', trend: '+28%', period: 'this week', top_brand: 'Le Labo', insight: 'Dark woody scents dominating. Members spending +$200 on fragrance.' },
   { category: 'Shoes', trend: '+19%', period: 'this week', top_brand: 'Amina Muaddi', insight: 'Heel moment. Mule and kitten heel demand spiking among 25-34 segment.' },
@@ -57,7 +43,7 @@ const TRENDS: Trend[] = [
   { category: 'Golf Gear', trend: '+67%', period: 'this week', top_brand: 'Titleist', insight: 'New Carpe Diem members indexing high on golf. Source premium clubs + apparel.' },
 ];
 
-const BRAND_RADAR: BrandCard[] = [
+const FALLBACK_BRAND_RADAR: BrandCard[] = [
   { name: 'Jacquemus', tier: 'Premium', margin: '35%', opportunity: 'Limited drops, high demand. Direct contact: partnerships@jacquemus.com', status: 'active' },
   { name: 'Toteme', tier: 'Premium', margin: '42%', opportunity: 'Quiet luxury moment. Underserved in group buys. Stockholm + Paris drops.', status: 'prospect' },
   { name: 'Fashion Nova', tier: 'Mid', margin: '28%', opportunity: 'Highest volume. API available. Budget tier but massive scale.', status: 'active' },
@@ -238,11 +224,11 @@ function SubmitDealSheet({
 }
 
 // ─── Tab 1: Deal Pipeline ─────────────────────────────────────────────────────
-function DealPipeline() {
+function DealPipeline({ deals }: { deals: Deal[] }) {
   const [filter, setFilter] = useState<'all' | 'live' | 'pending' | 'premium' | 'mid' | 'budget'>('all');
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const filtered = MOCK_DEALS.filter((d) => {
+  const filtered = deals.filter((d) => {
     if (filter === 'all') return true;
     if (filter === 'live') return d.status === 'live';
     if (filter === 'pending') return d.status === 'pending';
@@ -323,20 +309,15 @@ function DealPipeline() {
 }
 
 // ─── Tab 2: Buying Trends ─────────────────────────────────────────────────────
-function BuyingTrends() {
+function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoading: boolean }) {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   async function getIntel() {
     setLoading(true);
     try {
-      const prompt = `Based on these Finesse platform buying trends this week:
-- Bags +34% (top: Bottega Veneta)
-- Fragrance +28% (top: Le Labo)
-- Shoes +19% (top: Amina Muaddi)
-- Streetwear +41% (top: Off-White)
-
-Generate 2-3 specific deal recommendations for our sourcing team. Be concise and actionable. Format as a brief intelligence memo.`;
+      const trendSummary = trends.map((t) => `- ${t.category} ${t.trend} (top: ${t.top_brand})`).join('\n');
+      const prompt = `Based on these Finesse platform buying trends this week:\n${trendSummary}\n\nGenerate 2-3 specific deal recommendations for our sourcing team. Be concise and actionable. Format as a brief intelligence memo.`;
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -358,8 +339,15 @@ Generate 2-3 specific deal recommendations for our sourcing team. Be concise and
         <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">client intelligence · what&apos;s moving this week</p>
       </div>
 
+      {trendsLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="p-5 border border-cream/6 bg-ink/40 animate-pulse" style={{ height: '120px' }} />
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-        {TRENDS.map((t, i) => (
+        {trends.map((t, i) => (
           <motion.div key={t.category}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -374,6 +362,7 @@ Generate 2-3 specific deal recommendations for our sourcing team. Be concise and
           </motion.div>
         ))}
       </div>
+      )}
 
       {/* Source Intel button */}
       <div className="border border-[#69C9D0]/15 bg-[#69C9D0]/3 p-5">
@@ -403,7 +392,7 @@ Generate 2-3 specific deal recommendations for our sourcing team. Be concise and
 }
 
 // ─── Tab 3: Brand Radar ───────────────────────────────────────────────────────
-function BrandRadar() {
+function BrandRadar({ brands, brandsLoading }: { brands: BrandCard[]; brandsLoading: boolean }) {
   return (
     <div>
       <div className="mb-6">
@@ -411,8 +400,15 @@ function BrandRadar() {
         <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">brands worth chasing right now</p>
       </div>
 
+      {brandsLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="p-5 border border-cream/6 bg-ink/40 animate-pulse" style={{ height: '140px' }} />
+          ))}
+        </div>
+      ) : (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {BRAND_RADAR.map((b, i) => (
+        {brands.map((b, i) => (
           <motion.div key={b.name}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -440,13 +436,163 @@ function BrandRadar() {
           </motion.div>
         ))}
       </div>
+      )}
     </div>
   );
+}
+
+// ─── Helpers for parsing Nova intelligence response ────────────────────────────
+function parseTrendsFromNova(text: string): Trend[] | null {
+  try {
+    const lines = text.split('\n').filter(Boolean);
+    const trends: Trend[] = [];
+    for (const line of lines) {
+      // Look for lines like: "Category: +N% | Top brand: X | Insight: Y"
+      // or any structured list format — extract what we can
+      const catMatch = line.match(/\*?\*?([A-Za-z &]+)\*?\*?[:\s]+([+-]?\d+%)/);
+      const brandMatch = line.match(/(?:top[:\s]+|brand[:\s]+)([A-Za-z ]+)/i);
+      const insightMatch = line.match(/(?:insight[:\s]+|[-–]\s*)(.{20,})/i);
+      if (catMatch) {
+        trends.push({
+          category: catMatch[1].trim(),
+          trend: catMatch[2].trim(),
+          period: 'this week',
+          top_brand: brandMatch ? brandMatch[1].trim() : '',
+          insight: insightMatch ? insightMatch[1].trim() : line.slice(line.indexOf('%') + 1).trim() || '',
+        });
+      }
+    }
+    return trends.length >= 3 ? trends : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseBrandsFromNova(text: string): BrandCard[] | null {
+  try {
+    const lines = text.split('\n').filter(Boolean);
+    const brands: BrandCard[] = [];
+    for (const line of lines) {
+      const brandMatch = line.match(/\*?\*?([A-Za-z /&]+)\*?\*?[:\s]/);
+      const marginMatch = line.match(/(\d+(?:\.\d+)?(?:-\d+)?%)/);
+      if (brandMatch && brands.length < 8) {
+        brands.push({
+          name: brandMatch[1].trim(),
+          tier: marginMatch && parseInt(marginMatch[1]) >= 40 ? 'Premium' : 'Contemporary',
+          margin: marginMatch ? marginMatch[1] : '--',
+          opportunity: line.replace(brandMatch[0], '').replace(marginMatch?.[0] ?? '', '').trim() || line,
+          status: 'prospect',
+        });
+      }
+    }
+    return brands.length >= 4 ? brands : null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function EmbassyPage() {
   const [tab, setTab] = useState<'pipeline' | 'trends' | 'radar'>('pipeline');
+
+  // Real data state
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [trends, setTrends] = useState<Trend[]>(FALLBACK_TRENDS);
+  const [brands, setBrands] = useState<BrandCard[]>(FALLBACK_BRAND_RADAR);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+
+  useEffect(() => {
+    // ── 1. Load scale_deals from Supabase ──────────────────────────────────
+    import('@/lib/supabase/client').then(({ createClient }) => {
+      const sb = createClient();
+      sb.from('scale_deals')
+        .select('id, title, brand, description, original_price_cents, group_price_cents, goal_count, current_count, category, status')
+        .order('created_at', { ascending: false })
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const mapped: Deal[] = data.map((d) => {
+              const tier: Deal['tier'] =
+                d.original_price_cents >= 100000 ? 'premium' :
+                d.original_price_cents >= 30000  ? 'contemporary' :
+                d.original_price_cents >= 5000   ? 'mid' : 'budget';
+              const pipelineStatus: Deal['status'] =
+                d.status === 'met' ? 'live' :
+                d.status === 'open' ? (d.current_count >= d.goal_count * 0.5 ? 'live' : 'pending') :
+                'review';
+              const savingsRate = ((d.original_price_cents - d.group_price_cents) / d.original_price_cents) * 100;
+              return {
+                id: d.id,
+                brand: d.brand,
+                item: d.title,
+                source: 'Scale Direct',
+                retail: d.original_price_cents / 100,
+                members_price: d.group_price_cents / 100,
+                status: pipelineStatus,
+                category: d.category ?? 'Accessories',
+                tier,
+                margin_pct: Math.round(savingsRate),
+              };
+            });
+            setDeals(mapped);
+          }
+        })
+        .catch(() => {/* deals stay empty */});
+    });
+
+    // ── 2. One Nova call for trends + brand radar (10s timeout) ────────────
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    fetch('/api/nova', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        prompt: `Generate a luxury fashion market intelligence report for the Finesse platform. Include:
+
+1. BUYING TRENDS (6 categories): For each, give category name, week-over-week percentage change, the top brand driving it, and a 1-sentence sourcing insight. Format each line as:
+Category: +XX% | Top: BrandName | Insight text here
+
+2. BRAND RADAR (8 brands): For each, give brand name, tier (Premium/Contemporary/Mid/Factory), estimated margin percentage, and a sourcing opportunity note. Format each line as:
+BrandName | Tier | Margin% | Opportunity note here
+
+Focus on what's actually moving in luxury streetwear, handbags, footwear, fragrance, and menswear right now.`,
+        system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle group-buying platform. Provide sharp, structured market intelligence. Be specific about brand names, percentages, and actionable opportunities. Always follow the exact format requested.',
+      }),
+    })
+      .then((res) => res.json())
+      .then((data: { text?: string }) => {
+        clearTimeout(timeout);
+        if (!data.text) return;
+
+        const text = data.text;
+
+        // Split on the BRAND RADAR header to separate the two sections
+        const splitIdx = text.search(/brand radar|BRAND RADAR/i);
+        const trendsSection = splitIdx > 0 ? text.slice(0, splitIdx) : text;
+        const brandsSection = splitIdx > 0 ? text.slice(splitIdx) : '';
+
+        const parsedTrends = parseTrendsFromNova(trendsSection);
+        if (parsedTrends) setTrends(parsedTrends);
+
+        const parsedBrands = parseBrandsFromNova(brandsSection || text);
+        if (parsedBrands) setBrands(parsedBrands);
+      })
+      .catch(() => {
+        // Nova failed — fallbacks already set as initial state
+      })
+      .finally(() => {
+        clearTimeout(timeout);
+        setTrendsLoading(false);
+        setBrandsLoading(false);
+      });
+
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
 
   const TABS = [
     { id: 'pipeline' as const, label: 'Deal Pipeline' },
@@ -507,7 +653,7 @@ export default function EmbassyPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <DealPipeline />
+              <DealPipeline deals={deals} />
             </motion.div>
           )}
           {tab === 'trends' && (
@@ -516,7 +662,7 @@ export default function EmbassyPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BuyingTrends />
+              <BuyingTrends trends={trends} trendsLoading={trendsLoading} />
             </motion.div>
           )}
           {tab === 'radar' && (
@@ -525,7 +671,7 @@ export default function EmbassyPage() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BrandRadar />
+              <BrandRadar brands={brands} brandsLoading={brandsLoading} />
             </motion.div>
           )}
         </AnimatePresence>

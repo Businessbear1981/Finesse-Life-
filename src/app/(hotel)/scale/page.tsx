@@ -22,88 +22,7 @@ interface Deal {
 
 type FilterTab = 'all' | 'live' | 'closing' | 'premium' | 'budget';
 
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-
-const MOCK_DEALS: Deal[] = [
-  {
-    id: '1',
-    brand: 'Jacquemus',
-    item: 'Le Chiquito Bag — Sand',
-    retail_cents: 65000,
-    members_cents: 42000,
-    category: 'Bags',
-    tier: 'premium',
-    goal: 25,
-    joined: 19,
-    closes_in_hours: 14,
-    image: null,
-  },
-  {
-    id: '2',
-    brand: 'Amina Muaddi',
-    item: 'Gilda Mule — Black',
-    retail_cents: 75000,
-    members_cents: 51000,
-    category: 'Shoes',
-    tier: 'premium',
-    goal: 20,
-    joined: 20,
-    closes_in_hours: 0,
-    image: null,
-  },
-  {
-    id: '3',
-    brand: 'Fashion Nova',
-    item: 'Curve Power Blazer Set',
-    retail_cents: 8900,
-    members_cents: 5200,
-    category: 'Clothes',
-    tier: 'mid',
-    goal: 100,
-    joined: 67,
-    closes_in_hours: 36,
-    image: null,
-  },
-  {
-    id: '4',
-    brand: 'Toteme',
-    item: 'Scarf Coat — Camel',
-    retail_cents: 89000,
-    members_cents: 49000,
-    category: 'Outerwear',
-    tier: 'premium',
-    goal: 15,
-    joined: 8,
-    closes_in_hours: 72,
-    image: null,
-  },
-  {
-    id: '5',
-    brand: 'Shein',
-    item: 'Minimalist Midi Set x3',
-    retail_cents: 4500,
-    members_cents: 2800,
-    category: 'Clothes',
-    tier: 'budget',
-    goal: 500,
-    joined: 412,
-    closes_in_hours: 8,
-    image: null,
-  },
-  {
-    id: '6',
-    brand: 'Cult Gaia',
-    item: 'Ark Bag — Natural',
-    retail_cents: 39800,
-    members_cents: 26000,
-    category: 'Bags',
-    tier: 'contemporary',
-    goal: 30,
-    joined: 11,
-    closes_in_hours: 48,
-    image: null,
-  },
-];
+// ─── No mock data — real data only from scale_deals table ────────────────────
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -557,13 +476,14 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
 export default function Scale() {
   const [edition, setEdition]       = useState<'finesse' | 'carpe_diem'>('finesse');
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
-  const [deals, setDeals]           = useState<Deal[]>(MOCK_DEALS);
+  const [deals, setDeals]           = useState<Deal[]>([]);
+  const [dealsLoaded, setDealsLoaded] = useState(false);
 
   useEffect(() => {
     const g = localStorage.getItem('finesse_gender');
     setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
 
-    // Load real deals from Supabase; fall back to MOCK_DEALS on error
+    // Load real deals from Supabase — no mock fallback
     import('@/lib/supabase/client').then(({ createClient }) => {
       const sb = createClient();
       sb.from('scale_deals')
@@ -571,32 +491,34 @@ export default function Scale() {
         .eq('status', 'open')
         .order('created_at', { ascending: false })
         .then(({ data }) => {
-          if (!data || data.length === 0) return;
-          const now = Date.now();
-          const mapped: Deal[] = data.map((d) => {
-            const deadlineMs = d.deadline ? new Date(d.deadline).getTime() : now + 72 * 3600000;
-            const hoursLeft  = Math.max(0, Math.round((deadlineMs - now) / 3600000));
-            const pct        = d.current_count / Math.max(d.goal_count, 1);
-            const tier: Deal['tier'] =
-              d.original_price_cents >= 100000 ? 'premium' :
-              d.original_price_cents >= 30000  ? 'contemporary' :
-              d.original_price_cents >= 5000   ? 'mid' : 'budget';
-            return {
-              id:             d.id,
-              brand:          d.brand,
-              item:           d.title,
-              retail_cents:   d.original_price_cents,
-              members_cents:  d.group_price_cents,
-              category:       d.category ?? 'accessories',
-              tier,
-              goal:           d.goal_count,
-              joined:         d.current_count,
-              closes_in_hours: hoursLeft,
-              image:          d.image_url ?? null,
-            };
-          });
-          setDeals(mapped);
-        });
+          if (data && data.length > 0) {
+            const now = Date.now();
+            const mapped: Deal[] = data.map((d) => {
+              const deadlineMs = d.deadline ? new Date(d.deadline).getTime() : now + 72 * 3600000;
+              const hoursLeft  = Math.max(0, Math.round((deadlineMs - now) / 3600000));
+              const tier: Deal['tier'] =
+                d.original_price_cents >= 100000 ? 'premium' :
+                d.original_price_cents >= 30000  ? 'contemporary' :
+                d.original_price_cents >= 5000   ? 'mid' : 'budget';
+              return {
+                id:             d.id,
+                brand:          d.brand,
+                item:           d.title,
+                retail_cents:   d.original_price_cents,
+                members_cents:  d.group_price_cents,
+                category:       d.category ?? 'Accessories',
+                tier,
+                goal:           d.goal_count,
+                joined:         d.current_count,
+                closes_in_hours: hoursLeft,
+                image:          d.image_url ?? null,
+              };
+            });
+            setDeals(mapped);
+          }
+          setDealsLoaded(true);
+        })
+        .catch(() => setDealsLoaded(true));
     });
   }, []);
 
@@ -784,7 +706,7 @@ export default function Scale() {
         }}
       >
         <AnimatePresence mode="popLayout">
-          {filtered.length === 0 ? (
+          {dealsLoaded && filtered.length === 0 ? (
             <motion.p
               key="empty"
               initial={{ opacity: 0 }}
@@ -799,7 +721,9 @@ export default function Scale() {
                 paddingTop: '40px',
               }}
             >
-              No deals match this filter right now.
+              {deals.length === 0
+                ? 'No active group buys. Check back soon.'
+                : 'No deals match this filter right now.'}
             </motion.p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

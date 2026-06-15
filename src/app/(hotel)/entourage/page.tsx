@@ -29,15 +29,6 @@ interface SearchResult {
   city?: string;
 }
 
-// ── Mock data ────────────────────────────────────────────────────────────────
-
-const MOCK_CREW: EntourageMember[] = [
-  { id: '1', display_name: 'Amara K.', username: 'amarak', vibe: 'electric', city: 'Atlanta', avatar_url: null, backstage_unlocked: true, connected_since: 'Apr 2026' },
-  { id: '2', display_name: 'Marcus V.', username: 'marcusv', vibe: 'luxe', city: 'Miami', avatar_url: null, backstage_unlocked: false, connected_since: 'May 2026' },
-  { id: '3', display_name: 'Simone R.', username: 'simoner', vibe: 'mysterious', city: 'NYC', avatar_url: null, backstage_unlocked: true, connected_since: 'May 2026' },
-  { id: '4', display_name: 'Dev T.', username: 'devt', vibe: 'playful', city: 'LA', avatar_url: null, backstage_unlocked: false, connected_since: 'Jun 2026' },
-];
-
 const VIBE_CHIPS = ['electric', 'luxe', 'mysterious', 'playful', 'intimate', 'untamed'];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -139,17 +130,79 @@ function MemberCard({ member, edition }: { member: EntourageMember; edition: Edi
 // ── Tab: My Crew ─────────────────────────────────────────────────────────────
 
 function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void }) {
-  const crew = MOCK_CREW;
+  const [crew, setCrew] = useState<EntourageMember[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCrew() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentId = user?.id ?? '';
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, city, vibe_tags')
+          .neq('id', currentId)
+          .limit(20);
+        if (data) {
+          const mapped: EntourageMember[] = data.map((p: {
+            id: string;
+            display_name: string | null;
+            avatar_url: string | null;
+            city: string | null;
+            vibe_tags: string[] | null;
+          }) => ({
+            id: p.id,
+            display_name: p.display_name ?? 'Member',
+            username: (p.display_name ?? 'member').toLowerCase().replace(/\s+/g, ''),
+            vibe: p.vibe_tags?.[0] ?? 'luxe',
+            city: p.city ?? '',
+            avatar_url: p.avatar_url,
+            backstage_unlocked: false,
+            connected_since: '',
+          }));
+          setCrew(mapped);
+        }
+      } catch {
+        // Supabase error — show empty state
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCrew();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="flex items-center gap-3 p-4 border border-cream/8 bg-ink/50"
+            style={{ opacity: 0.4 - i * 0.1 }}
+          >
+            <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ background: 'rgba(201,169,97,0.08)', animation: 'pulse 1.6s infinite' }} />
+            <div className="flex-1">
+              <div className="h-3 w-28 rounded mb-2" style={{ background: 'rgba(244,232,208,0.1)', animation: 'pulse 1.6s infinite' }} />
+              <div className="h-2 w-16 rounded" style={{ background: 'rgba(244,232,208,0.06)', animation: 'pulse 1.6s infinite' }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <p className="font-label text-[9px] tracking-[0.35em] text-brass/50 uppercase mb-4">
-        {crew.length} in your entourage
-      </p>
+      {crew.length > 0 && (
+        <p className="font-label text-[9px] tracking-[0.35em] text-brass/50 uppercase mb-4">
+          {crew.length} in your entourage
+        </p>
+      )}
 
       {crew.length === 0 ? (
         <div className="text-center py-12">
-          <p className="font-display text-lg text-cream/30 italic mb-3">Your entourage is empty.</p>
+          <p className="font-display text-lg text-cream/30 italic mb-3">No crew yet — invite friends to build your entourage.</p>
           <p className="font-body text-sm text-cream/20 mb-6">Go find your people.</p>
           <button
             onClick={goToFind}
