@@ -484,41 +484,41 @@ export default function Scale() {
     setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
 
     // Load real deals from Supabase — no mock fallback
-    import('@/lib/supabase/client').then(({ createClient }) => {
-      const sb = createClient();
-      sb.from('scale_deals')
-        .select('id, title, brand, description, image_url, original_price_cents, group_price_cents, goal_count, current_count, category, deadline, status')
-        .eq('status', 'open')
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            const now = Date.now();
-            const mapped: Deal[] = data.map((d) => {
-              const deadlineMs = d.deadline ? new Date(d.deadline).getTime() : now + 72 * 3600000;
-              const hoursLeft  = Math.max(0, Math.round((deadlineMs - now) / 3600000));
-              const tier: Deal['tier'] =
-                d.original_price_cents >= 100000 ? 'premium' :
-                d.original_price_cents >= 30000  ? 'contemporary' :
-                d.original_price_cents >= 5000   ? 'mid' : 'budget';
-              return {
-                id:             d.id,
-                brand:          d.brand,
-                item:           d.title,
-                retail_cents:   d.original_price_cents,
-                members_cents:  d.group_price_cents,
-                category:       d.category ?? 'Accessories',
-                tier,
-                goal:           d.goal_count,
-                joined:         d.current_count,
-                closes_in_hours: hoursLeft,
-                image:          d.image_url ?? null,
-              };
-            });
-            setDeals(mapped);
-          }
-          setDealsLoaded(true);
-        })
-        .catch(() => setDealsLoaded(true));
+    import('@/lib/supabase/client').then(async ({ createClient }) => {
+      try {
+        const sb = createClient();
+        const { data } = await sb.from('scale_deals')
+          .select('id, title, brand, description, image_url, original_price_cents, group_price_cents, goal_count, current_count, category, deadline, status')
+          .eq('status', 'open')
+          .order('created_at', { ascending: false });
+        if (data && data.length > 0) {
+          const now = Date.now();
+          const mapped: Deal[] = data.map((d) => {
+            const deadlineMs = d.deadline ? new Date(d.deadline).getTime() : now + 72 * 3600000;
+            const hoursLeft  = Math.max(0, Math.round((deadlineMs - now) / 3600000));
+            const tier: Deal['tier'] =
+              d.original_price_cents >= 100000 ? 'premium' :
+              d.original_price_cents >= 30000  ? 'contemporary' :
+              d.original_price_cents >= 5000   ? 'mid' : 'budget';
+            return {
+              id:             d.id,
+              brand:          d.brand,
+              item:           d.title,
+              retail_cents:   d.original_price_cents,
+              members_cents:  d.group_price_cents,
+              category:       d.category ?? 'Accessories',
+              tier,
+              goal:           d.goal_count,
+              joined:         d.current_count,
+              closes_in_hours: hoursLeft,
+              image:          d.image_url ?? null,
+            };
+          });
+          setDeals(mapped);
+        }
+      } catch { /* deals stay empty */ } finally {
+        setDealsLoaded(true);
+      }
     });
   }, []);
 

@@ -5,6 +5,7 @@ import {motion, AnimatePresence, useAnimation} from 'framer-motion';
 import Link from 'next/link';
 import {createClient} from '@/lib/supabase/client';
 import {Crown, Edit3, Bell} from 'lucide-react';
+import {NovaIntelligencePanel} from '@/components/nova-intelligence-panel';
 
 /* ─── Types ─── */
 interface Profile {
@@ -562,8 +563,13 @@ export default function LobbyPage() {
           <PenthouseElevator />
         </motion.div>
 
+        {/* ── Nova Intelligence Panel ── */}
+        <motion.div initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.50}}>
+          <NovaIntelligencePanel />
+        </motion.div>
+
         {/* ── Nova at the Desk ── */}
-        <motion.div initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.55}}>
+        <motion.div initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.60}}>
           <div className="border p-4"
             style={{borderColor: 'rgba(201,169,97,0.08)', background: 'rgba(10,4,6,0.55)'}}>
             <div className="flex items-center gap-2 mb-3">

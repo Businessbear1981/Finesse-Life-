@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 
@@ -12,13 +12,13 @@ interface Cable {
   connected: boolean;
 }
 
-const CABLES: Cable[] = [
-  { key: "instagram", label: "Instagram", icon: "◎", color: "#E1306C", connected: false },
-  { key: "twitter", label: "X / Twitter", icon: "✕", color: "#F4E8D0", connected: false },
-  { key: "tiktok", label: "TikTok", icon: "♪", color: "#69C9D0", connected: false },
-  { key: "snapchat", label: "Snapchat", icon: "👻", color: "#FFFC00", connected: false },
-  { key: "pinterest", label: "Pinterest", icon: "📌", color: "#E60023", connected: false },
-  { key: "youtube", label: "YouTube", icon: "▷", color: "#FF0000", connected: false },
+const CABLE_DEFS: Omit<Cable, 'connected'>[] = [
+  { key: "instagram", label: "Instagram", icon: "◎", color: "#E1306C" },
+  { key: "twitter", label: "X / Twitter", icon: "✕", color: "#F4E8D0" },
+  { key: "tiktok", label: "TikTok", icon: "♪", color: "#69C9D0" },
+  { key: "snapchat", label: "Snapchat", icon: "👻", color: "#FFFC00" },
+  { key: "pinterest", label: "Pinterest", icon: "📌", color: "#E60023" },
+  { key: "youtube", label: "YouTube", icon: "▷", color: "#FF0000" },
 ];
 
 interface MessageEntry {
@@ -29,41 +29,121 @@ interface MessageEntry {
   status: "sent" | "draft" | "failed";
 }
 
-const DEMO_MESSAGES: MessageEntry[] = [
-  { id: "1", platform: "instagram", text: "New season starts tonight.", timestamp: "11:42 PM", status: "sent" },
-  { id: "2", platform: "twitter", text: "The long night awaits.", timestamp: "11:38 PM", status: "sent" },
-  { id: "3", platform: "tiktok", text: "Behind the scenes at the lounge.", timestamp: "10:15 PM", status: "draft" },
-];
-
 export default function Switchboard() {
-  const [cables, setCables] = useState(CABLES);
+  const [cables, setCables] = useState<Cable[]>(
+    CABLE_DEFS.map((d) => ({ ...d, connected: false }))
+  );
   const [compose, setCompose] = useState("");
-  const [messages, setMessages] = useState(DEMO_MESSAGES);
+  const [messages, setMessages] = useState<MessageEntry[]>([]);
   const [sending, setSending] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingAccounts, setLoadingAccounts] = useState(true);
 
   const connectedPlatforms = cables.filter((c) => c.connected);
   const hasConnected = connectedPlatforms.length > 0;
 
-  const toggleCable = (key: string) => {
-    setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: !c.connected } : c)));
-  };
+  // Load connected accounts from DB on mount
+  useEffect(() => {
+    async function loadAccounts() {
+      try {
+        const [accountsRes, broadcastsRes] = await Promise.all([
+          fetch('/api/switchboard/accounts'),
+          fetch('/api/switchboard/broadcast'),
+        ]);
+        if (accountsRes.ok) {
+          const { accounts } = await accountsRes.json();
+          if (Array.isArray(accounts) && accounts.length > 0) {
+            const connectedKeys = new Set(
+              accounts.filter((a: { connected: boolean }) => a.connected).map((a: { platform: string }) => a.platform)
+            );
+            setCables(CABLE_DEFS.map((d) => ({ ...d, connected: connectedKeys.has(d.key) })));
+          }
+        }
+        if (broadcastsRes.ok) {
+          const { broadcasts } = await broadcastsRes.json();
+          if (Array.isArray(broadcasts)) {
+            setMessages(broadcasts.map((b: {
+              id: string;
+              platforms: string[];
+              content: string;
+              created_at: string;
+              status: string;
+            }) => ({
+              id: b.id,
+              platform: (b.platforms ?? []).join(', '),
+              text: b.content,
+              timestamp: new Date(b.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+              status: (b.status as MessageEntry['status']) ?? 'sent',
+            })));
+          }
+        }
+      } catch {
+        // silently use defaults
+      } finally {
+        setLoadingAccounts(false);
+      }
+    }
+    loadAccounts();
+  }, []);
+
+  const toggleCable = useCallback(async (key: string) => {
+    const cable = cables.find((c) => c.key === key);
+    if (!cable) return;
+    const newConnected = !cable.connected;
+    // Optimistic update
+    setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: newConnected } : c)));
+    try {
+      await fetch('/api/switchboard/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: key, connected: newConnected }),
+      });
+    } catch {
+      // Revert on failure
+      setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: !newConnected } : c)));
+    }
+  }, [cables]);
 
   const broadcast = async () => {
     if (!compose.trim() || !hasConnected || sending) return;
     setSending(true);
 
-    const newMsg: MessageEntry = {
-      id: crypto.randomUUID(),
-      platform: connectedPlatforms.map((c) => c.key).join(", "),
-      text: compose,
-      timestamp: new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }),
-      status: "sent",
-    };
+    const platforms = connectedPlatforms.map((c) => c.key);
+    const text = compose;
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
-    setMessages((prev) => [newMsg, ...prev]);
-    setCompose("");
-    setSending(false);
+    // Optimistic entry
+    const tempId = crypto.randomUUID();
+    const optimistic: MessageEntry = {
+      id: tempId,
+      platform: platforms.join(', '),
+      text,
+      timestamp,
+      status: 'sent',
+    };
+    setMessages((prev) => [optimistic, ...prev]);
+    setCompose('');
+
+    try {
+      const res = await fetch('/api/switchboard/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text, platforms }),
+      });
+      if (res.ok) {
+        const { id, status } = await res.json();
+        // Replace temp entry with real one
+        setMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, id, status } : m))
+        );
+      } else {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)));
+      }
+    } catch {
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)));
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -102,9 +182,10 @@ export default function Switchboard() {
               <motion.button
                 key={cable.key}
                 initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+                animate={{ opacity: loadingAccounts ? 0.4 : 1, y: 0 }}
                 transition={{ delay: 0.3 + i * 0.05 }}
                 onClick={() => toggleCable(cable.key)}
+                disabled={loadingAccounts}
                 className={`flex flex-col items-center gap-2 p-4 border transition-all duration-500 ${
                   cable.connected ? "border-lamp/50 bg-lamp/5" : "border-cream/8 bg-ink/40 hover:border-cream/20"
                 }`}
@@ -173,7 +254,9 @@ export default function Switchboard() {
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.3 }}
                 className="overflow-hidden space-y-3"
               >
-                {messages.map((msg) => (
+                {messages.length === 0 ? (
+                  <p className="font-body text-sm text-cream/20 italic text-center py-6">no broadcasts yet</p>
+                ) : messages.map((msg) => (
                   <div key={msg.id} className="flex items-start gap-4 px-4 py-3 border border-cream/5 bg-ink/40">
                     <span className="font-mono text-[10px] text-cream/20 whitespace-nowrap mt-0.5">{msg.timestamp}</span>
                     <div className="flex-1 min-w-0">

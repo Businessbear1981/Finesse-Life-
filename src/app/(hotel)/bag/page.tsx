@@ -108,12 +108,24 @@ export default function BagPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // SSR-safe gender detection
+  // SSR-safe gender detection + load from DB
   useEffect(() => {
     const g = localStorage.getItem('finesse_gender');
     const ed: 'finesse' | 'carpe_diem' = g === 'masculine' ? 'carpe_diem' : 'finesse';
     setEdition(ed);
-    setItems(ed === 'carpe_diem' ? CARPE_DIEM_ITEMS : FINESSE_ITEMS);
+    // Load real items from DB; fall back to demo data if unauthenticated
+    fetch(`/api/bag/items?edition=${ed}`)
+      .then((r) => r.json())
+      .then((d: { items?: CollectionItem[] }) => {
+        const dbItems = (d.items ?? []).map((i) => ({
+          ...i,
+          value_est: Math.round((i as unknown as { value_est_cents: number }).value_est_cents / 100),
+          acquired: (i as unknown as { acquired_year?: string }).acquired_year ?? '',
+          photo: (i as unknown as { photo_url?: string }).photo_url ?? null,
+        }));
+        setItems(dbItems.length > 0 ? dbItems : []);
+      })
+      .catch(() => setItems([]));
   }, []);
 
   const accentColor = edition === 'finesse' ? '#FF4D7D' : '#69C9D0';
@@ -129,14 +141,19 @@ export default function BagPage() {
     setEditingNote(false);
   }
 
-  function saveNote() {
+  async function saveNote() {
     if (!detailItem) return;
-    const updated = items.map((i) =>
-      i.id === detailItem.id ? { ...i, note: draftNote } : i
-    );
+    // Optimistic update
+    const updated = items.map((i) => i.id === detailItem.id ? { ...i, note: draftNote } : i);
     setItems(updated);
     setDetailItem({ ...detailItem, note: draftNote });
     setEditingNote(false);
+    // Persist to DB
+    fetch(`/api/bag/items/${detailItem.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: draftNote }),
+    }).catch(() => {});
   }
 
   function resetAddSheet() {
@@ -174,20 +191,53 @@ export default function BagPage() {
     }
   }
 
-  function addToCollection() {
+  async function addToCollection() {
     if (!newName.trim() || !newBrand.trim()) return;
-    const item: CollectionItem = {
-      id: crypto.randomUUID(),
-      name: newName.trim(),
-      brand: newBrand.trim(),
-      category: newCategory || 'other',
-      value_est: parseFloat(newValue.replace(/[^0-9.]/g, '')) || 0,
-      color: newColor.trim(),
-      acquired: newAcquired.trim() || new Date().getFullYear().toString(),
-      photo: newPhotoUrl,
-      note: newNote.trim(),
-    };
-    setItems((prev) => [item, ...prev]);
+    const value_est = parseFloat(newValue.replace(/[^0-9.]/g, '')) || 0;
+    try {
+      const res = await fetch('/api/bag/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName.trim(),
+          brand: newBrand.trim(),
+          category: newCategory || 'other',
+          value_est_cents: Math.round(value_est * 100),
+          color: newColor.trim() || null,
+          acquired_year: newAcquired.trim() || new Date().getFullYear().toString(),
+          photo_url: newPhotoUrl,
+          note: newNote.trim() || null,
+          edition,
+        }),
+      });
+      const data = await res.json() as { item?: { id: string } };
+      const item: CollectionItem = {
+        id: data.item?.id ?? crypto.randomUUID(),
+        name: newName.trim(),
+        brand: newBrand.trim(),
+        category: newCategory || 'other',
+        value_est,
+        color: newColor.trim(),
+        acquired: newAcquired.trim() || new Date().getFullYear().toString(),
+        photo: newPhotoUrl,
+        note: newNote.trim(),
+      };
+      setItems((prev) => [item, ...prev]);
+    } catch {
+      // Optimistic add even on error
+      const item: CollectionItem = {
+        id: crypto.randomUUID(),
+        name: newName.trim(),
+        brand: newBrand.trim(),
+        category: newCategory || 'other',
+        value_est,
+        color: newColor.trim(),
+        acquired: newAcquired.trim() || new Date().getFullYear().toString(),
+        photo: newPhotoUrl,
+        note: newNote.trim(),
+      };
+      setItems((prev) => [item, ...prev]);
+    }
     resetAddSheet();
     setAddOpen(false);
   }

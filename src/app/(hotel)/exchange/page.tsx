@@ -282,6 +282,103 @@ function OfferModal({
   );
 }
 
+// ── Market Intelligence Banner ────────────────────────────────────────────────
+
+interface MarketSignal {
+  category: string;
+  demand_score: number;
+  price_trend: 'rising' | 'stable' | 'falling';
+}
+
+const TREND_ARROW: Record<MarketSignal['price_trend'], string> = {
+  rising: '↑',
+  stable: '→',
+  falling: '↓',
+};
+
+const TREND_COLOR: Record<MarketSignal['price_trend'], string> = {
+  rising: '#A8D5A2',
+  stable: '#C9A961',
+  falling: '#F4A07A',
+};
+
+function MarketIntelligenceBanner() {
+  const [signals, setSignals] = useState<MarketSignal[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/intelligence/market')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((json) => {
+        const top3: MarketSignal[] = (json.signals ?? []).slice(0, 3);
+        setSignals(top3);
+      })
+      .catch(() => {
+        // silent fallback — nothing shown
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (!loading && signals.length === 0) return null;
+
+  return (
+    <div className="border border-cream/8 bg-ink/30 px-4 py-3 mb-6">
+      <p className="font-label text-[7px] tracking-[0.3em] uppercase text-brass/50 mb-3">
+        MARKET INTELLIGENCE
+      </p>
+      {loading ? (
+        <div className="flex gap-4">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="flex-1 h-8 animate-pulse"
+              style={{ background: 'rgba(244,232,208,0.04)' }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-4 flex-wrap">
+          {signals.map((s) => {
+            const trendColor = TREND_COLOR[s.price_trend];
+            return (
+              <div key={s.category} className="flex-1 min-w-[100px]">
+                <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/50 mb-1.5 truncate">
+                  {s.category}
+                </p>
+                {/* Demand bar */}
+                <div
+                  className="w-full h-0.5 mb-1"
+                  style={{ background: 'rgba(244,232,208,0.06)' }}
+                >
+                  <div
+                    className="h-full"
+                    style={{
+                      width: `${s.demand_score}%`,
+                      background: 'rgba(201,169,97,0.6)',
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[8px]" style={{ color: 'rgba(244,232,208,0.3)' }}>
+                    {s.demand_score}/100
+                  </span>
+                  <span
+                    className="font-label text-[10px]"
+                    style={{ color: trendColor }}
+                    title={s.price_trend}
+                  >
+                    {TREND_ARROW[s.price_trend]}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Browse Tab ────────────────────────────────────────────────────────────────
 
 function BrowseTab({ accent }: { accent: string }) {
@@ -828,6 +925,11 @@ export default function ExchangePage() {
           </p>
         </motion.div>
       </header>
+
+      {/* Market Intelligence Banner */}
+      <div className="max-w-5xl mx-auto px-4 relative z-10">
+        <MarketIntelligenceBanner />
+      </div>
 
       {/* Tabs */}
       <div className="max-w-5xl mx-auto px-4 mb-8 relative z-10">

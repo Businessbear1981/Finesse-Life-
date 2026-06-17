@@ -7,6 +7,16 @@ import {createClient} from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface BehavioralProfile {
+  user_id: string;
+  category_affinities: Record<string, number>;
+  brand_affinities: Record<string, number>;
+  price_range_preference: {min_cents: number; max_cents: number};
+  buying_velocity: 'low' | 'medium' | 'high';
+  style_signals: string[];
+  last_updated: string;
+}
+
 type Edition = 'finesse' | 'carpe_diem';
 type PageState = 'connect' | 'analyzing' | 'profile';
 
@@ -184,6 +194,315 @@ function SectionLabel({children}: {children: React.ReactNode}) {
   );
 }
 
+// ─── Style Intelligence Card ──────────────────────────────────────────────────
+
+const GREEN = '#00FF88';
+const GOLD = '#E8C87A';
+
+function VelocityBadge({velocity}: {velocity: BehavioralProfile['buying_velocity']}) {
+  const map = {
+    high: {label: 'HIGH', color: GREEN, bg: `${GREEN}12`},
+    medium: {label: 'MEDIUM', color: GOLD, bg: `${GOLD}12`},
+    low: {label: 'LOW', color: 'rgba(244,232,208,0.25)', bg: 'rgba(244,232,208,0.04)'},
+  };
+  const {label, color, bg} = map[velocity];
+  return (
+    <span
+      style={{
+        fontFamily: 'var(--font-label)',
+        fontSize: '8px',
+        letterSpacing: '0.35em',
+        textTransform: 'uppercase',
+        color,
+        background: bg,
+        border: `1px solid ${color}44`,
+        padding: '4px 10px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+      }}
+    >
+      <span
+        style={{
+          width: '5px',
+          height: '5px',
+          borderRadius: '50%',
+          background: color,
+          boxShadow: velocity !== 'low' ? `0 0 6px ${color}` : 'none',
+          flexShrink: 0,
+        }}
+      />
+      {label}
+    </span>
+  );
+}
+
+function AffinityChip({
+  label,
+  score,
+  accentColor,
+}: {
+  label: string;
+  score: number;
+  accentColor: string;
+}) {
+  return (
+    <div
+      style={{
+        border: `1px solid ${accentColor}28`,
+        background: `${accentColor}06`,
+        padding: '8px 12px',
+        minWidth: '80px',
+        flex: '0 0 auto',
+      }}
+    >
+      <p
+        style={{
+          fontFamily: 'var(--font-label)',
+          fontSize: '8px',
+          letterSpacing: '0.2em',
+          textTransform: 'uppercase',
+          color: 'rgba(244,232,208,0.7)',
+          marginBottom: '6px',
+          margin: '0 0 6px',
+        }}
+      >
+        {label}
+      </p>
+      {/* Thin affinity bar */}
+      <div
+        style={{
+          height: '2px',
+          background: 'rgba(244,232,208,0.06)',
+          borderRadius: '1px',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${Math.round(score * 100)}%`,
+            background: accentColor,
+            borderRadius: '1px',
+            transition: 'width 0.8s ease',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+interface StyleIntelligenceCardProps {
+  profile: BehavioralProfile;
+  signalCount: number;
+}
+
+function StyleIntelligenceCard({profile, signalCount}: StyleIntelligenceCardProps) {
+  const hasData =
+    Object.keys(profile.category_affinities).length > 0 ||
+    Object.keys(profile.brand_affinities).length > 0 ||
+    profile.style_signals.length > 0;
+
+  const topCategories = Object.entries(profile.category_affinities).slice(0, 3);
+  const topBrands = Object.entries(profile.brand_affinities).slice(0, 3);
+  const priceMin = profile.price_range_preference.min_cents > 0
+    ? `$${Math.round(profile.price_range_preference.min_cents / 100).toLocaleString()}`
+    : null;
+  const priceMax = profile.price_range_preference.max_cents > 0
+    ? `$${Math.round(profile.price_range_preference.max_cents / 100).toLocaleString()}`
+    : null;
+  const styleSignals = profile.style_signals.slice(0, 8);
+
+  return (
+    <motion.div
+      initial={{opacity: 0, y: 16}}
+      animate={{opacity: 1, y: 0}}
+      transition={{duration: 0.5, delay: 0.1}}
+      style={{
+        border: `1px solid ${GOLD}28`,
+        background: `${GOLD}04`,
+        padding: '22px',
+        marginBottom: '28px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      {/* Section header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '20px',
+        }}
+      >
+        <p
+          style={{
+            fontFamily: 'var(--font-label)',
+            fontSize: '8px',
+            letterSpacing: '0.4em',
+            textTransform: 'uppercase',
+            color: `${GOLD}88`,
+            margin: 0,
+          }}
+        >
+          STYLE INTELLIGENCE · LIVE
+        </p>
+        <VelocityBadge velocity={profile.buying_velocity} />
+      </div>
+
+      {/* Divider */}
+      <div style={{height: '1px', background: `${GOLD}18`, marginBottom: '20px'}} />
+
+      {!hasData ? (
+        /* Empty state */
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontStyle: 'italic',
+            fontSize: '13px',
+            color: 'rgba(244,232,208,0.35)',
+            lineHeight: 1.7,
+            margin: 0,
+          }}
+        >
+          Your intelligence profile is empty. Every interaction — browsing, adding to registry, funding your vault — teaches Nova about your taste.
+        </p>
+      ) : (
+        <div style={{display: 'flex', flexDirection: 'column', gap: '20px'}}>
+
+          {/* Top Categories */}
+          {topCategories.length > 0 && (
+            <div>
+              <p
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '7px',
+                  letterSpacing: '0.35em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(244,232,208,0.3)',
+                  marginBottom: '10px',
+                }}
+              >
+                TOP CATEGORIES
+              </p>
+              <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                {topCategories.map(([cat, score]) => (
+                  <AffinityChip key={cat} label={cat} score={score} accentColor={GOLD} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Top Brands */}
+          {topBrands.length > 0 && (
+            <div>
+              <p
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '7px',
+                  letterSpacing: '0.35em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(244,232,208,0.3)',
+                  marginBottom: '10px',
+                }}
+              >
+                BRAND AFFINITIES
+              </p>
+              <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                {topBrands.map(([brand, score]) => (
+                  <AffinityChip key={brand} label={brand} score={score} accentColor={GREEN} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Price Range */}
+          {priceMin && priceMax && (
+            <div>
+              <p
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '7px',
+                  letterSpacing: '0.35em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(244,232,208,0.3)',
+                  marginBottom: '8px',
+                }}
+              >
+                PRICE RANGE
+              </p>
+              <p
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontStyle: 'italic',
+                  fontSize: '18px',
+                  color: CREAM,
+                  letterSpacing: '0.04em',
+                  margin: 0,
+                }}
+              >
+                {priceMin} — {priceMax}
+              </p>
+            </div>
+          )}
+
+          {/* Style Signals tag cloud */}
+          {styleSignals.length > 0 && (
+            <div>
+              <p
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '7px',
+                  letterSpacing: '0.35em',
+                  textTransform: 'uppercase',
+                  color: 'rgba(244,232,208,0.3)',
+                  marginBottom: '10px',
+                }}
+              >
+                STYLE SIGNALS
+              </p>
+              <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px'}}>
+                {styleSignals.map((tag) => (
+                  <span
+                    key={tag}
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontStyle: 'italic',
+                      fontSize: '11px',
+                      color: 'rgba(244,232,208,0.55)',
+                      border: `1px solid ${GOLD}22`,
+                      background: `${GOLD}05`,
+                      padding: '4px 10px',
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Signal count footer */}
+      <p
+        style={{
+          fontFamily: 'var(--font-label)',
+          fontSize: '7px',
+          letterSpacing: '0.25em',
+          textTransform: 'uppercase',
+          color: 'rgba(244,232,208,0.15)',
+          marginTop: '20px',
+          marginBottom: 0,
+        }}
+      >
+        Built from {signalCount} interaction{signalCount !== 1 ? 's' : ''}
+      </p>
+    </motion.div>
+  );
+}
+
 interface ConnectCardProps {
   title: string;
   subtitle: string;
@@ -325,6 +644,24 @@ export default function NightvisionPage() {
 
   // ── profile result ──
   const [nvProfile, setNvProfile] = useState<NightvisionProfile | null>(null);
+
+  // ── behavioral intelligence ──
+  const [behavioralProfile, setBehavioralProfile] = useState<BehavioralProfile | null>(null);
+  const [signalCount, setSignalCount] = useState(0);
+
+  // ── load behavioral intelligence ──
+  useEffect(() => {
+    if (!userId) return;
+    fetch('/api/nightvision/behavioral')
+      .then((r) => r.json())
+      .then((d: {profile?: BehavioralProfile; signal_count?: number}) => {
+        if (d.profile) {
+          setBehavioralProfile(d.profile);
+          setSignalCount(d.signal_count ?? 0);
+        }
+      })
+      .catch(() => {/* non-critical */});
+  }, [userId]);
 
   // ── load existing profile on mount ──
   useEffect(() => {
@@ -1135,6 +1472,14 @@ export default function NightvisionPage() {
                   CLASSIFIED
                 </span>
               </div>
+
+              {/* Style Intelligence Card — live behavioral profile */}
+              {behavioralProfile && (
+                <StyleIntelligenceCard
+                  profile={behavioralProfile}
+                  signalCount={signalCount}
+                />
+              )}
 
               {/* Style DNA Card */}
               <div

@@ -74,11 +74,80 @@ const QUICK_ACTIONS = [
 
 /* ─── Message Types ─── */
 
+interface ToolCallResult {
+  name: string;
+  result: unknown;
+}
+
 interface Message {
   id: string;
   role: 'concierge' | 'guest' | 'system';
   text: string;
   action?: string;
+  tool_calls?: ToolCallResult[];
+}
+
+/* ─── Tool Result Card ─── */
+
+function ToolResultCard({name, result}: {name: string; result: unknown}) {
+  const data = result as Record<string, unknown>;
+
+  if (name === 'check_vault_balance') {
+    const display = (data.balance_display as string) ?? 'unavailable';
+    return (
+      <div className="border border-brass/20 bg-brass/5 px-3 py-2">
+        <span className="font-label text-[8px] tracking-[0.2em] text-brass/40 uppercase block mb-1">vault balance</span>
+        <span className="font-display text-lg text-brass">{display}</span>
+      </div>
+    );
+  }
+
+  if (name === 'get_recommendations') {
+    const recs = (data.recommendations as Array<{title: string; category: string; price_range: string; why: string}>) ?? [];
+    if (!recs.length) return null;
+    return (
+      <div className="border border-brass/20 bg-brass/5 px-3 py-2">
+        <span className="font-label text-[8px] tracking-[0.2em] text-brass/40 uppercase block mb-2">recommendations</span>
+        <ul className="space-y-1.5">
+          {recs.map((r, i) => (
+            <li key={i} className="flex flex-col gap-0.5">
+              <span className="font-body text-xs text-cream/80">{r.title}</span>
+              <span className="font-mono text-[9px] text-brass/40">{r.price_range} · {r.category}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  if (name === 'get_next_action') {
+    const action = (data.action as string) ?? '';
+    const reason = (data.reason as string) ?? '';
+    const confidence = typeof data.confidence === 'number' ? Math.round(data.confidence * 100) : null;
+    if (!action) return null;
+    return (
+      <div className="border border-brass/20 bg-brass/5 px-3 py-2">
+        <span className="font-label text-[8px] tracking-[0.2em] text-brass/40 uppercase block mb-1">suggested action</span>
+        <span className="font-body text-sm text-cream/80 block">{action.replace(/_/g, ' ')}</span>
+        {reason && <span className="font-body text-xs text-cream/40 italic block mt-0.5">{reason}</span>}
+        {confidence !== null && (
+          <span className="font-mono text-[9px] text-brass/30 mt-1 block">{confidence}% confidence</span>
+        )}
+      </div>
+    );
+  }
+
+  if (name === 'log_intent') {
+    const intent = (data.intent as string) ?? '';
+    if (!data.logged) return null;
+    return (
+      <div className="border border-brass/10 bg-brass/3 px-3 py-1.5">
+        <span className="font-mono text-[9px] text-brass/30">intent logged · {intent}</span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 /* ─── Component ─── */
@@ -101,23 +170,41 @@ export default function ConciergePage() {
   }, [messages]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('finesse_concierge_avatar');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as AvatarConfig;
-        setAvatar(parsed);
-        setSetupStep('done');
-        setMessages([
-          {
-            id: 'welcome-back',
-            role: 'concierge',
-            text: `Welcome back. I'm ${parsed.name}, your concierge. What can I arrange for you tonight?`,
-          },
-        ]);
-      } catch {
-        /* ignore malformed storage */
-      }
-    }
+    // Try profile first (persisted across devices), fall back to localStorage
+    fetch('/api/profile')
+      .then((r) => r.json())
+      .then((d: { nova_persona?: AvatarConfig }) => {
+        const config = d.nova_persona;
+        if (config?.name) {
+          localStorage.setItem('finesse_concierge_avatar', JSON.stringify(config));
+          setAvatar(config);
+          setSetupStep('done');
+          setMessages([{ id: 'welcome-back', role: 'concierge', text: `Welcome back. I'm ${config.name}, your concierge. What can I arrange for you tonight?` }]);
+          return;
+        }
+        // Fall back to localStorage
+        const saved = localStorage.getItem('finesse_concierge_avatar');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved) as AvatarConfig;
+            setAvatar(parsed);
+            setSetupStep('done');
+            setMessages([{ id: 'welcome-back', role: 'concierge', text: `Welcome back. I'm ${parsed.name}, your concierge. What can I arrange for you tonight?` }]);
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => {
+        // Pure localStorage fallback
+        const saved = localStorage.getItem('finesse_concierge_avatar');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved) as AvatarConfig;
+            setAvatar(parsed);
+            setSetupStep('done');
+            setMessages([{ id: 'welcome-back', role: 'concierge', text: `Welcome back. I'm ${parsed.name}, your concierge. What can I arrange for you tonight?` }]);
+          } catch { /* ignore */ }
+        }
+      });
   }, []);
 
   const finishSetup = () => {
@@ -130,6 +217,12 @@ export default function ConciergePage() {
     setAvatar(config);
     setSetupStep('done');
     localStorage.setItem('finesse_concierge_avatar', JSON.stringify(config));
+    // Persist to Supabase profile
+    fetch('/api/profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nova_persona: config }),
+    }).catch(() => {});
     setMessages([
       {
         id: 'welcome',
@@ -159,15 +252,7 @@ export default function ConciergePage() {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    const lower = text.toLowerCase();
-    let actionTag = '';
-    if (lower.includes('car') || lower.includes('ride') || lower.includes('uber')) actionTag = 'car';
-    else if (lower.includes('reserv') || lower.includes('dinner') || lower.includes('restaurant') || lower.includes('table')) actionTag = 'reservation';
-    else if (lower.includes('travel') || lower.includes('flight') || lower.includes('hotel') || lower.includes('trip')) actionTag = 'travel';
-    else if (lower.includes('appoint') || lower.includes('schedule') || lower.includes('book')) actionTag = 'appointment';
-    else if (lower.includes('remind') || lower.includes('alarm') || lower.includes('timer')) actionTag = 'reminder';
-
-    const system = `You are ${avatar?.name || 'Nova'}, a personal AI concierge inside Finesse, a luxury lifestyle app. You are ${avatar?.gender || 'neutral'} with a ${avatar?.voice || 'balanced'} voice and ${avatar?.look || 'professional'} style. You help with: reservations, travel planning, ordering cars, appointments, reminders, shopping, and general lifestyle management. Be concise, warm, and decisive. When a user asks you to do something, confirm you're handling it — don't just acknowledge. Act like a real concierge who gets things done.`;
+    const system = `You are ${avatar?.name || 'Nova'}, a personal AI concierge inside Finesse, a luxury lifestyle app. You are ${avatar?.gender || 'neutral'} with a ${avatar?.voice || 'balanced'} voice and ${avatar?.look || 'professional'} style. You help with: reservations, travel planning, ordering cars, appointments, reminders, shopping, and general lifestyle management. Be concise, warm, and decisive. When a user asks about their vault balance, call check_vault_balance. When asked for recommendations, call get_recommendations. When asked what to do next, call get_next_action. Always log purchase intent with log_intent when the user expresses interest in a specific service. Use real data from tools — never fabricate responses.`;
 
     try {
       const res = await fetch('/api/nova', {
@@ -175,66 +260,23 @@ export default function ConciergePage() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({prompt: text, system}),
       });
-      const data = (await res.json()) as {text?: string};
+      const data = (await res.json()) as {text?: string; tool_calls?: Array<{name: string; result: unknown}>};
       const responseText = data.text || "Consider it handled. I'll have that arranged shortly.";
 
       setMessages((prev) => [
         ...prev,
-        {id: crypto.randomUUID(), role: 'concierge', text: responseText, action: actionTag || undefined},
+        {
+          id: crypto.randomUUID(),
+          role: 'concierge',
+          text: responseText,
+          tool_calls: data.tool_calls && data.tool_calls.length > 0 ? data.tool_calls : undefined,
+        },
       ]);
-
-      if (actionTag) {
-        setTimeout(() => {
-          const confirmations: Record<string, string> = {
-            car: '🚗 Black car request initiated. Checking availability...',
-            reservation: '🍽 Searching available tables and confirming reservation...',
-            travel: '✈ Pulling travel options and pricing...',
-            appointment: '📅 Scheduling appointment and adding to your calendar...',
-            reminder: '⏰ Reminder set.',
-          };
-          setMessages((prev) => [
-            ...prev,
-            {id: crypto.randomUUID(), role: 'system', text: confirmations[actionTag] || ''},
-          ]);
-        }, 800);
-      }
     } catch {
-      const fallbacks: Record<string, string[]> = {
-        car: ['On it. I\'m pulling up a black car to your location now. ETA is about 6 minutes.', 'Car is on the way. Black SUV, 8 minutes out.'],
-        reservation: ['I\'m calling ahead now. I\'ll get you a table — what time works?', 'Checking availability. Any preference on the cuisine?'],
-        travel: ['Let\'s map it out. Where are you thinking, and when?', 'I\'ll pull some options. Flights, hotel, the whole package. Budget range?'],
-        appointment: ['I\'ll get that booked. What kind of appointment and when do you need it?', 'Scheduling now. I\'ll confirm the time and send you a reminder.'],
-        reminder: ['Reminder set. I\'ll make sure you don\'t forget.', 'Got it. I\'ll ping you when the time comes.'],
-        default: [
-          'Noted. I\'m on it — I\'ll have this arranged shortly.',
-          'Consider it handled. Give me a moment to work the details.',
-          'I\'ll take care of that. You\'ll hear from me when it\'s confirmed.',
-          'Already working on it. Anything else while I have you?',
-        ],
-      };
-      const pool = fallbacks[actionTag] || fallbacks.default;
       setMessages((prev) => [
         ...prev,
-        {id: crypto.randomUUID(), role: 'concierge', text: pool[Math.floor(Math.random() * pool.length)], action: actionTag || undefined},
+        {id: crypto.randomUUID(), role: 'concierge', text: "I'm having trouble connecting right now. Try again in a moment."},
       ]);
-
-      if (actionTag) {
-        setTimeout(() => {
-          const confirmations: Record<string, string> = {
-            car: '🚗 Black car request initiated.',
-            reservation: '🍽 Searching available tables...',
-            travel: '✈ Pulling travel options...',
-            appointment: '📅 Scheduling appointment...',
-            reminder: '⏰ Reminder set.',
-          };
-          if (confirmations[actionTag]) {
-            setMessages((prev) => [
-              ...prev,
-              {id: crypto.randomUUID(), role: 'system', text: confirmations[actionTag]},
-            ]);
-          }
-        }, 800);
-      }
     } finally {
       setSending(false);
     }
@@ -473,14 +515,16 @@ export default function ConciergePage() {
                     <span className="font-label text-[9px] tracking-[0.3em] text-brass/50 uppercase">
                       {avatar?.name || 'concierge'}
                     </span>
-                    {msg.action && (
-                      <span className="font-mono text-[8px] text-brass/30 px-1.5 py-0.5 border border-brass/10">
-                        {msg.action}
-                      </span>
-                    )}
                   </div>
                 )}
                 <p className="font-body text-sm text-cream/80 leading-relaxed">{msg.text}</p>
+                {msg.tool_calls && msg.tool_calls.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {msg.tool_calls.map((tc, idx) => (
+                      <ToolResultCard key={idx} name={tc.name} result={tc.result} />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

@@ -4,8 +4,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai/v1';
-const HIGGSFIELD_KEY_ID = '1388eeb1-9dfc-465a-b52a-dd117280e845';
-const HIGGSFIELD_SECRET = '892fa0dc7fea9d01e452296801a1355b759f6d25d06161ef472258e5d083eb81';
+const HIGGSFIELD_KEY_ID = process.env.HIGGSFIELD_API_KEY_ID!;
+const HIGGSFIELD_SECRET = process.env.HIGGSFIELD_API_SECRET!;
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

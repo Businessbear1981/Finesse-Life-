@@ -32,17 +32,7 @@ interface WishItem {
   added: string;
 }
 
-const FEED: FeedEntry[] = [
-  { id: '1', member: 'Amara K.', city: 'ATL', brands: ['Jacquemus', 'Bottega Veneta'], caption: 'Sunday brunch fit', likes: 34 },
-  { id: '2', member: 'Marcus V.', city: 'MIA', brands: ['Loro Piana', 'Common Projects'], caption: 'Nothing loud. Everything right.', likes: 51 },
-  { id: '3', member: 'Simone R.', city: 'NYC', brands: ['The Row', 'Manolo Blahnik'], caption: 'She moves different.', likes: 89 },
-  { id: '4', member: 'Dev T.', city: 'LA', brands: ['Rick Owens', 'Dior Men'], caption: 'Drip or drown.', likes: 42 },
-];
-
-const WISHLIST_INIT: WishItem[] = [
-  { id: '1', brand: 'Bottega Veneta', item: 'Intrecciato Bag', price_est: 3800, added: 'Jun 5' },
-  { id: '2', brand: 'Amina Muaddi', item: 'Gilda Mule', price_est: 750, added: 'May 28' },
-];
+// Feed and wishlist loaded from DB — no hardcoded data
 
 function PhotoPlaceholder() {
   return (
@@ -91,15 +81,12 @@ export default function WardrobePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Feed state
+  const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
-  const [feedLikes, setFeedLikes] = useState<Record<string, number>>(() => {
-    const m: Record<string, number> = {};
-    FEED.forEach((f) => { m[f.id] = f.likes; });
-    return m;
-  });
+  const [feedLikes, setFeedLikes] = useState<Record<string, number>>({});
 
   // Wishlist state
-  const [wishlist, setWishlist] = useState<WishItem[]>(WISHLIST_INIT);
+  const [wishlist, setWishlist] = useState<WishItem[]>([]);
   const [wBrand, setWBrand] = useState('');
   const [wItem, setWItem] = useState('');
   const [wPrice, setWPrice] = useState('');
@@ -116,7 +103,66 @@ export default function WardrobePage() {
     });
   }, []);
 
+  // Load closet looks from DB
+  useEffect(() => {
+    fetch('/api/wardrobe/looks')
+      .then((r) => r.json())
+      .then((d: { looks?: Array<{ id: string; photo_url: string | null; brands: string[]; caption: string }> }) => {
+        setLooks((d.looks ?? []).map((l) => ({ id: l.id, url: l.photo_url, brands: l.brands ?? [], caption: l.caption ?? '' })));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load style feed from DB
+  useEffect(() => {
+    fetch('/api/wardrobe/looks?feed=true')
+      .then((r) => r.json())
+      .then((d: { looks?: Array<{
+        id: string; photo_url: string | null; brands: string[]; caption: string; likes_count: number;
+        profiles?: { display_name?: string; username?: string; city?: string };
+      }> }) => {
+        const feedData = (d.looks ?? []).map((l) => ({
+          id: l.id,
+          member: l.profiles?.display_name ?? l.profiles?.username ?? 'Member',
+          city: l.profiles?.city ?? '—',
+          brands: l.brands ?? [],
+          caption: l.caption ?? '',
+          likes: l.likes_count ?? 0,
+        }));
+        setFeed(feedData);
+        const likesMap: Record<string, number> = {};
+        feedData.forEach((f) => { likesMap[f.id] = f.likes; });
+        setFeedLikes(likesMap);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load wishlist from DB
+  useEffect(() => {
+    fetch('/api/wardrobe/wishlist')
+      .then((r) => r.json())
+      .then((d: { items?: Array<{ id: string; brand: string; item: string; price_est_cents: number; added_label: string }> }) => {
+        setWishlist((d.items ?? []).map((w) => ({
+          id: w.id,
+          brand: w.brand,
+          item: w.item,
+          price_est: Math.round(w.price_est_cents / 100),
+          added: w.added_label,
+        })));
+      })
+      .catch(() => {});
+  }, []);
+
   const accent = edition === 'finesse' ? '#FF4D7D' : '#69C9D0';
+
+  // ── intelligence emit helpers ────────────────────────────────────
+  function emitSignal(kind: string, payload: Record<string, unknown>) {
+    void fetch('/api/intelligence/signal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, payload }),
+    }).catch(() => {});
+  }
 
   // ── upload handlers ──────────────────────────────────────────────
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -140,7 +186,7 @@ export default function WardrobePage() {
   async function handlePost() {
     if (posting) return;
     setPosting(true);
-    let url: string | null = null;
+    let photoUrl: string | null = null;
     if (uploadFile && userId) {
       try {
         const fd = new FormData();
@@ -149,19 +195,24 @@ export default function WardrobePage() {
         fd.append('userId', userId);
         const res = await fetch('/api/upload', { method: 'POST', body: fd });
         const data = await res.json() as { url: string };
-        url = data.url;
+        photoUrl = data.url;
       } catch {
-        // gracefully fall through with no url
+        // fall through with no photo
       }
     }
-    const newLook: Look = {
-      id: Date.now().toString(),
-      url,
-      brands: [...brandTags],
-      caption: caption.slice(0, 120),
-    };
-    setLooks((prev) => [newLook, ...prev]);
-    // reset
+    try {
+      const res = await fetch('/api/wardrobe/looks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) }),
+      });
+      const data = await res.json() as { look?: { id: string } };
+      const newLook: Look = { id: data.look?.id ?? Date.now().toString(), url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) };
+      setLooks((prev) => [newLook, ...prev]);
+    } catch {
+      // Optimistic add
+      setLooks((prev) => [{ id: Date.now().toString(), url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) }, ...prev]);
+    }
     setUploadFile(null);
     setPreviewUrl(null);
     setBrandTags([]);
@@ -177,34 +228,48 @@ export default function WardrobePage() {
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
-        setFeedLikes((l) => ({ ...l, [id]: (l[id] ?? 0) - 1 }));
+        setFeedLikes((l) => ({ ...l, [id]: Math.max(0, (l[id] ?? 0) - 1) }));
       } else {
         next.add(id);
         setFeedLikes((l) => ({ ...l, [id]: (l[id] ?? 0) + 1 }));
       }
       return next;
     });
+    // Persist like to DB
+    fetch(`/api/wardrobe/looks/${id}/like`, { method: 'POST' }).catch(() => {});
   }
 
   // ── wishlist handlers ────────────────────────────────────────────
-  function addWish() {
+  async function addWish() {
     const b = wBrand.trim();
     const it = wItem.trim();
     const p = parseInt(wPrice, 10);
     if (!b || !it || isNaN(p)) return;
     const now = new Date();
     const added = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    setWishlist((prev) => [
-      { id: Date.now().toString(), brand: b, item: it, price_est: p, added },
-      ...prev,
-    ]);
+    try {
+      const res = await fetch('/api/wardrobe/wishlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brand: b, item: it, price_est_cents: Math.round(p * 100), added_label: added }),
+      });
+      const data = await res.json() as { item?: { id: string } };
+      setWishlist((prev) => [{ id: data.item?.id ?? Date.now().toString(), brand: b, item: it, price_est: p, added }, ...prev]);
+    } catch {
+      setWishlist((prev) => [{ id: Date.now().toString(), brand: b, item: it, price_est: p, added }, ...prev]);
+    }
     setWBrand('');
     setWItem('');
     setWPrice('');
   }
 
-  function removeWish(id: string) {
+  async function removeWish(id: string) {
     setWishlist((prev) => prev.filter((w) => w.id !== id));
+    fetch('/api/wardrobe/wishlist', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {});
   }
 
   // ── styles ───────────────────────────────────────────────────────
@@ -292,7 +357,10 @@ export default function WardrobePage() {
           {TABS.map((t) => (
             <button
               key={t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                emitSignal('category_browse', { category: t.id });
+              }}
               style={{
                 flex: 1,
                 padding: '12px 4px',
@@ -434,7 +502,12 @@ export default function WardrobePage() {
               transition={{ duration: 0.35 }}
               style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}
             >
-              {FEED.map((entry) => {
+              {feed.length === 0 && (
+                <p style={{ fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '13px', color: 'rgba(244,232,208,0.2)', textAlign: 'center', padding: '48px 0' }}>
+                  no looks posted yet — be the first.
+                </p>
+              )}
+              {feed.map((entry) => {
                 const liked = likedIds.has(entry.id);
                 const initial = entry.member.charAt(0).toUpperCase();
                 return (

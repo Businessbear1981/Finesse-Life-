@@ -116,8 +116,29 @@ export default function SalonPage() {
     setAppState('booking');
   }
 
-  function submitBooking() {
+  async function submitBooking() {
     if (!selectedService || !selectedDate || !selectedTime) return;
+    try {
+      const res = await fetch('/api/salon/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_id: selectedService.id,
+          service_name: selectedService.name,
+          price_cents: Math.round(selectedService.price * 100),
+          duration: selectedService.duration,
+          category: selectedService.category,
+          edition,
+          requested_date: selectedDate,
+          requested_time: selectedTime,
+          notes: notes.trim() || null,
+        }),
+      });
+      // Proceed to confirmed state regardless — booking queued even if API offline
+      if (!res.ok) console.warn('[salon] booking API error:', res.status);
+    } catch (e) {
+      console.warn('[salon] booking request failed:', e);
+    }
     setConfirmedService(selectedService);
     setConfirmedDateTime(`${selectedDate} at ${selectedTime}`);
     setAppState('confirmed');

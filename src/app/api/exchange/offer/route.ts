@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     // Verify buyer is not the seller
     const { data: listing, error: listingError } = await supabase
       .from('exchange_listings')
-      .select('seller_id, status')
+      .select('seller_id, status, asking_price_cents, category, brand')
       .eq('id', body.listing_id)
       .single();
 
@@ -77,9 +77,9 @@ export async function POST(req: Request) {
       user_id: user.id,
       kind: 'make_offer',
       payload: {
-        listing_id: body.listing_id,
-        offer_price_cents: body.offer_price_cents,
+        asking_price_cents: (listing as { asking_price_cents?: number }).asking_price_cents,
         category: (listing as { category?: string }).category,
+        brand: (listing as { brand?: string }).brand,
       },
     });
 

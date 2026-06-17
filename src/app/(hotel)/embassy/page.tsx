@@ -504,40 +504,39 @@ export default function EmbassyPage() {
 
   useEffect(() => {
     // ── 1. Load scale_deals from Supabase ──────────────────────────────────
-    import('@/lib/supabase/client').then(({ createClient }) => {
-      const sb = createClient();
-      sb.from('scale_deals')
-        .select('id, title, brand, description, original_price_cents, group_price_cents, goal_count, current_count, category, status')
-        .order('created_at', { ascending: false })
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            const mapped: Deal[] = data.map((d) => {
-              const tier: Deal['tier'] =
-                d.original_price_cents >= 100000 ? 'premium' :
-                d.original_price_cents >= 30000  ? 'contemporary' :
-                d.original_price_cents >= 5000   ? 'mid' : 'budget';
-              const pipelineStatus: Deal['status'] =
-                d.status === 'met' ? 'live' :
-                d.status === 'open' ? (d.current_count >= d.goal_count * 0.5 ? 'live' : 'pending') :
-                'review';
-              const savingsRate = ((d.original_price_cents - d.group_price_cents) / d.original_price_cents) * 100;
-              return {
-                id: d.id,
-                brand: d.brand,
-                item: d.title,
-                source: 'Scale Direct',
-                retail: d.original_price_cents / 100,
-                members_price: d.group_price_cents / 100,
-                status: pipelineStatus,
-                category: d.category ?? 'Accessories',
-                tier,
-                margin_pct: Math.round(savingsRate),
-              };
-            });
-            setDeals(mapped);
-          }
-        })
-        .catch(() => {/* deals stay empty */});
+    import('@/lib/supabase/client').then(async ({ createClient }) => {
+      try {
+        const sb = createClient();
+        const { data } = await sb.from('scale_deals')
+          .select('id, title, brand, description, original_price_cents, group_price_cents, goal_count, current_count, category, status')
+          .order('created_at', { ascending: false });
+        if (data && data.length > 0) {
+          const mapped: Deal[] = data.map((d) => {
+            const tier: Deal['tier'] =
+              d.original_price_cents >= 100000 ? 'premium' :
+              d.original_price_cents >= 30000  ? 'contemporary' :
+              d.original_price_cents >= 5000   ? 'mid' : 'budget';
+            const pipelineStatus: Deal['status'] =
+              d.status === 'met' ? 'live' :
+              d.status === 'open' ? (d.current_count >= d.goal_count * 0.5 ? 'live' : 'pending') :
+              'review';
+            const savingsRate = ((d.original_price_cents - d.group_price_cents) / d.original_price_cents) * 100;
+            return {
+              id: d.id,
+              brand: d.brand,
+              item: d.title,
+              source: 'Scale Direct',
+              retail: d.original_price_cents / 100,
+              members_price: d.group_price_cents / 100,
+              status: pipelineStatus,
+              category: d.category ?? 'Accessories',
+              tier,
+              margin_pct: Math.round(savingsRate),
+            };
+          });
+          setDeals(mapped);
+        }
+      } catch { /* deals stay empty */ }
     });
 
     // ── 2. One Nova call for trends + brand radar (10s timeout) ────────────

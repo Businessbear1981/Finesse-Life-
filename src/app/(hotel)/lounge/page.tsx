@@ -170,6 +170,16 @@ function AmbientLights() {
   );
 }
 
+// ─── Signal helper ────────────────────────────────────────────────────────────
+
+function emitSignal(kind: string, payload: Record<string, unknown>) {
+  void fetch('/api/intelligence/signal', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind, payload }),
+  }).catch(() => {});
+}
+
 // ─── Member card ──────────────────────────────────────────────────────────────
 
 function MemberCard({
@@ -205,6 +215,7 @@ function MemberCard({
       <Link
         href={member.username ? `/entourage?u=${member.username}` : '/entourage'}
         className="block group"
+        onClick={() => emitSignal('view_item', { type: 'member_profile' })}
       >
         <div
           className="relative overflow-hidden transition-all duration-500"
