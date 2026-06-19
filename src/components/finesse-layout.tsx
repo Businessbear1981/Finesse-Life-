@@ -30,6 +30,9 @@ import {
   Scissors,
   Calendar,
   Gamepad2,
+  Plane,
+  ChefHat,
+  Dumbbell,
 } from 'lucide-react';
 
 interface RoomDef {
@@ -47,6 +50,8 @@ const LEFT_ROOMS: RoomDef[] = [
   {path: '/nightvision',label: 'NightVision', icon: p => <Eye {...p} />},
   {path: '/stylist',    label: 'Stylist',     icon: p => <Scissors {...p} />},
   {path: '/salon',      label: 'Salon',       icon: p => <Sparkles {...p} />},
+  {path: '/kitchen',    label: 'Kitchen',     icon: p => <ChefHat {...p} />},
+  {path: '/gym',        label: 'Gym',         icon: p => <Dumbbell {...p} />},
 ];
 
 const LEFT_ROOMS_MASC: RoomDef[] = [
@@ -57,6 +62,8 @@ const LEFT_ROOMS_MASC: RoomDef[] = [
   {path: '/nightvision',label: 'NightVision', icon: p => <Eye {...p} />},
   {path: '/market',     label: 'Market',      icon: p => <Store {...p} />},
   {path: '/clubhouse',  label: 'Game Room',   icon: p => <Gamepad2 {...p} />},
+  {path: '/kitchen',    label: 'Kitchen',     icon: p => <ChefHat {...p} />},
+  {path: '/gym',        label: 'Gym',         icon: p => <Dumbbell {...p} />},
 ];
 
 /* ─── RIGHT RAIL: Experience & Intel ─── */
@@ -68,6 +75,7 @@ const RIGHT_ROOMS: RoomDef[] = [
   {path: '/switchboard',label: 'Switchboard', icon: p => <Phone {...p} />},
   {path: '/backstage',  label: 'Lair',        icon: p => <Monitor {...p} />},
   {path: '/clubhouse',  label: 'Game Room',   icon: p => <Gamepad2 {...p} />},
+  {path: '/departures', label: 'Depart',      icon: p => <Plane {...p} />},
 ];
 
 const RIGHT_ROOMS_MASC: RoomDef[] = [
@@ -78,6 +86,7 @@ const RIGHT_ROOMS_MASC: RoomDef[] = [
   {path: '/switchboard',label: 'Switchboard', icon: p => <Phone {...p} />},
   {path: '/backstage',  label: 'Lair',        icon: p => <Monitor {...p} />},
   {path: '/carpe-diem', label: 'Carpe Diem',  icon: p => <TrendingUp {...p} />},
+  {path: '/departures', label: 'Depart',      icon: p => <Plane {...p} />},
 ];
 
 /* ─── BOTTOM DOCK: Commerce ─── */
