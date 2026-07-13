@@ -1,643 +1,601 @@
 'use client';
 
-import {useState, useEffect} from 'react';
-import {motion, AnimatePresence} from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
-type Edition = 'finesse' | 'carpe_diem';
-type AppState = 'menu' | 'booking' | 'confirmed';
+interface Appointment {
+  id: string;
+  service: string;
+  provider: string;
+  venue: string;
+  address: string;
+  date: string;
+  time: string;
+  price: number;
+  status: 'upcoming' | 'past';
+  novaNote?: string;
+}
 
-interface Service {
+interface Product {
   id: string;
   name: string;
-  desc: string;
-  duration: string;
+  brand: string;
+  status: 'full' | 'low' | 'out';
   price: number;
-  category: string;
 }
 
-// ─── Service menus ─────────────────────────────────────────────────────────────
+// ─── Feminine Data ──────────────────────────────────────────────────────────────
 
-const FINESSE_SERVICES: Service[] = [
-  {id: '1', name: 'Silk Press', desc: 'Heat straightening for natural hair', duration: '2.5 hrs', price: 185, category: 'hair'},
-  {id: '2', name: 'Full Color + Gloss', desc: 'Base color, toner & gloss treatment', duration: '3 hrs', price: 285, category: 'hair'},
-  {id: '3', name: 'Lash Extensions — Classic Set', desc: 'Individual lash application', duration: '2 hrs', price: 145, category: 'lash'},
-  {id: '4', name: 'Gel Manicure + Pedicure', desc: 'Soak-off gel on hands and feet', duration: '1.5 hrs', price: 95, category: 'nails'},
-  {id: '5', name: 'Gua Sha Facial', desc: '60-min stone ritual + LED therapy', duration: '1 hr', price: 165, category: 'skin'},
-  {id: '6', name: 'Brow Lamination + Tint', desc: 'Lift, set & define brows', duration: '45 min', price: 75, category: 'brow'},
-  {id: '7', name: 'Full Glam Makeup', desc: 'Event-ready beat. Airbrush available.', duration: '1.5 hrs', price: 225, category: 'makeup'},
-  {id: '8', name: 'Body Wrap — Gold Ritual', desc: 'Detox clay wrap + body oil massage', duration: '90 min', price: 195, category: 'body'},
+const FEMININE_APPOINTMENTS: Appointment[] = [
+  {
+    id: 'f1',
+    service: 'Gloss Genius Full Color',
+    provider: 'Mariana Torres',
+    venue: 'Nine Zero One Salon',
+    address: '8826 Burton Way, West Hollywood, CA',
+    date: 'Jun 24',
+    time: '11:00 AM',
+    price: 285,
+    status: 'upcoming',
+    novaNote: 'Mariana has a 6-week waitlist. Your slot is protected.',
+  },
+  {
+    id: 'f2',
+    service: 'Signature HydraFacial',
+    provider: 'Esthetician Kira',
+    venue: 'Heyday',
+    address: '109 W 17th St, New York, NY',
+    date: 'Jun 27',
+    time: '2:00 PM',
+    price: 165,
+    status: 'upcoming',
+    novaNote: 'Ask for the Brightening Booster when you arrive. Twenty dollars. Worth every cent.',
+  },
+  {
+    id: 'f3',
+    service: 'Keratin Treatment',
+    provider: 'Nine Zero One Salon',
+    venue: 'WeHo Studio',
+    address: '8826 Burton Way, West Hollywood, CA',
+    date: 'Apr 12',
+    time: '10:00 AM',
+    price: 320,
+    status: 'past',
+  },
+  {
+    id: 'f4',
+    service: 'Brazilian Wax',
+    provider: 'European Wax Center',
+    venue: 'Beverly Hills',
+    address: '357 N Canon Dr, Beverly Hills, CA',
+    date: 'May 3',
+    time: '1:00 PM',
+    price: 72,
+    status: 'past',
+  },
+  {
+    id: 'f5',
+    service: 'Lash Extensions — Classic Set',
+    provider: 'Sugarlash Pro Studio',
+    venue: 'West Hollywood',
+    address: '7373 Beverly Blvd, Los Angeles, CA',
+    date: 'May 19',
+    time: '3:00 PM',
+    price: 148,
+    status: 'past',
+  },
+  {
+    id: 'f6',
+    service: 'Gua Sha Restorative Facial',
+    provider: 'Le Jolie Spa',
+    venue: 'Beverly Hills',
+    address: '435 N Roxbury Dr, Beverly Hills, CA',
+    date: 'Jun 7',
+    time: '12:00 PM',
+    price: 165,
+    status: 'past',
+  },
 ];
 
-const CARPE_SERVICES: Service[] = [
-  {id: '1', name: 'Signature Fade', desc: 'Consultation + precision fade + line-up', duration: '45 min', price: 85, category: 'cut'},
-  {id: '2', name: 'Hot Towel Shave', desc: 'Straight razor + hot towel ritual', duration: '30 min', price: 65, category: 'shave'},
-  {id: '3', name: "Cut + Beard Sculpt", desc: 'Fresh cut + full beard trim + shaping', duration: '1 hr', price: 115, category: 'cut'},
-  {id: '4', name: "Men's Facial — Deep Clean", desc: 'Steam + extraction + LED', duration: '50 min', price: 130, category: 'skin'},
-  {id: '5', name: 'Sports Massage', desc: '60-min deep tissue recovery', duration: '1 hr', price: 155, category: 'body'},
-  {id: '6', name: 'Grey Coverage', desc: 'Full color application + toner', duration: '1.5 hrs', price: 165, category: 'color'},
+// ─── Masculine Data ─────────────────────────────────────────────────────────────
+
+const MASCULINE_APPOINTMENTS: Appointment[] = [
+  {
+    id: 'm1',
+    service: 'Haircut + Lineup',
+    provider: 'Marcus Reid',
+    venue: 'Fellow Barber',
+    address: '8 Spring St, New York, NY',
+    date: 'Fri',
+    time: '3:00 PM',
+    price: 65,
+    status: 'upcoming',
+    novaNote: 'Marcus knows you only need 20 minutes. He\'s got 15 booked.',
+  },
+  {
+    id: 'm2',
+    service: 'Deep Tissue Massage',
+    provider: 'Aire Ancient Baths',
+    venue: 'Aire New York',
+    address: '88 Franklin St, New York, NY',
+    date: 'Sat',
+    time: '12:00 PM',
+    price: 180,
+    status: 'upcoming',
+    novaNote: 'Arrive 20 early. Roman pool first — cold to hot is the only sequence.',
+  },
+  {
+    id: 'm3',
+    service: 'Cut + Beard Sculpt',
+    provider: 'Marcus Reid',
+    venue: 'Fellow Barber',
+    address: '8 Spring St, New York, NY',
+    date: 'May 16',
+    time: '4:00 PM',
+    price: 95,
+    status: 'past',
+  },
+  {
+    id: 'm4',
+    service: 'Men\'s Clarifying Facial',
+    provider: 'Heyday',
+    venue: 'Flatiron',
+    address: '57 W 17th St, New York, NY',
+    date: 'Jun 1',
+    time: '11:00 AM',
+    price: 130,
+    status: 'past',
+  },
 ];
 
-// ─── Category icons ────────────────────────────────────────────────────────────
+const MASCULINE_PRODUCTS: Product[] = [
+  { id: 'p1', name: 'Shampoo & Conditioner', brand: 'Aesop', status: 'low', price: 62 },
+  { id: 'p2', name: 'Oud Wood EDP 50ml', brand: 'Tom Ford', status: 'full', price: 210 },
+  { id: 'p3', name: 'Recovery Moisturizer', brand: 'Malin+Goetz', status: 'low', price: 52 },
+  { id: 'p4', name: 'Detox Face Wash', brand: 'Malin+Goetz', status: 'full', price: 38 },
+];
 
-const CATEGORY_ICONS: Record<string, string> = {
-  hair: '✂',
-  nails: '◆',
-  lash: '✦',
-  brow: '⌁',
-  skin: '◎',
-  makeup: '✿',
-  body: '○',
-  cut: '✂',
-  shave: '◈',
-  color: '●',
-};
+const TRENDING_FEMININE = [
+  { name: 'Ice Roller Facial', brand: 'Tata Harper', venue: 'Bergdorf Goodman Spa, 5th Ave NYC', price: '$195' },
+  { name: 'Collagen Lip Treatment', brand: 'Joanna Czech', venue: 'Upper East Side Studio, NYC', price: '$350' },
+  { name: 'Bespoke Brow Architecture', brand: 'Shaping Room', venue: 'NoHo, New York', price: '$125' },
+];
 
-// ─── Date chips ────────────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function getDateChips(): {label: string; value: string}[] {
-  const now = new Date();
-  return [
-    {label: 'Today', value: now.toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'})},
-    {
-      label: 'Tomorrow',
-      value: new Date(now.getTime() + 86400000).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}),
-    },
-    {
-      label: '+2 Days',
-      value: new Date(now.getTime() + 2 * 86400000).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'}),
-    },
-  ];
+function statusDot(status: 'full' | 'low' | 'out'): string {
+  if (status === 'full') return '#4ADE80';
+  if (status === 'low') return '#F59E0B';
+  return '#EF4444';
 }
 
-const TIME_SLOTS = ['10:00 AM', '12:00 PM', '2:00 PM', '4:00 PM'];
+function statusLabel(status: 'full' | 'low' | 'out'): string {
+  if (status === 'full') return 'Stocked';
+  if (status === 'low') return 'Running low';
+  return 'Out';
+}
 
-// ─── Main component ────────────────────────────────────────────────────────────
+// ─── Main ───────────────────────────────────────────────────────────────────────
 
 export default function SalonPage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
-  const [appState, setAppState] = useState<AppState>('menu');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
-  const [confirmedService, setConfirmedService] = useState<Service | null>(null);
-  const [confirmedDateTime, setConfirmedDateTime] = useState<string>('');
+  const [isMasc, setIsMasc] = useState(false);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
-  // SSR-safe gender detection
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
+    setIsMasc(localStorage.getItem('finesse_gender') === 'masculine');
   }, []);
 
-  const isFeminine = edition === 'finesse';
-  const accent = isFeminine ? '#FF4D7D' : '#69C9D0';
-  const services = isFeminine ? FINESSE_SERVICES : CARPE_SERVICES;
-  const title = isFeminine ? 'THE SALON' : 'THE BARBERSHOP';
-  const subtitle = isFeminine ? 'book your look' : 'get right';
-  const stylistLabel = isFeminine ? 'stylist' : 'barber';
-
-  // Unique categories for this edition
-  const categories = ['all', ...Array.from(new Set(services.map((s) => s.category)))];
-
-  const filtered =
-    activeCategory === 'all' ? services : services.filter((s) => s.category === activeCategory);
-
-  const dateChips = getDateChips();
-
-  function openBooking(service: Service) {
-    setSelectedService(service);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setNotes('');
-    setAppState('booking');
-  }
-
-  async function submitBooking() {
-    if (!selectedService || !selectedDate || !selectedTime) return;
-    try {
-      const res = await fetch('/api/salon/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          service_id: selectedService.id,
-          service_name: selectedService.name,
-          price_cents: Math.round(selectedService.price * 100),
-          duration: selectedService.duration,
-          category: selectedService.category,
-          edition,
-          requested_date: selectedDate,
-          requested_time: selectedTime,
-          notes: notes.trim() || null,
-        }),
-      });
-      // Proceed to confirmed state regardless — booking queued even if API offline
-      if (!res.ok) console.warn('[salon] booking API error:', res.status);
-    } catch (e) {
-      console.warn('[salon] booking request failed:', e);
-    }
-    setConfirmedService(selectedService);
-    setConfirmedDateTime(`${selectedDate} at ${selectedTime}`);
-    setAppState('confirmed');
-  }
-
-  function resetToMenu() {
-    setAppState('menu');
-    setSelectedService(null);
-    setSelectedDate(null);
-    setSelectedTime(null);
-    setNotes('');
-  }
+  const accent = isMasc ? '#FFA96B' : '#FF4D7D';
+  const appointments = isMasc ? MASCULINE_APPOINTMENTS : FEMININE_APPOINTMENTS;
+  const upcoming = appointments.filter(a => a.status === 'upcoming');
+  const past = appointments.filter(a => a.status === 'past');
+  const yearSpend = past.reduce((s, a) => s + a.price, 0);
 
   return (
     <motion.div
-      initial={{opacity: 0}}
-      animate={{opacity: 1}}
-      exit={{opacity: 0}}
-      transition={{duration: 0.6}}
-      className="min-h-screen relative overflow-hidden"
-      style={{background: '#0A0406'}}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.55 }}
+      style={{ minHeight: '100vh', background: '#0A0406', paddingBottom: '100px' }}
     >
       {/* Ambient glow */}
-      <div className="pointer-events-none absolute inset-0">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px]"
-          style={{background: `radial-gradient(ellipse at center, ${accent}0A 0%, transparent 65%)`}}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '700px',
+          height: '420px',
+          background: `radial-gradient(ellipse at top, ${accent}0D 0%, transparent 65%)`,
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Hero image */}
+      <div style={{ position: 'relative', height: '240px', overflow: 'hidden' }}>
+        <img
+          src={
+            isMasc
+              ? 'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?w=800&q=80&fit=crop'
+              : 'https://images.unsplash.com/photo-1521590832167-7bcbfaa6381f?w=800&q=80&fit=crop'
+          }
+          className="w-full h-full object-cover"
+          alt={isMasc ? 'Grooming suite' : 'Luxury salon'}
+          style={{ opacity: 0.45 }}
         />
         <div
-          className="absolute bottom-1/3 right-1/4 w-[300px] h-[300px]"
-          style={{background: 'radial-gradient(circle, rgba(201,169,97,0.05) 0%, transparent 60%)', animation: 'salon-pulse 5s ease-in-out infinite'}}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to bottom, rgba(10,4,6,0.1), rgba(10,4,6,0.92))',
+          }}
         />
+        <div style={{ position: 'absolute', bottom: '28px', left: 0, right: 0, textAlign: 'center' }}>
+          <p
+            className="font-label uppercase"
+            style={{ fontSize: '0.6rem', letterSpacing: '0.5em', color: `${accent}99`, marginBottom: '6px' }}
+          >
+            {isMasc ? 'your grooming suite' : 'beauty · wellness'}
+          </p>
+          <h1
+            className="font-display italic"
+            style={{ fontSize: '2.4rem', color: 'rgba(244,232,208,0.92)', letterSpacing: '0.1em' }}
+          >
+            {isMasc ? 'The Grooming Suite' : 'The Salon'}
+          </h1>
+        </div>
       </div>
 
-      {/* Header */}
-      <header className="text-center pt-12 pb-6 relative z-10">
-        <motion.div initial={{opacity: 0, y: -12}} animate={{opacity: 1, y: 0}} transition={{delay: 0.2}}>
-          <div className="mb-3" style={{color: accent, fontSize: '2rem', lineHeight: 1}}>
-            {isFeminine ? '✦' : '◈'}
-          </div>
-          <h1
-            className="font-display italic tracking-[0.2em]"
-            style={{fontSize: '2.25rem', color: 'rgba(244,232,208,0.85)', fontStyle: 'italic'}}
-          >
-            {title}
-          </h1>
-          <p
-            className="font-label uppercase mt-2"
-            style={{fontSize: '0.6rem', letterSpacing: '0.45em', color: 'rgba(244,232,208,0.22)'}}
-          >
-            {subtitle}
-          </p>
+      <div style={{ maxWidth: '560px', margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 10 }}>
+
+        {/* Stats row */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '40px',
+            padding: '20px 0 24px',
+            borderBottom: '1px solid rgba(201,169,97,0.1)',
+          }}
+        >
+          {[
+            { label: 'Upcoming', value: String(upcoming.length) },
+            { label: 'Visits This Year', value: String(past.length) },
+            { label: 'Year Spend', value: `$${yearSpend.toLocaleString()}` },
+          ].map(stat => (
+            <div key={stat.label} style={{ textAlign: 'center' }}>
+              <p className="font-mono" style={{ fontSize: '1.3rem', color: accent, marginBottom: '2px' }}>{stat.value}</p>
+              <p className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.3em', color: 'rgba(244,232,208,0.22)' }}>{stat.label}</p>
+            </div>
+          ))}
         </motion.div>
-      </header>
 
-      {/* ── STATE: MENU ───────────────────────────────────────────────────────── */}
-      <AnimatePresence mode="wait">
-        {appState === 'menu' && (
-          <motion.div
-            key="menu"
-            initial={{opacity: 0, y: 10}}
-            animate={{opacity: 1, y: 0}}
-            exit={{opacity: 0, y: -8}}
-            transition={{duration: 0.35}}
-            className="max-w-lg mx-auto px-4 pb-16 relative z-10"
-          >
-            {/* Category filter */}
-            <div className="flex flex-wrap justify-center gap-2 mb-8">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setActiveCategory(cat)}
-                  className="px-3 py-1 font-label uppercase transition-all duration-300"
-                  style={{
-                    fontSize: '0.6rem',
-                    letterSpacing: '0.2em',
-                    color: activeCategory === cat ? '#0A0406' : 'rgba(244,232,208,0.28)',
-                    background: activeCategory === cat ? accent : 'transparent',
-                    border: activeCategory === cat ? 'none' : '1px solid rgba(244,232,208,0.08)',
-                  }}
-                >
-                  {cat === 'all' ? 'All' : `${CATEGORY_ICONS[cat] || ''} ${cat}`}
-                </button>
-              ))}
-            </div>
+        {/* Tab bar */}
+        <div style={{ display: 'flex', gap: '2px', margin: '20px 0' }}>
+          {(['upcoming', 'history'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="font-label uppercase"
+              style={{
+                flex: 1,
+                padding: '10px',
+                fontSize: '0.6rem',
+                letterSpacing: '0.25em',
+                cursor: 'pointer',
+                transition: 'all 0.25s',
+                background: activeTab === tab ? accent : 'transparent',
+                color: activeTab === tab ? '#0A0406' : 'rgba(244,232,208,0.3)',
+                border: activeTab === tab ? 'none' : '1px solid rgba(244,232,208,0.08)',
+              }}
+            >
+              {tab === 'upcoming' ? 'Upcoming' : isMasc ? 'Visit History' : 'Service History'}
+            </button>
+          ))}
+        </div>
 
-            {/* Divider */}
-            <div className="flex items-center gap-4 mb-6">
-              <div className="h-px flex-1" style={{background: 'rgba(201,169,97,0.15)'}} />
-              <span className="font-label uppercase" style={{fontSize: '0.55rem', letterSpacing: '0.4em', color: 'rgba(201,169,97,0.35)'}}>
-                services
-              </span>
-              <div className="h-px flex-1" style={{background: 'rgba(201,169,97,0.15)'}} />
-            </div>
+        <AnimatePresence mode="wait">
 
-            {/* Service cards */}
-            <div className="space-y-3">
-              <AnimatePresence mode="popLayout">
-                {filtered.map((service, i) => (
+          {/* ── UPCOMING ── */}
+          {activeTab === 'upcoming' && (
+            <motion.div
+              key="upcoming"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
+                {upcoming.map((appt, i) => (
                   <motion.div
-                    key={service.id}
-                    layout
-                    initial={{opacity: 0, y: 8}}
-                    animate={{opacity: 1, y: 0}}
-                    exit={{opacity: 0, scale: 0.98}}
-                    transition={{delay: i * 0.05, duration: 0.28}}
-                    className="group"
+                    key={appt.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}
                     style={{
-                      border: '1px solid rgba(201,169,97,0.12)',
-                      background: 'rgba(10,4,6,0.7)',
-                      backdropFilter: 'blur(8px)',
-                      padding: '1.25rem',
-                      transition: 'all 0.4s ease',
+                      border: `1px solid ${accent}28`,
+                      background: `${accent}05`,
+                      padding: '20px',
+                      position: 'relative',
+                      overflow: 'hidden',
                     }}
-                    whileHover={{y: -2, transition: {duration: 0.2}}}
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h3
-                          className="font-display"
-                          style={{fontSize: '1.1rem', color: 'rgba(244,232,208,0.82)', letterSpacing: '0.03em'}}
-                        >
-                          {service.name}
-                        </h3>
-                        <p
-                          className="font-body italic mt-0.5"
-                          style={{fontSize: '0.78rem', color: 'rgba(244,232,208,0.38)', lineHeight: 1.5}}
-                        >
-                          {service.desc}
+                    {/* Top accent bar */}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: '2px',
+                        background: `linear-gradient(90deg, ${accent}80, transparent)`,
+                      }}
+                    />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                      <div>
+                        <p className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.3em', color: `${accent}80`, marginBottom: '4px' }}>
+                          {appt.date} · {appt.time}
                         </p>
-                        <div className="flex items-center gap-2 mt-1.5">
-                          <span
-                            className="font-label uppercase"
-                            style={{fontSize: '0.55rem', letterSpacing: '0.2em', color: `${accent}70`}}
-                          >
-                            {CATEGORY_ICONS[service.category]} {service.category}
-                          </span>
-                          <span style={{color: 'rgba(244,232,208,0.1)'}}>·</span>
-                          <span className="font-mono" style={{fontSize: '0.65rem', color: 'rgba(244,232,208,0.28)'}}>
-                            {service.duration}
+                        <h3 className="font-display italic" style={{ fontSize: '1.15rem', color: 'rgba(244,232,208,0.9)' }}>
+                          {appt.service}
+                        </h3>
+                        <p className="font-body" style={{ fontSize: '0.78rem', color: 'rgba(244,232,208,0.45)', marginTop: '2px' }}>
+                          {appt.provider} · {appt.venue}
+                        </p>
+                        <p className="font-body" style={{ fontSize: '0.68rem', color: 'rgba(244,232,208,0.22)', marginTop: '2px' }}>
+                          {appt.address}
+                        </p>
+                      </div>
+                      <span className="font-mono" style={{ fontSize: '1rem', color: '#C9A84C', flexShrink: 0, marginLeft: '12px' }}>
+                        ${appt.price}
+                      </span>
+                    </div>
+
+                    {/* Nova note */}
+                    {appt.novaNote && (
+                      <div
+                        style={{
+                          borderTop: '1px solid rgba(244,232,208,0.06)',
+                          paddingTop: '10px',
+                          marginTop: '10px',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '8px',
+                        }}
+                      >
+                        <span className="font-label uppercase" style={{ fontSize: '0.5rem', letterSpacing: '0.3em', color: `${accent}70`, flexShrink: 0, paddingTop: '2px' }}>
+                          Nova
+                        </span>
+                        <p
+                          className="font-body italic"
+                          style={{ fontSize: '0.78rem', color: 'rgba(244,232,208,0.5)', lineHeight: 1.6 }}
+                        >
+                          &ldquo;{appt.novaNote}&rdquo;
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Masculine: Products */}
+              {isMasc && (
+                <div style={{ marginBottom: '28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
+                    <span className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.4em', color: 'rgba(201,169,97,0.3)' }}>
+                      Your Products
+                    </span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {MASCULINE_PRODUCTS.map(prod => (
+                      <div
+                        key={prod.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '12px 16px',
+                          border: '1px solid rgba(244,232,208,0.06)',
+                          background: 'rgba(244,232,208,0.02)',
+                        }}
+                      >
+                        <div>
+                          <p className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.25em', color: 'rgba(244,232,208,0.28)', marginBottom: '2px' }}>
+                            {prod.brand}
+                          </p>
+                          <p className="font-body" style={{ fontSize: '0.82rem', color: 'rgba(244,232,208,0.7)' }}>{prod.name}</p>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: statusDot(prod.status) }} />
+                          <span className="font-label uppercase" style={{ fontSize: '0.5rem', letterSpacing: '0.2em', color: statusDot(prod.status) }}>
+                            {statusLabel(prod.status)}
                           </span>
                         </div>
                       </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-                      <div className="flex flex-col items-end gap-3 shrink-0">
-                        <span className="font-mono" style={{fontSize: '0.9rem', color: '#C9A961'}}>
-                          ${service.price}
-                        </span>
-                        <button
-                          onClick={() => openBooking(service)}
-                          className="font-label uppercase transition-all duration-300"
-                          style={{
-                            fontSize: '0.55rem',
-                            letterSpacing: '0.2em',
-                            padding: '0.35rem 0.75rem',
-                            border: `1px solid ${accent}50`,
-                            color: accent,
-                            background: 'transparent',
-                          }}
-                          onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = accent;
-                            (e.currentTarget as HTMLButtonElement).style.color = '#0A0406';
-                          }}
-                          onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                            (e.currentTarget as HTMLButtonElement).style.color = accent;
-                          }}
-                        >
-                          + Book
-                        </button>
-                      </div>
+              {/* Feminine: Trending */}
+              {!isMasc && (
+                <div style={{ marginBottom: '28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
+                    <span className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.4em', color: 'rgba(201,169,97,0.3)' }}>
+                      Trending in Your City
+                    </span>
+                    <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {TRENDING_FEMININE.map((item, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + i * 0.07 }}
+                        style={{
+                          padding: '14px 16px',
+                          border: '1px solid rgba(244,232,208,0.06)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <p className="font-label uppercase" style={{ fontSize: '0.5rem', letterSpacing: '0.25em', color: `${accent}60`, marginBottom: '3px' }}>
+                            {item.brand}
+                          </p>
+                          <p className="font-body" style={{ fontSize: '0.82rem', color: 'rgba(244,232,208,0.72)' }}>{item.name}</p>
+                          <p className="font-body" style={{ fontSize: '0.68rem', color: 'rgba(244,232,208,0.28)', marginTop: '2px' }}>{item.venue}</p>
+                        </div>
+                        <span className="font-mono" style={{ fontSize: '0.85rem', color: '#C9A84C' }}>{item.price}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* ── HISTORY ── */}
+          {activeTab === 'history' && (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div
+                style={{
+                  padding: '16px 18px',
+                  border: '1px solid rgba(201,169,97,0.15)',
+                  background: 'rgba(201,169,97,0.04)',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <p className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.28)', marginBottom: '4px' }}>
+                    2026 Total
+                  </p>
+                  <p className="font-display italic" style={{ fontSize: '1.5rem', color: '#C9A84C' }}>
+                    ${yearSpend.toLocaleString()}
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.28)', marginBottom: '4px' }}>
+                    Visits
+                  </p>
+                  <p className="font-mono" style={{ fontSize: '1.5rem', color: accent }}>{past.length}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {past.map((appt, i) => (
+                  <motion.div
+                    key={appt.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '14px 16px',
+                      border: '1px solid rgba(244,232,208,0.05)',
+                      background: 'rgba(244,232,208,0.018)',
+                    }}
+                  >
+                    <div>
+                      <p className="font-body" style={{ fontSize: '0.85rem', color: 'rgba(244,232,208,0.68)' }}>{appt.service}</p>
+                      <p className="font-body" style={{ fontSize: '0.68rem', color: 'rgba(244,232,208,0.3)', marginTop: '2px' }}>
+                        {appt.venue} · {appt.date}
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span className="font-mono" style={{ fontSize: '0.85rem', color: 'rgba(201,169,97,0.6)' }}>${appt.price}</span>
+                      <span className="font-label uppercase" style={{ fontSize: '0.48rem', letterSpacing: '0.2em', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.2)', padding: '2px 6px' }}>
+                        Done
+                      </span>
                     </div>
                   </motion.div>
                 ))}
-              </AnimatePresence>
-            </div>
+              </div>
 
-            <motion.p
-              initial={{opacity: 0}}
-              animate={{opacity: 1}}
-              transition={{delay: 0.9}}
-              className="font-body italic text-center mt-10"
-              style={{fontSize: '0.75rem', color: 'rgba(244,232,208,0.12)'}}
-            >
-              {isFeminine ? 'your appointment. your rules.' : 'walk in looking right.'}
-            </motion.p>
-
-            <div className="text-center mt-8">
-              <Link
-                href="/lobby"
-                className="font-body"
-                style={{fontSize: '0.8rem', color: 'rgba(244,232,208,0.2)', transition: 'color 0.3s'}}
-                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = '#C9A961')}
-                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(244,232,208,0.2)')}
+              <p
+                className="font-body italic text-center"
+                style={{ fontSize: '0.72rem', color: 'rgba(244,232,208,0.12)', marginTop: '28px' }}
               >
-                return to the lobby
-              </Link>
-            </div>
-          </motion.div>
-        )}
-
-        {/* ── STATE: BOOKING MODAL ────────────────────────────────────────────── */}
-        {appState === 'booking' && selectedService && (
-          <motion.div
-            key="booking"
-            initial={{opacity: 0}}
-            animate={{opacity: 1}}
-            exit={{opacity: 0}}
-            transition={{duration: 0.25}}
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            style={{background: 'rgba(10,4,6,0.75)', backdropFilter: 'blur(4px)'}}
-            onClick={(e) => {
-              if (e.target === e.currentTarget) resetToMenu();
-            }}
-          >
-            <motion.div
-              initial={{y: '100%', opacity: 0}}
-              animate={{y: 0, opacity: 1}}
-              exit={{y: '100%', opacity: 0}}
-              transition={{type: 'spring', damping: 28, stiffness: 280}}
-              className="w-full max-w-lg"
-              style={{
-                background: '#100608',
-                borderTop: `1px solid ${accent}25`,
-                borderLeft: '1px solid rgba(201,169,97,0.1)',
-                borderRight: '1px solid rgba(201,169,97,0.1)',
-                padding: '2rem 1.5rem 2.5rem',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal header */}
-              <div className="flex items-start justify-between mb-6">
-                <div>
-                  <p
-                    className="font-label uppercase mb-1"
-                    style={{fontSize: '0.55rem', letterSpacing: '0.4em', color: `${accent}80`}}
-                  >
-                    booking request
-                  </p>
-                  <h2
-                    className="font-display italic"
-                    style={{fontSize: '1.4rem', color: 'rgba(244,232,208,0.85)'}}
-                  >
-                    {selectedService.name}
-                  </h2>
-                  <p className="font-mono mt-0.5" style={{fontSize: '0.65rem', color: 'rgba(244,232,208,0.28)'}}>
-                    {selectedService.duration} · ${selectedService.price}
-                  </p>
-                </div>
-                <button
-                  onClick={resetToMenu}
-                  style={{color: 'rgba(244,232,208,0.25)', fontSize: '1.2rem', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer'}}
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="h-px mb-6" style={{background: 'rgba(201,169,97,0.1)'}} />
-
-              {/* Date chips */}
-              <div className="mb-5">
-                <p
-                  className="font-label uppercase mb-3"
-                  style={{fontSize: '0.55rem', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.3)'}}
-                >
-                  select a date
-                </p>
-                <div className="flex gap-2">
-                  {dateChips.map((chip) => (
-                    <button
-                      key={chip.label}
-                      onClick={() => setSelectedDate(chip.value)}
-                      className="flex-1 py-2 font-label uppercase transition-all duration-300"
-                      style={{
-                        fontSize: '0.55rem',
-                        letterSpacing: '0.15em',
-                        border: `1px solid ${selectedDate === chip.value ? accent : 'rgba(201,169,97,0.15)'}`,
-                        color: selectedDate === chip.value ? '#0A0406' : 'rgba(244,232,208,0.4)',
-                        background: selectedDate === chip.value ? accent : 'transparent',
-                      }}
-                    >
-                      {chip.label}
-                    </button>
-                  ))}
-                </div>
-                {selectedDate && (
-                  <p className="font-mono mt-1.5" style={{fontSize: '0.6rem', color: 'rgba(244,232,208,0.22)'}}>
-                    {selectedDate}
-                  </p>
-                )}
-              </div>
-
-              {/* Time slots */}
-              <div className="mb-5">
-                <p
-                  className="font-label uppercase mb-3"
-                  style={{fontSize: '0.55rem', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.3)'}}
-                >
-                  select a time
-                </p>
-                <div className="grid grid-cols-4 gap-2">
-                  {TIME_SLOTS.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => setSelectedTime(time)}
-                      className="py-2 font-mono transition-all duration-300"
-                      style={{
-                        fontSize: '0.62rem',
-                        border: `1px solid ${selectedTime === time ? accent : 'rgba(201,169,97,0.15)'}`,
-                        color: selectedTime === time ? '#0A0406' : 'rgba(244,232,208,0.4)',
-                        background: selectedTime === time ? accent : 'transparent',
-                      }}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Notes */}
-              <div className="mb-6">
-                <p
-                  className="font-label uppercase mb-2"
-                  style={{fontSize: '0.55rem', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.3)'}}
-                >
-                  any notes for your {stylistLabel}?
-                </p>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Optional — allergies, preferences, references..."
-                  className="w-full font-body resize-none"
-                  style={{
-                    fontSize: '0.8rem',
-                    color: 'rgba(244,232,208,0.6)',
-                    background: 'rgba(244,232,208,0.03)',
-                    border: '1px solid rgba(201,169,97,0.12)',
-                    padding: '0.75rem',
-                    outline: 'none',
-                    lineHeight: 1.6,
-                  }}
-                />
-              </div>
-
-              {/* Submit */}
-              <button
-                onClick={submitBooking}
-                disabled={!selectedDate || !selectedTime}
-                className="w-full py-3 font-label uppercase transition-all duration-300"
-                style={{
-                  fontSize: '0.62rem',
-                  letterSpacing: '0.3em',
-                  background: selectedDate && selectedTime ? accent : 'rgba(244,232,208,0.06)',
-                  color: selectedDate && selectedTime ? '#0A0406' : 'rgba(244,232,208,0.2)',
-                  border: 'none',
-                  cursor: selectedDate && selectedTime ? 'pointer' : 'not-allowed',
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                Request Appointment
-              </button>
+                {isMasc ? 'consistency is the flex.' : 'your beauty is a ritual, not a routine.'}
+              </p>
             </motion.div>
-          </motion.div>
-        )}
+          )}
+        </AnimatePresence>
 
-        {/* ── STATE: CONFIRMED ────────────────────────────────────────────────── */}
-        {appState === 'confirmed' && confirmedService && (
-          <motion.div
-            key="confirmed"
-            initial={{opacity: 0, y: 14}}
-            animate={{opacity: 1, y: 0}}
-            exit={{opacity: 0}}
-            transition={{duration: 0.5, ease: 'easeOut'}}
-            className="max-w-lg mx-auto px-4 pb-16 relative z-10"
+        {/* Return link */}
+        <div style={{ textAlign: 'center', marginTop: '32px' }}>
+          <Link
+            href="/lobby"
+            className="font-body"
+            style={{ fontSize: '0.8rem', color: 'rgba(244,232,208,0.18)', textDecoration: 'none' }}
           >
-            <div
-              className="text-center"
-              style={{
-                border: `1px solid ${accent}20`,
-                background: 'rgba(10,4,6,0.6)',
-                backdropFilter: 'blur(10px)',
-                padding: '3rem 2rem',
-                marginTop: '1rem',
-              }}
-            >
-              {/* Check mark */}
-              <motion.div
-                initial={{scale: 0.6, opacity: 0}}
-                animate={{scale: 1, opacity: 1}}
-                transition={{delay: 0.2, type: 'spring', stiffness: 200, damping: 18}}
-                style={{
-                  width: '3.5rem',
-                  height: '3.5rem',
-                  borderRadius: '50%',
-                  border: `1px solid ${accent}50`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  margin: '0 auto 1.5rem',
-                  color: accent,
-                  fontSize: '1.4rem',
-                }}
-              >
-                ✓
-              </motion.div>
+            return to the lobby
+          </Link>
+        </div>
+      </div>
 
-              <motion.h2
-                initial={{opacity: 0}}
-                animate={{opacity: 1}}
-                transition={{delay: 0.35}}
-                className="font-display italic"
-                style={{fontSize: '1.6rem', color: 'rgba(244,232,208,0.85)', marginBottom: '0.75rem'}}
-              >
-                Request Sent
-              </motion.h2>
-
-              <motion.p
-                initial={{opacity: 0}}
-                animate={{opacity: 1}}
-                transition={{delay: 0.5}}
-                className="font-body"
-                style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.4)', lineHeight: 1.7, marginBottom: '2rem'}}
-              >
-                Your {stylistLabel} will confirm within 2 hours.
-                <br />
-                You'll receive a notification when it's locked in.
-              </motion.p>
-
-              {/* Booking summary */}
-              <motion.div
-                initial={{opacity: 0}}
-                animate={{opacity: 1}}
-                transition={{delay: 0.6}}
-                style={{
-                  borderTop: '1px solid rgba(201,169,97,0.12)',
-                  borderBottom: '1px solid rgba(201,169,97,0.12)',
-                  padding: '1.25rem 0',
-                  marginBottom: '2rem',
-                }}
-              >
-                <p
-                  className="font-display italic"
-                  style={{fontSize: '1rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}
-                >
-                  {confirmedService.name}
-                </p>
-                <p className="font-mono" style={{fontSize: '0.68rem', color: 'rgba(244,232,208,0.3)'}}>
-                  {confirmedDateTime}
-                </p>
-              </motion.div>
-
-              <motion.div
-                initial={{opacity: 0}}
-                animate={{opacity: 1}}
-                transition={{delay: 0.75}}
-                className="flex flex-col items-center gap-3"
-              >
-                <button
-                  onClick={resetToMenu}
-                  className="font-label uppercase transition-all duration-300"
-                  style={{
-                    fontSize: '0.58rem',
-                    letterSpacing: '0.3em',
-                    color: accent,
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  Back to services →
-                </button>
-                <Link
-                  href="/lobby"
-                  className="font-body transition-colors"
-                  style={{fontSize: '0.78rem', color: 'rgba(244,232,208,0.2)'}}
-                  onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = '#C9A961')}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(244,232,208,0.2)')}
-                >
-                  Return to lobby
-                </Link>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Floor gradient */}
+      {/* Bottom CTA bar */}
       <div
-        className="absolute bottom-0 left-0 right-0 h-1/3 pointer-events-none"
-        style={{background: 'linear-gradient(to top, rgba(74,25,34,0.08), transparent)'}}
-      />
-
-      <style jsx>{`
-        @keyframes salon-pulse {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-      `}</style>
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          padding: '14px 20px',
+          background: 'rgba(10,4,6,0.96)',
+          borderTop: `1px solid ${accent}22`,
+          backdropFilter: 'blur(12px)',
+          zIndex: 50,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <button
+          className="font-label uppercase"
+          style={{
+            padding: '14px 40px',
+            background: accent,
+            color: '#0A0406',
+            border: 'none',
+            fontSize: '0.6rem',
+            letterSpacing: '0.3em',
+            cursor: 'pointer',
+            transition: 'opacity 0.2s',
+            flex: 1,
+            maxWidth: '360px',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
+          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+        >
+          {isMasc ? 'Book Grooming' : 'Book Next Appointment'}
+        </button>
+      </div>
     </motion.div>
   );
 }
