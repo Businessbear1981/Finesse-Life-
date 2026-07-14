@@ -47,6 +47,15 @@ interface Order {
   date: string;
 }
 
+interface Recipe {
+  name: string;
+  time: string;
+  difficulty: 'Easy' | 'Medium' | 'Advanced';
+  tags: string[];
+  nova: string;
+  img: string;
+}
+
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 
 const NOVAS_TABLE: Restaurant[] = [
@@ -97,6 +106,60 @@ const THE_SPOTS: Spot[] = [
 
 const DINNER_INTEL =
   'Omakase is still the power move. Book 3 weeks out. My top pick right now: Shoji at 69 Leonard.';
+
+const FEM_RECIPES: Recipe[] = [
+  {
+    name: 'Citrus Salmon with Mango Slaw',
+    time: '25 min',
+    difficulty: 'Easy',
+    tags: ['High Protein', 'Gluten-Free', 'Date Night'],
+    nova: 'Impressive without the effort. He will absolutely think you cooked all day.',
+    img: '1519708227418-2af883f8b9d4',
+  },
+  {
+    name: 'Truffle Pasta — Cacio e Pepe Elevated',
+    time: '20 min',
+    difficulty: 'Medium',
+    tags: ['Vegetarian', 'Comfort', 'Impress'],
+    nova: 'Four ingredients. Restaurant results. This is the one.',
+    img: '1551183053-bf91798d792c',
+  },
+  {
+    name: 'Matcha Chia Pudding Parfait',
+    time: '10 min + overnight',
+    difficulty: 'Easy',
+    tags: ['Meal Prep', 'Anti-Inflammatory', 'Breakfast'],
+    nova: 'Make Sunday. Eat all week. Your skin will thank you.',
+    img: '1490645935967-10de6ba17061',
+  },
+];
+
+const MASC_RECIPES: Recipe[] = [
+  {
+    name: 'Cast Iron Ribeye — Steakhouse Method',
+    time: '15 min',
+    difficulty: 'Easy',
+    tags: ['High Protein', 'Carnivore', 'Power Meal'],
+    nova: 'Reverse sear. Butter baste. Salt 24 hours before. You will never order steak out again.',
+    img: '1546833999-2fe44ca9b41b',
+  },
+  {
+    name: 'Chicken & Rice — Macro-Optimized',
+    time: '35 min',
+    difficulty: 'Easy',
+    tags: ['Meal Prep', '4 Servings', '45g Protein'],
+    nova: 'Meal prep this on Sunday and you solve lunch for the week. 45g protein per serving.',
+    img: '1604908176997-a9b8e9ab3bb2',
+  },
+  {
+    name: 'Spicy Tuna Poke Bowl',
+    time: '15 min',
+    difficulty: 'Easy',
+    tags: ['Sushi-Grade', 'Clean', 'Recovery'],
+    nova: 'Post-gym, anti-inflammatory, and looks expensive. Order the tuna from my sourcing link.',
+    img: '1546833999-2fe44ca9b41b',
+  },
+];
 
 const RECENT_ORDERS: Order[] = [
   { restaurant: 'STK Steakhouse', items: 'Tomahawk (2 lb) · Truffle Fries · Lobster Bisque', total: '$348', date: 'Jun 14' },
@@ -367,6 +430,62 @@ export default function KitchenPage() {
                 ))}
               </div>
             </motion.section>
+
+            <GoldDivider />
+
+            {/* Recipe Book */}
+            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}>
+              <SectionLabel icon={ChefHat} label="Nova's Recipe Book" />
+              <div className="space-y-4">
+                {FEM_RECIPES.map((recipe, i) => (
+                  <motion.div
+                    key={recipe.name}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.95 + i * 0.1 }}
+                    style={{ background: 'rgba(14,6,8,0.85)', border: '1px solid rgba(201,169,97,0.12)' }}
+                  >
+                    <div
+                      className="w-full h-28 bg-cover bg-center"
+                      style={{
+                        backgroundImage: `url(https://images.unsplash.com/photo-${recipe.img}?w=600&q=80)`,
+                        opacity: 0.7,
+                      }}
+                    />
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-display text-sm leading-snug" style={{ color: '#E8C87A' }}>{recipe.name}</h3>
+                        <span
+                          className="font-label text-[7px] tracking-[0.2em] uppercase shrink-0 px-2 py-1"
+                          style={{
+                            border: '1px solid rgba(255,77,125,0.3)',
+                            color: '#FF4D7D',
+                            background: 'rgba(255,77,125,0.05)',
+                          }}
+                        >{recipe.difficulty}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-1">
+                          <Clock size={8} style={{ color: 'rgba(201,169,97,0.4)' }} />
+                          <span className="font-mono text-[9px]" style={{ color: 'rgba(244,232,208,0.35)' }}>{recipe.time}</span>
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {recipe.tags.map(tag => (
+                            <span key={tag} className="font-label text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5"
+                              style={{ background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.12)', color: 'rgba(201,169,97,0.45)' }}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
+                        "{recipe.nova}"
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.section>
           </>
         )}
 
@@ -483,6 +602,62 @@ export default function KitchenPage() {
                 >
                   Inquire with Nova
                 </button>
+              </div>
+            </motion.section>
+
+            <GoldDivider />
+
+            {/* Recipe Book */}
+            <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }}>
+              <SectionLabel icon={ChefHat} label="Nova's Recipe Book" />
+              <div className="space-y-4">
+                {MASC_RECIPES.map((recipe, i) => (
+                  <motion.div
+                    key={recipe.name}
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.95 + i * 0.1 }}
+                    style={{ background: 'rgba(14,6,8,0.85)', border: '1px solid rgba(255,169,107,0.1)' }}
+                  >
+                    <div
+                      className="w-full h-28 bg-cover bg-center"
+                      style={{
+                        backgroundImage: `url(https://images.unsplash.com/photo-${recipe.img}?w=600&q=80)`,
+                        opacity: 0.65,
+                      }}
+                    />
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-display text-sm leading-snug" style={{ color: '#E8C87A' }}>{recipe.name}</h3>
+                        <span
+                          className="font-label text-[7px] tracking-[0.2em] uppercase shrink-0 px-2 py-1"
+                          style={{
+                            border: '1px solid rgba(255,169,107,0.3)',
+                            color: '#FFA96B',
+                            background: 'rgba(255,169,107,0.05)',
+                          }}
+                        >{recipe.difficulty}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-1">
+                          <Clock size={8} style={{ color: 'rgba(201,169,97,0.4)' }} />
+                          <span className="font-mono text-[9px]" style={{ color: 'rgba(244,232,208,0.35)' }}>{recipe.time}</span>
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {recipe.tags.map(tag => (
+                            <span key={tag} className="font-label text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5"
+                              style={{ background: 'rgba(255,169,107,0.06)', border: '1px solid rgba(255,169,107,0.12)', color: 'rgba(255,169,107,0.5)' }}>
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
+                        "{recipe.nova}"
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
             </motion.section>
           </>

@@ -94,6 +94,64 @@ const MASC_GEAR: GearItem[] = [
   {brand: 'LULULEMON', name: 'ABC Pant — Commission', price: '$128', novaNote: 'you wear these to everything and you know it'},
 ];
 
+interface FitnessPartner {
+  brand: string;
+  offer: string;
+  saving: string;
+  code: string;
+  nova: string;
+}
+
+// ─── Partner / ad data ────────────────────────────────────────────────────────
+
+const FEM_PARTNERS: FitnessPartner[] = [
+  {
+    brand: 'WHOOP',
+    offer: '1 Month Free + Band',
+    saving: '$30 value',
+    code: 'FINESSE30',
+    nova: "Your sleep score is killing your results. WHOOP will tell you exactly why.",
+  },
+  {
+    brand: 'FORM NUTRITION',
+    offer: '20% Off Collagen + Pre-Workout',
+    saving: '20% off',
+    code: 'NOVA20',
+    nova: "Clean ingredients. No junk. The collagen powder goes in everything.",
+  },
+  {
+    brand: 'CLASSPASS',
+    offer: '2 Weeks Free — All Studios',
+    saving: '$40 value',
+    code: 'FINESSE2WK',
+    nova: "Try the SoulCycle, the barre, the hot yoga — all on us. Pick your obsession.",
+  },
+];
+
+const MASC_PARTNERS: FitnessPartner[] = [
+  {
+    brand: 'WHOOP 4.0',
+    offer: '1 Month Free',
+    saving: '$30 value',
+    code: 'FINESSE30',
+    nova: "Track your strain, recovery, and sleep. I use this data to schedule your sessions.",
+  },
+  {
+    brand: 'GAINFUL',
+    offer: 'Custom Protein — First Order 25% Off',
+    saving: '25% off',
+    code: 'NOVA25',
+    nova: "Personalized protein formula. Built for your body weight and goals. Not generic.",
+  },
+  {
+    brand: 'HYPERICE',
+    offer: '$50 Off Hypervolt 2 Pro',
+    saving: '$50 off',
+    code: 'RECOVER50',
+    nova: "Recovery is the workout. This is the one tool that actually changes your numbers.",
+  },
+];
+
 // ─── Art deco divider ─────────────────────────────────────────────────────────
 
 function GoldDivider({label}: {label: string}) {
@@ -365,6 +423,38 @@ export default function GymPage() {
                 </div>
               ))}
             </div>
+
+            {/* Fitness Partners */}
+            <GoldDivider label="member offers" />
+            <div className="space-y-3">
+              {FEM_PARTNERS.map((p, i) => (
+                <motion.div
+                  key={p.brand}
+                  initial={{opacity: 0, y: 8}}
+                  animate={{opacity: 1, y: 0}}
+                  transition={{delay: 0.6 + i * 0.08}}
+                  style={{
+                    border: '1px solid rgba(255,77,125,0.15)',
+                    background: 'rgba(255,77,125,0.04)',
+                    padding: '1.1rem 1.25rem',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-label uppercase" style={{fontSize: '0.55rem', letterSpacing: '0.3em', color: '#FF4D7D'}}>{p.brand}</span>
+                    <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
+                  </div>
+                  <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1"
+                    style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
+                  >
+                    <span className="font-label uppercase" style={{fontSize: '0.48rem', letterSpacing: '0.2em', color: 'rgba(244,232,208,0.3)'}}>code</span>
+                    <span className="font-mono" style={{fontSize: '0.72rem', color: '#C9A84C', letterSpacing: '0.1em'}}>{p.code}</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
           </motion.div>
         )}
 
@@ -473,6 +563,38 @@ export default function GymPage() {
                   </div>
                   <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>"{item.novaNote}"</p>
                 </div>
+              ))}
+            </div>
+
+            {/* Fitness Partners */}
+            <GoldDivider label="member offers" />
+            <div className="space-y-3">
+              {MASC_PARTNERS.map((p, i) => (
+                <motion.div
+                  key={p.brand}
+                  initial={{opacity: 0, y: 8}}
+                  animate={{opacity: 1, y: 0}}
+                  transition={{delay: 0.6 + i * 0.08}}
+                  style={{
+                    border: '1px solid rgba(255,169,107,0.15)',
+                    background: 'rgba(255,169,107,0.04)',
+                    padding: '1.1rem 1.25rem',
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-label uppercase" style={{fontSize: '0.55rem', letterSpacing: '0.3em', color: '#FFA96B'}}>{p.brand}</span>
+                    <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
+                  </div>
+                  <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1"
+                    style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
+                  >
+                    <span className="font-label uppercase" style={{fontSize: '0.48rem', letterSpacing: '0.2em', color: 'rgba(244,232,208,0.3)'}}>code</span>
+                    <span className="font-mono" style={{fontSize: '0.72rem', color: '#C9A84C', letterSpacing: '0.1em'}}>{p.code}</span>
+                  </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
