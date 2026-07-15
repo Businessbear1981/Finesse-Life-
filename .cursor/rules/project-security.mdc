@@ -1,0 +1,34 @@
+---
+description: Security baseline for Finesse (Next.js 16 + Supabase + Vercel)
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.sql"
+alwaysApply: false
+---
+
+# Security Baseline
+
+## 1. Service-role key
+`SUPABASE_SERVICE_ROLE_KEY` is server-only — API routes acting for a user use a client scoped to that user's JWT. Service-role is for admin, migration, and background jobs only. Never in any `NEXT_PUBLIC_*` var or client component.
+
+## 2. Input validation
+Validate all inputs at the boundary with Zod. Every API route body, query param, and path param has a schema. Reject invalid input with 422.
+
+## 3. Error responses
+Sanitize error responses. Never return raw Supabase/Postgres errors, stack traces, or internal paths to clients.
+
+## 4. Row-level security
+RLS must enforce ownership. Never ship `USING (true)` policies; check `auth.uid()`. Member data (profiles, purchases, vault balances, messages) is sensitive — default deny.
+
+## 5. Logging
+Never log secrets, tokens, passwords, or member PII. This includes Nova/Stylist conversation content — treat it as PII.
+
+## 6. Secrets
+Env vars only; the repo carries `.env.example` without values. **Never put credentials in OPS.md or any tracked file** — that mistake has already been made once (Supabase DB password, rotation pending).
+
+## 7. Money paths
+Any code touching payments, the Vault rebate, or card programs must match the documented economics (`CONTEXT.md` → Vault: partner holds funds, ~1% cashback ceiling) and gets a human review before merge.
+
+## 8. CORS / origins
+API routes that need CORS use explicit origins only. Never `*` in production.

@@ -41,6 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# editor / local tooling
-.cursor/
+# editor / local tooling (shared project rules in .cursor/rules/ ARE tracked)
+.cursor/*
+!.cursor/rules/
 supabase/.temp/
