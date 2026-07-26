@@ -44,8 +44,12 @@ host:     db.zcqcgqsovrjlxxiipuzg.supabase.co
 port:     5432
 database: postgres
 user:     postgres
-password: Superdog#109918
+password: set SUPABASE_DB_PASSWORD in .env.local — NEVER in this file
 ```
+
+> The password was rotated 2026-07-26 after the previous one was committed here.
+> It lives in `.env.local` (gitignored) only. If you don't have it, get it from Kevin
+> via a one-time-secret link — never over text/email in plaintext.
 
 **Run a migration:**
 ```bash

@@ -21,7 +21,7 @@ Facts carry confidence tags: `verified` (checked against ground truth on the sta
 |---|---|---|---|
 | Frontend + API (Next.js 16, Vercel `ardan-edge-capital/finesselife`) | **finesselife.vip** | LIVE, 200 | 2026-07-14 `verified` |
 | Old domain | finesselife.app | **dead** — alias removed (commit `af49a65`); docs that cite it are stale | 2026-07-14 `verified` |
-| Supabase (DB + auth) | `zcqcgqsovrjlxxiipuzg` | live, canonical | `asserted` (OPS.md) |
+| Supabase (DB + auth) | `zcqcgqsovrjlxxiipuzg` | **was PAUSED (INACTIVE)** — found 2026-07-26, restored same day; while paused, every DB-backed feature (auth, VIP, rooms data) was dead even though the frontend served 200 | 2026-07-26 `verified` |
 | Cloudflare R2 | bucket `finesse-life` | storage only | `asserted` |
 | DNS | Porkbun (`finesselife.vip` + `.app`) | — | `asserted` |
 | Railway FastAPI (`backend/`) | project `e91bd0fe-…` | **DORMANT — not deployed** (ADR-0001); all live logic is in Next.js `/api` | `asserted` (OPS.md) |
@@ -60,7 +60,7 @@ Commit `97fc7fc` (2026-07-13) tracked two previously-untracked ~900-line schema 
 ## Known gaps that will bite
 
 1. **No payment path** — membership cannot transact. This is the whole Phase-1 sprint, gated on demand confirmation.
-2. **Committed secret:** `OPS.md` contains the Supabase DB password in plaintext (in git history too). Rotate the password, then strip it from the file. `verified` 2026-07-14.
+2. **Committed secret — RESOLVED 2026-07-26:** the Supabase DB password was in `OPS.md` *and* hardcoded in `scripts/migrate.js`. Password **rotated** via the management API during the project restore, both files stripped (`migrate.js` now reads `SUPABASE_DB_PASSWORD` from env / `.env.local`). The copies in git history are dead credentials. Sean needs the new password via one-time-secret link for his local `.env.local`. `verified` 2026-07-26.
 3. **Vault 12% rebate bug** (see above) — must be corrected before any real money flows.
 4. Scout / Price-Hunter / scale-join schema mismatches — features silently return nothing.
 5. Stale-domain drift: OPS.md and older docs still say `finesselife.app`.
