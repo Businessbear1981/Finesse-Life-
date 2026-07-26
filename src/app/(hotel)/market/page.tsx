@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { DEMO_MODE } from "@/lib/demo";
 
 interface Listing {
   id: string;
@@ -18,6 +19,8 @@ interface Listing {
   saved: boolean;
 }
 
+// Demo theater — shown only while DEMO_MODE is on. Real listings come from
+// the Exchange tables once the marketplace phase lands.
 const DEMO_LISTINGS: Listing[] = [
   { id: "1", title: "Tom Ford Oud Wood 50ml", seller: "Julian R.", seller_initials: "JR", price_cents: 16000, original_price_cents: 28000, condition: "new", category: "fragrance", image: "https://images.unsplash.com/photo-1594035910387-fbd1a485b12e?w=300&h=300&fit=crop&q=80", posted: "2h ago", saved: false },
   { id: "2", title: "Vintage Rolex Datejust Band", seller: "Dante W.", seller_initials: "DW", price_cents: 85000, original_price_cents: 145000, condition: "good", category: "watches", image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=300&h=300&fit=crop&q=80", posted: "5h ago", saved: true },
@@ -43,7 +46,7 @@ function formatPrice(cents: number): string {
 }
 
 export default function Market() {
-  const [listings, setListings] = useState(DEMO_LISTINGS);
+  const [listings, setListings] = useState<Listing[]>(DEMO_MODE ? DEMO_LISTINGS : []);
   const [category, setCategory] = useState<string>("all");
   const [tab, setTab] = useState<"browse" | "sell" | "saved">("browse");
   const [sellTitle, setSellTitle] = useState("");
@@ -124,6 +127,11 @@ export default function Market() {
                 ))}
               </div>
 
+              {filtered.length === 0 && (
+                <p className="text-center font-body text-sm text-cream/15 italic py-12">
+                  the market floor is being dressed. listings open soon.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filtered.map((item, i) => {
                   const discount = Math.round(((item.original_price_cents - item.price_cents) / item.original_price_cents) * 100);

@@ -4,8 +4,13 @@ import {useState, useRef, useEffect, useCallback} from 'react';
 import {motion, useAnimation, AnimatePresence} from 'framer-motion';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
+import {DEMO_MODE} from '@/lib/demo';
 
-const DEMO_PIN = '123456';
+// Entrance PIN: configure the real one via env. The 123456 fallback exists
+// only in demo mode; with demo off and no PIN configured, the vault door
+// stays locked by design (every digit reads as wrong).
+const ENTRANCE_PIN: string | null =
+  process.env.NEXT_PUBLIC_ENTRANCE_PIN ?? (DEMO_MODE ? '123456' : null);
 
 // Each puzzle segment: angle around the dial, display label
 const SEGMENTS = [
@@ -72,7 +77,7 @@ export default function VaultEntrance() {
 
     // New digit entered — validate immediately
     const newDigit = val[newLen - 1];
-    const expected = DEMO_PIN[newLen - 1];
+    const expected = ENTRANCE_PIN?.[newLen - 1];
 
     if (newDigit !== expected) {
       setError(true);
