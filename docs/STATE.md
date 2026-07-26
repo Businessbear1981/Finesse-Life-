@@ -1,7 +1,7 @@
 # Finesse Life — State
 
 > **Status:** PRE-LAUNCH (demand-gated — build weight stays low until the founding-cohort / anchor-partner side is confirmed)
-> **Last updated:** 2026-07-14 (agent-infra install) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
+> **Last updated:** 2026-07-26 (delta re-audit) · **Last verified:** 2026-07-26 (live URL 200, repo tree, audit-critical schema/code checks re-run against current `main`)
 > **One-liner:** Luxury hotel-styled social/lifestyle PWA with AI concierge, curated commerce, and a member rebate card program — live at finesselife.vip, membership not yet transacting.
 > **Current state:** UI + concierge are real; **no payment path exists** (no checkout, no subscriptions). The gate to the transact sprint is demand confirmation, not engineering.
 > **Links:** `AGENTS.md` (charter/SOP) · `docs/decisions/` (ADRs) · `CONTEXT.md` (glossary) · `OPS.md` (runbook) · GitHub Issues (work tracking)
@@ -30,7 +30,7 @@ Deploys are **CLI-only** (`npm run deploy`) — the Vercel GitHub webhook is bro
 
 ## What is real vs. mock
 
-From the 2026-06-23 line-by-line audit — `asserted` (predates the June/July room work: Kitchen, Gym, gender-aware lobby, salon rework; re-verify per module before building on it):
+From the 2026-06-23 line-by-line audit. A 2026-07-26 delta re-audit of the July commits (`97fc7fc`, `97bf34d`, `c86e38b`) confirmed **every audit-critical finding below still stands** on current `main`: `DEMO_PIN` (`src/app/page.tsx:8`), `DEMO_LISTINGS` (`market/page.tsx:21`), the 12% cashback (`vault/cashback/route.ts:26`, also `scale/join/route.ts:28`), the webhook/`subscriptions` shape mismatch, and the broken agent queries. `verified` 2026-07-26. Room UX rows (Kitchen, Gym, lobby, salon) reflect Sean's July rework:
 
 | Module | Real or mock |
 |---|---|
@@ -47,7 +47,15 @@ From the 2026-06-23 line-by-line audit — `asserted` (predates the June/July ro
 
 ## Database
 
-Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrations/` and run via `npm run db:migrate <file>` (direct connection) — `supabase db push` does not work here. Which migrations are applied vs merely on disk has **not** been re-verified since the June audit; billing/subscription tables have no migrations at all. `asserted`.
+Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrations/` and run via `npm run db:migrate <file>` (direct connection) — `supabase db push` does not work here. Which migrations are applied vs merely on disk has **not** been re-verified since the June audit. `asserted`.
+
+Commit `97fc7fc` (2026-07-13) tracked two previously-untracked ~900-line schema files: `20260617_finesse_v2.sql` and `20260617_master_finesse_schema.sql`. `verified` 2026-07-26:
+
+- They are **near-duplicates of each other** (same tables, minor line drift) — one should be deleted or they will diverge.
+- Everything is `create table if not exists` — they **do not alter tables that already exist in the live DB**, so the live schema state is still unknown until queried.
+- They now define `subscriptions` and `payments` (with `processor` defaulting to `'ccbill'`), but the Stripe webhook still upserts a different row shape (`price_id`, Stripe sub-id key) — the mismatch is now *documented in-repo* rather than fixed. `stripe_events`, `products`, `prices` still have no migration.
+- `embassy_deals` is **redefined** with different columns/statuses (`original_price_cents`/`group_price_cents`, `live/expired/pending`) than `20260609_embassy.sql` (`retail_price_cents`/`members_price_cents`, `pending/review/live/rejected`). Whichever ran first wins in the live DB; the agent queries match neither shape.
+- `scale_deals`/`scale_joins`/`vault_transactions` match the June audit findings exactly (joins table still lacks the columns `scale/join` writes; `direction` check still excludes `'cashback'`; no `cipher` column).
 
 ## Known gaps that will bite
 
@@ -56,7 +64,11 @@ Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrati
 3. **Vault 12% rebate bug** (see above) — must be corrected before any real money flows.
 4. Scout / Price-Hunter / scale-join schema mismatches — features silently return nothing.
 5. Stale-domain drift: OPS.md and older docs still say `finesselife.app`.
+6. **Duplicate master schemas** (`20260617_finesse_v2.sql` vs `20260617_master_finesse_schema.sql`) — near-identical 900-line files; consolidate before any billing DDL lands on top. `verified` 2026-07-26.
+7. **Gym "member offers" are hardcoded** (WHOOP, ClassPass, Gainful, Hyperice, Form Nutrition promo codes in `gym/page.tsx`, commit `c86e38b`) — demo theater unless these are signed partner deals; same class of mock as `DEMO_LISTINGS`. `verified` 2026-07-26.
 
 ## Active work
 
-Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. Current phase gate: Sean confirming the demand side (anchor partners + founding cohort) → then the paid-membership transact sprint. Engineering is otherwise quiet; Sean is actively building rooms (Kitchen, Gym, salon — June/July commits).
+Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. PR #2 (agent infra) **merged 2026-07-15**; PR #1 (Railway `$PORT` fix) is still open but moot — the backend is dormant per ADR-0001 and slated for deletion, so PR #1 should be closed, not merged. `verified` 2026-07-26.
+
+Current phase gate: Sean confirming the demand side (anchor partners + founding cohort) → then the paid-membership transact sprint. A phased shore-up roadmap (foundation cleanup → first dollar → affiliate line → Vault/marketplace) is drafted on Kevin's side, ready to kick off. Sean is actively building rooms (Kitchen, Gym, salon — June/July commits).
