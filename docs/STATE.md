@@ -24,7 +24,7 @@ Facts carry confidence tags: `verified` (checked against ground truth on the sta
 | Supabase (DB + auth) | `zcqcgqsovrjlxxiipuzg` | **was PAUSED (INACTIVE)** — found 2026-07-26, restored same day; while paused, every DB-backed feature (auth, VIP, rooms data) was dead even though the frontend served 200 | 2026-07-26 `verified` |
 | Cloudflare R2 | bucket `finesse-life` | storage only | `asserted` |
 | DNS | Porkbun (`finesselife.vip` + `.app`) | — | `asserted` |
-| Railway FastAPI (`backend/`) | project `e91bd0fe-…` | **DORMANT — not deployed** (ADR-0001); all live logic is in Next.js `/api` | `asserted` (OPS.md) |
+| ~~Railway FastAPI~~ | — | **DELETED 2026-07-26** (ADR-0002) — never deployed; all server logic is Next.js `/api` | `verified` 2026-07-26 |
 
 Deploys are **CLI-only** (`npm run deploy`) — the Vercel GitHub webhook is broken and `git push` does not deploy. `asserted` (OPS.md "THE ONE RULE").
 
@@ -69,6 +69,6 @@ Commit `97fc7fc` (2026-07-13) tracked two previously-untracked ~900-line schema 
 
 ## Active work
 
-Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. PR #2 (agent infra) **merged 2026-07-15**; PR #1 (Railway `$PORT` fix) is still open but moot — the backend is dormant per ADR-0001 and slated for deletion, so PR #1 should be closed, not merged. `verified` 2026-07-26.
+Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. PR #2 (agent infra) **merged 2026-07-15**; PR #1 (Railway `$PORT` fix) closed as moot — the backend was deleted per ADR-0002. `verified` 2026-07-26.
 
 Current phase gate: Sean confirming the demand side (anchor partners + founding cohort) → then the paid-membership transact sprint. A phased shore-up roadmap (foundation cleanup → first dollar → affiliate line → Vault/marketplace) is drafted on Kevin's side, ready to kick off. Sean is actively building rooms (Kitchen, Gym, salon — June/July commits).

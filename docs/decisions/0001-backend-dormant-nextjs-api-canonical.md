@@ -1,6 +1,6 @@
 # 0001 — Next.js API routes are canonical; the FastAPI backend stays dormant
 
-> **Status:** ACCEPTED
+> **Status:** SUPERSEDED by ADR-0002 (2026-07-26 — `backend/` deleted, Railway removed)
 > **Date:** 2026-07-14 (records a state that has held since ~June 2026)
 > **Decision:** All live server logic runs in Next.js `/api` routes on Vercel; `backend/` (FastAPI on Railway) is built but **not deployed** and nothing may depend on it.
 

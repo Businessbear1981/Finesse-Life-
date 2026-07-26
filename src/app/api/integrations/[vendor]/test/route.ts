@@ -147,7 +147,6 @@ async function runTest(vendor: string, cfg: Record<string, string>): Promise<Tes
     case 'suno':
     case 'langsmith':
     case 'porkbun':
-    case 'railway':
     case 'vercel': {
       // Stubs — vendor-specific check goes here. For now, report not-implemented.
       return {
