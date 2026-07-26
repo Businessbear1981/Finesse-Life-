@@ -41,21 +41,22 @@ From the 2026-06-23 line-by-line audit. A 2026-07-26 delta re-audit of the July 
 | Checkout / PaymentIntent / subscriptions | **Missing entirely** — no `/subscribe`, no billing migrations |
 | Scout & Price-Hunter | **Broken** — query columns/statuses that don't exist; return nothing |
 | `scale/join` | **Broken** — inserts columns absent from `scale_joins`; silent no-op |
-| Market/Exchange listings | **Mock** — `DEMO_LISTINGS` + `DEMO_PIN` in `src/app/page.tsx` and `(hotel)/market/page.tsx`, never calls the Exchange API (`verified` still present 2026-07-14) |
+| Market/Exchange listings | **Mock, now gated** — `DEMO_LISTINGS` + the `123456` entrance PIN only render when `NEXT_PUBLIC_DEMO_MODE` ≠ `false` (`src/lib/demo.ts`, default ON so current deploys are unchanged). Still never calls the Exchange API. `verified` 2026-07-26 |
 | Vault rebate | **Wrong** — credits 12% with no funding source; prospectus economics are ~1% cashback. Fix, not feature |
 | Lab (Alpaca paper-trading connect) | **Real enough to matter** — stores account snapshot + truncated key → Finesse is NOT securities-free; legal read budgeted |
 
 ## Database
 
-Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrations/` and run via `npm run db:migrate <file>` (direct connection) — `supabase db push` does not work here. Which migrations are applied vs merely on disk has **not** been re-verified since the June audit. `asserted`.
+Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrations/` and run via `npm run db:migrate <file>` (direct connection) — `supabase db push` does not work here.
 
-Commit `97fc7fc` (2026-07-13) tracked two previously-untracked ~900-line schema files: `20260617_finesse_v2.sql` and `20260617_master_finesse_schema.sql`. `verified` 2026-07-26:
+**Applied-vs-on-disk `verified` 2026-07-26** (queried the restored live DB directly):
 
-- They are **near-duplicates of each other** (same tables, minor line drift) — one should be deleted or they will diverge.
-- Everything is `create table if not exists` — they **do not alter tables that already exist in the live DB**, so the live schema state is still unknown until queried.
-- They now define `subscriptions` and `payments` (with `processor` defaulting to `'ccbill'`), but the Stripe webhook still upserts a different row shape (`price_id`, Stripe sub-id key) — the mismatch is now *documented in-repo* rather than fixed. `stripe_events`, `products`, `prices` still have no migration.
-- `embassy_deals` is **redefined** with different columns/statuses (`original_price_cents`/`group_price_cents`, `live/expired/pending`) than `20260609_embassy.sql` (`retail_price_cents`/`members_price_cents`, `pending/review/live/rejected`). Whichever ran first wins in the live DB; the agent queries match neither shape.
-- `scale_deals`/`scale_joins`/`vault_transactions` match the June audit findings exactly (joins table still lacks the columns `scale/join` writes; `direction` check still excludes `'cashback'`; no `cipher` column).
+- The live `public` schema has **26 tables** — the June 09–11 migration wave only (`finesse_mvp`, `embassy`, `exchange`, `registry`, `scrapbook`, `carpe_diem`, `intelligence_engine`, `vault_exchange_scale`, `backstage_sessions`).
+- **Never applied:** the `20260607` base schema (`integrations` vault, `media_assets`/`media_jobs`, `concierge_avatars`, `onboarding_state`, `truth_checks`), `20260615_vip_exclusives`, and **both ~900-line master schemas**. Consequence: the `/settings/integrations` vault, media pipeline, and VIP exclusives have **no live tables** — those features run on env-var fallback or fail.
+- **Schema consolidation done 2026-07-26:** `20260617_master_finesse_schema.sql` was a byte-identical duplicate of `20260617_finesse_v2.sql` (whitespace only) — deleted. `20260617_wire_all_modules.sql` was a divergent never-applied draft of 7 tables the master also defines — deleted. **`20260617_finesse_v2.sql` is the single canonical master.**
+- `embassy_deals` is a **three-way conflict**: live DB has the `20260609_embassy.sql` shape (`item`, `retail_price_cents`/`members_price_cents`, `tier`); the canonical master defines a group-buy shape (`title`, `group_price_cents`, `goal_count`); Scout/Price-Hunter query a **third** shape (`retail_price`, `image_url`, `purchase_url`, `status='active'`) that exists nowhere. Needs a deliberate ALTER + agent fix, scheduled with Phase 1 DDL.
+- The live `subscriptions` table is the June `finesse_mvp` shape, and its `provider` CHECK allows only `'ccbill' | 'apple_iap' | 'vip_code'` — **`'stripe'` is not a legal value in the live DB**. Any Stripe billing write will be rejected until a constraint migration lands (must precede FIN-001 webhook work). The Stripe webhook code meanwhile upserts yet another row shape (`price_id`, Stripe sub-id key). `stripe_events`, `products`, `prices` have no live tables.
+- `scale_joins` live is 4 columns (`id`, `deal_id`, `user_id`, `joined_at`) — confirms `scale/join` writes columns that don't exist (silent no-op). Two June audit sub-claims are **stale**: live `vault_transactions` *does* have a `cipher` column and its `direction` CHECK *does* allow `'cashback'`. The 12%-rebate funding bug is unaffected (it's in code, not schema).
 
 ## Known gaps that will bite
 
@@ -64,8 +65,8 @@ Commit `97fc7fc` (2026-07-13) tracked two previously-untracked ~900-line schema 
 3. **Vault 12% rebate bug** (see above) — must be corrected before any real money flows.
 4. Scout / Price-Hunter / scale-join schema mismatches — features silently return nothing.
 5. Stale-domain drift: OPS.md and older docs still say `finesselife.app`.
-6. **Duplicate master schemas** (`20260617_finesse_v2.sql` vs `20260617_master_finesse_schema.sql`) — near-identical 900-line files; consolidate before any billing DDL lands on top. `verified` 2026-07-26.
-7. **Gym "member offers" are hardcoded** (WHOOP, ClassPass, Gainful, Hyperice, Form Nutrition promo codes in `gym/page.tsx`, commit `c86e38b`) — demo theater unless these are signed partner deals; same class of mock as `DEMO_LISTINGS`. `verified` 2026-07-26.
+6. **Live DB ≠ on-disk schema** — the canonical master (`20260617_finesse_v2.sql`) has never been applied; 15 of its 41 tables don't exist live (integrations vault, media, payments/stripe_events among them), `embassy_deals` is a three-way conflict, and `subscriptions.provider` forbids `'stripe'`. Reconciling DDL must land before (or with) Phase-1 billing. Duplicate-schema consolidation itself **done 2026-07-26**.
+7. **Gym "member offers" are hardcoded** (WHOOP, ClassPass, Gainful, Hyperice, Form Nutrition promo codes in `gym/page.tsx`, commit `c86e38b`) — demo theater unless these are signed partner deals. Deliberately NOT gated behind `NEXT_PUBLIC_DEMO_MODE` yet — blocked on Sean confirming real-or-placeholder. `verified` 2026-07-26.
 
 ## Active work
 
