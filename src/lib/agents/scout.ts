@@ -21,12 +21,12 @@ function getServiceClient() {
   );
 }
 
-async function callNova(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callNova(systemPrompt: string, userPrompt: string, image?: string): Promise<string> {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const res = await fetch(`${base}/api/nova`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({system: systemPrompt, prompt: userPrompt}),
+    body: JSON.stringify({system: systemPrompt, prompt: userPrompt, image}),
   });
   const data = (await res.json()) as {text?: string; error?: string};
   return data.text ?? '';
@@ -37,10 +37,13 @@ async function callNova(systemPrompt: string, userPrompt: string): Promise<strin
 async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
   const supabase = getServiceClient();
   // Full text search on title + brand; fall back to ilike if no ts vector
+  // Real schema (20260611_vault_exchange_scale.sql): original_price_cents /
+  // group_price_cents, status open|met|closed|cancelled. No purchase_url column
+  // exists on this table — deals are joined in-app via /scale, not an outbound link.
   const {data, error} = await supabase
     .from('scale_deals')
-    .select('id,title,brand,price_cents,image_url,purchase_url,category,status')
-    .eq('status', 'live')
+    .select('id,title,brand,group_price_cents,image_url,category,status')
+    .eq('status', 'open')
     .or(`title.ilike.%${query}%,brand.ilike.%${query}%,category.ilike.%${query}%`)
     .limit(6);
 
@@ -50,17 +53,16 @@ async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
     id: string;
     title: string;
     brand: string;
-    price_cents: number;
+    group_price_cents: number;
     image_url: string | null;
-    purchase_url: string | null;
     category: string | null;
   }>).map((row) => ({
     title: row.title,
     brand: row.brand,
-    price_cents: row.price_cents,
+    price_cents: row.group_price_cents,
     source: 'scale' as const,
     image_url: row.image_url,
-    purchase_url: row.purchase_url,
+    purchase_url: '/scale',
     partner: null,
     confidence: 0.85,
   }));
@@ -68,10 +70,13 @@ async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
 
 async function queryEmbassyDeals(query: string): Promise<ScoutResult[]> {
   const supabase = getServiceClient();
+  // Real schema (20260609_embassy.sql): item / retail_price_cents /
+  // members_price_cents / tier, status pending|review|live|rejected.
+  // No image_url or purchase_url columns on this table.
   const {data, error} = await supabase
     .from('embassy_deals')
-    .select('id,brand,item,retail_price,members_price,category,image_url,purchase_url,tier')
-    .eq('status', 'active')
+    .select('id,brand,item,members_price_cents,category,tier')
+    .eq('status', 'live')
     .or(`item.ilike.%${query}%,brand.ilike.%${query}%,category.ilike.%${query}%`)
     .limit(6);
 
@@ -81,19 +86,16 @@ async function queryEmbassyDeals(query: string): Promise<ScoutResult[]> {
     id: string;
     brand: string;
     item: string;
-    retail_price: number;
-    members_price: number;
+    members_price_cents: number;
     category: string | null;
-    image_url: string | null;
-    purchase_url: string | null;
     tier: string | null;
   }>).map((row) => ({
     title: row.item,
     brand: row.brand,
-    price_cents: Math.round(row.members_price * 100),
+    price_cents: row.members_price_cents,
     source: 'embassy' as const,
-    image_url: row.image_url,
-    purchase_url: row.purchase_url,
+    image_url: null,
+    purchase_url: '/embassy',
     partner: row.tier,
     confidence: 0.8,
   }));
@@ -144,13 +146,17 @@ export async function scoutByText(
 }
 
 export async function scoutByImage(imageBase64: string): Promise<ScoutResult[]> {
-  // Ask Nova to describe the image and extract item details
-  const system = `You are Scout. The user has shared a product image encoded as base64.
+  // Ask Nova to describe the image and extract item details.
+  // Sends the actual image as a multimodal content part (see /api/nova) —
+  // previously embedded a 200-char-truncated base64 snippet as prompt text,
+  // which gave the model nothing to actually look at.
+  const system = `You are Scout. The user has shared a product image.
 Analyze it and respond with ONLY a JSON object (no prose): { description: string, brand_guess: string, category: string }`;
 
   const raw = await callNova(
     system,
-    `Describe this product image and identify brand/category. Base64 data: ${imageBase64.slice(0, 200)}... [truncated for prompt]`,
+    'Describe this product image and identify brand/category.',
+    imageBase64,
   );
 
   let description = '';

@@ -25,11 +25,13 @@ export async function GET() {
       return NextResponse.json({ items: [] });
     }
 
+    // Real schema (registry_items): name/image_url, not title/photo_url;
+    // purchased boolean, not a status column — 'active' means not yet purchased.
     const { data, error } = await supabase
       .from('registry_items')
-      .select('id, title, brand, price_cents, pledged_cents, category, occasion, photo_url, source')
+      .select('id, name, brand, price_cents, pledged_cents, category, occasion, image_url, source')
       .eq('user_id', user.id)
-      .eq('status', 'active')
+      .eq('purchased', false)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -37,7 +39,19 @@ export async function GET() {
       return NextResponse.json({ items: [] });
     }
 
-    return NextResponse.json({ items: data ?? [] });
+    const items = (data ?? []).map((row) => ({
+      id: row.id,
+      title: row.name,
+      brand: row.brand,
+      price_cents: row.price_cents,
+      pledged_cents: row.pledged_cents,
+      category: row.category,
+      occasion: row.occasion,
+      photo_url: row.image_url,
+      source: row.source,
+    }));
+
+    return NextResponse.json({ items });
   } catch (err) {
     console.error('[GET /api/registry/items] error:', err);
     return NextResponse.json({ items: [] });
@@ -83,26 +97,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, id: `demo_${Date.now()}` });
     }
 
+    // Real schema (registry_items): name/image_url, not title/photo_url; no
+    // status/visibility columns exist — purchased defaults to false on insert.
     const { data, error } = await supabase
       .from('registry_items')
       .insert({
         user_id: user.id,
-        title: body.title.trim(),
+        name: body.title.trim(),
         brand: body.brand ?? null,
         price_cents: body.price_cents ?? 0,
         category: body.category ?? 'Other',
         occasion: body.occasion ?? null,
         source: body.source ?? 'upload',
-        photo_url: body.photo_url ?? null,
-        status: 'active',
-        visibility: 'private',
+        image_url: body.photo_url ?? null,
       })
       .select('id')
       .single();
 
     if (error) {
       console.error('[registry/items] insert error:', error);
-      return NextResponse.json({ success: true, id: `local_${Date.now()}` });
+      return NextResponse.json({ error: 'Could not save registry item' }, { status: 500 });
     }
 
     // Emit behavioral signal (fire-and-forget)

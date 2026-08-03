@@ -74,33 +74,36 @@
 }
 
 :root {
-  /* shadcn vars remapped to Finesse palette */
+  /* shadcn vars remapped to Finesse palette
+     Contrast pass: background stays near-black, but card/popover/muted
+     now step up a visible rung each (Cortez chiaroscuro, not a flat wash).
+     Borders/inputs moved off near-invisible low-alpha brass. */
   --background: #0a0406;
   --foreground: #f4e8d0;
-  --card: #0d0809;
+  --card: #1c0f11;
   --card-foreground: #f4e8d0;
-  --popover: #140709;
+  --popover: #241419;
   --popover-foreground: #f4e8d0;
   --primary: #c9a961;
   --primary-foreground: #0a0406;
   --secondary: #4a1922;
   --secondary-foreground: #f4e8d0;
-  --muted: #1a0a0d;
-  --muted-foreground: #8b6f3a;
+  --muted: #2a1418;
+  --muted-foreground: #b89b5e;
   --accent: #6b1e2e;
   --accent-foreground: #f4e8d0;
   --destructive: #7f1d1d;
-  --border: rgb(201 169 97 / 20%);
-  --input: rgb(201 169 97 / 12%);
+  --border: rgb(201 169 97 / 40%);
+  --input: rgb(201 169 97 / 28%);
   --ring: #c9a961;
   --radius: 0.125rem;
-  --sidebar: #0d0809;
+  --sidebar: #1c0f11;
   --sidebar-foreground: #f4e8d0;
   --sidebar-primary: #c9a961;
   --sidebar-primary-foreground: #0a0406;
   --sidebar-accent: #4a1922;
   --sidebar-accent-foreground: #f4e8d0;
-  --sidebar-border: rgb(201 169 97 / 20%);
+  --sidebar-border: rgb(201 169 97 / 40%);
   --sidebar-ring: #c9a961;
   --chart-1: #c9a961;
   --chart-2: #e8c87a;

@@ -114,11 +114,14 @@ export async function POST(req: Request) {
             {status: 400},
           );
         }
-        const path = await findProcurementPath({
-          title: item.title,
-          category: item.category,
-          price_cents: item.price_cents,
-        });
+        const path = await findProcurementPath(
+          {
+            title: item.title,
+            category: item.category,
+            price_cents: item.price_cents,
+          },
+          user?.id,
+        );
         return Response.json(path);
       }
 

@@ -1,0 +1,170 @@
+{
+  "prepared": "2026-08-01",
+  "context": "Feature concepts raised by Sean in the same session as the technical due-diligence follow-up. None of these exist in the codebase today (verified against Businessbear1981/Finesse-Life- as of this date) — this file captures them as build specs for Kevin/roadmap sequencing, separate from the existing bug-fix backlog (Scale join, Vault rate, agent query fixes, Market/Exchange wiring).",
+  "features": [
+    {
+      "id": "nightvision-real-signal-ingestion",
+      "module": "NIGHTVISION",
+      "name": "Real client interview + social/behavioral signal sourcing",
+      "one_liner": "Replace the fake 'connected source' toggles with real OAuth-based ingestion so Style DNA is built from actual buying signals, not a boolean the LLM is told to believe.",
+      "current_state": "NOT BUILT. src/app/api/nightvision/analyze/route.ts takes sources.instagram/snapchat/plaid/spotify as plain booleans from the client — no OAuth flow, no token exchange, no real API calls to any of these platforms exist anywhere in the repo. The LLM is simply told 'Instagram is connected' as a string and fabricates plausible-sounding inferences.",
+      "depends_on": ["oauth app registration with each platform", "token storage (social_accounts table already exists, unused for this)", "consent/privacy copy update"],
+      "build_spec": [
+        "Real OAuth: Instagram Graph API (Basic Display or Graph API w/ Business login), Spotify Web API (Authorization Code flow), Plaid Link (transactions product) for real spend categories.",
+        "Store tokens encrypted in existing social_accounts table (access_token_enc column already there, unused).",
+        "Replace the boolean-flag prompt construction in analyze/route.ts with real fetched data: top Spotify artists/genres, Instagram media captions/hashtags (not photos, to start), Plaid merchant-category spend.",
+        "Self-learning loop: persist each analysis run + which signals fed it, so Style DNA visibly refines over time rather than being a single LLM call.",
+        "Flag for review, not a code fix: current system prompt hardcodes race/ethnicity-keyed brand and genre-to-brand recommendations. Needs a product/legal conversation before this ships to real users."
+      ],
+      "open_questions": ["Which platform first — Spotify is the lowest-friction OAuth (no app review needed for read-only scopes); Plaid requires a funded Plaid account and compliance review; Instagram Graph API requires Meta app review for anything beyond Basic Display."]
+    },
+    {
+      "id": "wardrobe-photo-capture-pipeline",
+      "module": "Wardrobe / Registry / NIGHTVISION / Embassy",
+      "name": "Universal photo capture → auto-route to modules",
+      "one_liner": "Snap a photo anywhere (in-app camera or upload) and have it automatically routed/tagged into Wardrobe (closet), Registry (wishlist), NIGHTVISION (style signal), and Embassy (deal matching) — one capture, many destinations.",
+      "current_state": "NOT BUILT. wardrobe_looks.photo_url and bag_items.photo_url exist as single-purpose upload fields (one photo, one destination, manual). Scout (src/lib/agents/scout.ts) has an image-analysis path but it's invoked per-search, not from a capture pipeline, and truncates the image to 200 chars — effectively non-functional today.",
+      "depends_on": ["Scout's image analysis actually working (currently broken — truncates base64 to 200 chars before sending to the LLM)", "R2 upload flow", "a routing/classification step to decide which module(s) a photo feeds"],
+      "build_spec": [
+        "Fix Scout's image path first — it can't classify anything today with a 200-char-truncated payload.",
+        "Single upload endpoint that: stores original to R2, runs one real vision-model call to classify (outfit item vs. wishlist item vs. general style signal), then fans out: wardrobe item -> bag_items/wardrobe_looks, wishlist-worthy -> wardrobe_wishlist/registry_items, always -> a NIGHTVISION style-signal event via the intelligence bus.",
+        "UI: a persistent capture affordance (camera button) available from Wardrobe, Registry, and the mobile shell, not a buried per-page upload form."
+      ],
+      "open_questions": ["Does this need a dedicated vision model call per photo (cost) or can it batch with existing Nova calls?"]
+    },
+    {
+      "id": "wardrobe-rotating-outfit-builder",
+      "module": "Wardrobe",
+      "name": "Nova-curated rotating outfit combinations",
+      "one_liner": "Given a client's actual wardrobe items + occasion (business, nightwear, casual, event), Nova assembles and rotates complete outfit combinations (top/bottom/shoes/accessories) the client can browse and see 'what the intelligence picked.'",
+      "current_state": "NOT BUILT. Wardrobe today is a flat list/feed (wardrobe_looks, bag_items) with likes and a wishlist — no combination/outfit-building logic, no occasion tagging, no rotation.",
+      "depends_on": ["wardrobe items need structured attributes (category, formality, color, season) to combine algorithmically", "Stylist agent (src/lib/agents/stylist.ts) already exists and is real (calls Claude) — natural place to extend"],
+      "build_spec": [
+        "Add occasion/formality/category tagging to bag_items (or a new wardrobe_items table if bag_items is meant to stay 'collection value' rather than 'wearable pieces').",
+        "Extend stylist.ts with an outfit-assembly mode: given occasion + wardrobe inventory, return N complete combinations, not just style advice text.",
+        "UI: a rotation/carousel view showing 'today's look' with a visible attribution ('Nova picked this because...') — matches the 'client can see what the intelligence picked' requirement.",
+        "This is explicitly called out as equal priority to Per Diem (the men's date planner) — should get comparable design investment, not be an afterthought."
+      ],
+      "open_questions": ["Does this require the photo-capture pipeline to be live first (to populate real wardrobe inventory), or does it ship with manually-entered items?"]
+    },
+    {
+      "id": "perdiem-womens-shopping-budget",
+      "module": "Per Diem (feminine-side parity)",
+      "name": "Budget-constrained shopping companion — 'I want to shop for the gala but only have $X'",
+      "one_liner": "A women's-side feature mirroring Per Diem's budget/planner pattern, but for shopping trips: set a hard budget for an event, get curated options that fit it.",
+      "current_state": "NOT BUILT, but there is a close structural precedent to build from. src/app/(hotel)/perdiem/page.tsx (masculine side, date planner) already has a working budget-preset pattern (BUDGET_PRESETS: $100/$250/$500/$1000/no-limit) and a 'wishlist' tab with cheaper-alternative-brand suggestions (e.g. Loro Piana throw -> Jenni Kayne alternative at 1/3 the price) — same shape as what's being asked for, just needs to be event/shopping-framed instead of date-framed, and Per Diem itself is still demo-data-driven (DEMO_PLAN, DEMO_WISHLIST), not wired to real inventory.",
+      "depends_on": ["Scout/Price-Hunter agents (being fixed this session) for real product matching", "a real catalog (flagged repo-wide as missing — currently seeds/hallucination per the June 23 audit)"],
+      "build_spec": [
+        "Reuse the Per Diem budget-preset UI pattern directly — don't redesign it, mirror it.",
+        "Occasion framing instead of date framing: 'gala,' 'wedding guest,' 'work event' as entry points instead of time-of-day date-plan slots.",
+        "Feed Scout/Price-Hunter with the occasion + budget ceiling; return options across price points that fit, with the same 'cheaper alternative' pattern Per Diem's wishlist already does.",
+        "Should NOT ship before Per Diem's own wishlist/planner is wired to real data — otherwise this inherits the same demo-data problem twice."
+      ],
+      "open_questions": []
+    },
+    {
+      "id": "embassy-ambassador-passive-income",
+      "module": "Embassy",
+      "name": "Ambassador program — passive income + agent outreach for opportunities",
+      "one_liner": "Members can become ambassadors/affiliates earning passive income; an agent actively scouts ambassador/partnership opportunities through the client's own connected tech/social stack.",
+      "current_state": "NOT BUILT. Embassy today (embassy_deals table) is staff-submitted partner deals only (status pending/review/live/rejected, submitted_by references a user) — there is no ambassador/affiliate-earnings concept, and no outreach agent of any kind.",
+      "depends_on": ["real social OAuth (same dependency as nightvision-real-signal-ingestion — can't scout 'opportunities through client's own stack' without real platform connections)", "an affiliate/referral tracking layer (does not exist — Procurement's tokens are the closest analog and are fully mocked)"],
+      "build_spec": [
+        "This is a new agent role, not an extension of an existing one — closest existing pattern is procurement.ts's PARTNER_MAP, which would need to become a real affiliate-network integration (see research task on affiliate/ambassador platforms).",
+        "Needs a commission/earnings ledger — vault_transactions could carry this if extended, or a dedicated ambassador_earnings table.",
+        "Outreach agent scope is the least defined part of this — needs a product conversation on what 'looking for opportunities through the client's own stack' actually means operationally (is it: scanning their social posts for brand mentions to suggest affiliate links? Matching their follower count/niche to available partner programs? Something else?)."
+      ],
+      "open_questions": ["What does 'agent outreach' mean concretely — outbound to brands on the member's behalf, or inbound matching to existing partner programs? This changes the build entirely."]
+    },
+    {
+      "id": "intelligence-agent-swarm-deployment",
+      "module": "Intelligence Engine",
+      "name": "On-demand agent swarm deployment for tasks/events",
+      "one_liner": "Client can 'deploy' a swarm of agents against a specific task, bill, problem, interest, or event (a work gala, a birthday, a wedding) — purchased/triggered based on preference and timing rather than always-on.",
+      "current_state": "NOT BUILT. The intelligence engine (src/lib/intelligence/) and the 6 agents (stylist, scout, price-hunter, procurement, outing-planner, index) exist and are real, but they're invoked individually per-feature (e.g. Scout runs when you search), not as a coordinated, purchasable, event-triggered swarm.",
+      "depends_on": ["Stripe billing (Phase 1, already in progress per the roadmap) — 'purchase additional agents' implies a payment/entitlement model", "an event/occasion trigger system (does not exist)"],
+      "build_spec": [
+        "Needs an orchestration layer above the individual agents — something that takes an occasion ('my sister's wedding, budget $2000, need outfit + gift + travel') and coordinates Stylist + Scout + Price-Hunter + Outing-Planner together against one goal, rather than the client invoking each separately.",
+        "Entitlement model: which agent combinations are free vs. paid add-ons needs product definition before engineering — this is a pricing/packaging decision, not just a build task.",
+        "Natural extension of the existing intelligence bus (src/lib/intelligence/bus.ts) — the emit() pattern already used by scale_join could generalize to 'event declared' -> 'swarm assembled' -> 'agents report back.'"
+      ],
+      "open_questions": ["Is this priced per-swarm-deployment, a subscription tier unlock, or usage-based? Affects both the Stripe wiring in Phase 1 and the entitlement model above."]
+    },
+    {
+      "id": "lounge-taste-similarity-ranking",
+      "module": "Lounge",
+      "name": "Match/rank Lounge members by taste similarity (style, music)",
+      "one_liner": "Arrange or rank who a member sees in the Lounge by commonality of taste — shared music, style signals — rather than a flat chronological feed.",
+      "current_state": "NOT BUILT. Lounge today (src/app/(hotel)/lounge/) is a flat social post feed — post-card.tsx, post-composer.tsx, page.tsx — reverse-chronological, no ranking or member-matching logic of any kind.",
+      "depends_on": [
+        "nightvision-real-signal-ingestion — meaningful taste-similarity ranking needs real style/music signal, not the current fake boolean-flag system",
+        "a defined similarity metric (embedding distance on style_tags/brand_radar? shared Spotify genres, once real signal ingestion exists?)"
+      ],
+      "build_spec": [
+        "Short term (works today without waiting on real OAuth): rank by overlap of existing NIGHTVISION style_tags/brand_radar and the intake 'vibe' field — weak signal, but real and already-stored, unlike fabricated social data.",
+        "Long term: once real Spotify/Instagram signal exists (see nightvision-real-signal-ingestion), compute similarity from actual genre/artist overlap and style embeddings.",
+        "Needs a product decision: is this a visible 'ranked by compatibility' UI, or an invisible feed-ordering signal? Very different UX and privacy implications."
+      ],
+      "open_questions": ["Does surfacing 'you're similar to this person' explicitly raise different privacy/consent expectations than silently reordering a feed?"]
+    },
+    {
+      "id": "post-interaction-preference-signal",
+      "module": "Intelligence Engine / Outing Planner",
+      "name": "Light post-interaction feedback to refine profiling",
+      "one_liner": "After a Nova-planned date/outing, capture lightweight, non-judgmental feedback that feeds back into the user's profile — not a rating of the other person, but insight into the user's own interests, values, and what mattered to them.",
+      "current_state": "NOT BUILT. planOuting (src/lib/agents/outing-planner.ts) produces a plan; nothing captures what happened afterward or feeds it back into behavioral profiling. The intelligence bus (src/lib/intelligence/bus.ts, emit()) already supports arbitrary signal events, so the plumbing to receive this exists — there's just no capture point or UI for it yet.",
+      "depends_on": ["outing-planner's plan needs a stable reference ID to attach post-outing feedback to (check whether one already exists)"],
+      "build_spec": [
+        "Explicitly framed as insight-gathering, not a partner rating system — e.g. 'what mattered most about tonight?' with open/tag-based responses (values, interests), not a 1-5 star judgment of the other person.",
+        "Feed responses into buildBehavioralProfile (src/lib/intelligence/behavioral.ts) as a new signal type alongside existing category/brand affinities.",
+        "Timing/UX matters a lot here — needs to feel like a warm check-in from Nova, not a survey, or it won't get used."
+      ],
+      "open_questions": ["Where does this prompt surface — push notification next-day, in-app on next Nova session, both?"]
+    },
+    {
+      "id": "multi-agent-operations-architecture",
+      "module": "Intelligence Engine (platform-wide)",
+      "name": "Standing agent workforce: per-room agents, deal-sourcing agents, client-signal monitors, internal ops agents",
+      "one_liner": "Move from 'agents you call per-request' to a standing multi-agent architecture: each room has a dedicated agent optimizing its own products/content, Scale has deal-sourcing agents working different tiers, a monitoring layer continuously watches member preference/traffic/buying signals, and a separate internal agent stack watches platform health — all self-learning, API-driven, fed by real social wiring and NIGHTVISION.",
+      "current_state": "NOT BUILT — and structurally different from what exists, not just missing pieces of it. Today: exactly one dispatch endpoint (src/app/api/agents/route.ts) with 5 stateless agents (scout, stylist, procurement, price-hunter, outing-planner) that only execute when a request calls them. No agent 'owns' a room. No continuous/background monitoring process exists — the closest thing is the intelligence bus (src/lib/intelligence/bus.ts, emit()) which is a passive event log, not an active monitoring agent. No agent operates on the platform's own internal health/user base as a subject.",
+      "depends_on": [
+        "nightvision-real-signal-ingestion — 'client signal monitoring' needs real signal to monitor, not the current fake booleans",
+        "a background job/scheduling layer — nothing in this Next.js app runs on a timer or continuously today; everything is request-triggered",
+        "intelligence-agent-swarm-deployment (already in this file) — related but distinct: that entry is member-triggered/event-triggered swarms for a specific occasion; this is standing, always-on agent ownership"
+      ],
+      "build_spec": [
+        "Per-room agents: define what 'optimizing a room' concretely means per room before building anything — e.g. for Scale, an agent might mean 'surface the highest-conversion-probability deals to the top'; for Wardrobe, 'suggest what to retire/add.' This needs a per-room product spec, not one generic template.",
+        "Scale-tier deal-sourcing agents: this is the operational side of the affiliate-network research already done (Impact.com etc.) — an agent role that actively works partner-network APIs looking for new deals/partnerships to bring in, not just executing a search when a member asks.",
+        "Client-signal monitoring layer: extend behavioral.ts (src/lib/intelligence/behavioral.ts) from 'compute a profile when asked' to 'continuously update and flag notable pattern changes' — needs a scheduled job runner (Vercel Cron, or a queue), which doesn't exist in this codebase yet.",
+        "Internal ops agent stack: needs explicit scoping — is this fraud/abuse detection, engagement/churn-risk monitoring, infra health, or all three? Each is a different build.",
+        "Self-learning loop: every agent above should feed back into NIGHTVISION/behavioral profiles rather than being a one-off output — the intelligence bus is the right existing primitive to extend, not replace."
+      ],
+      "open_questions": [
+        "This is a significant infrastructure investment (background job runner, per-room product specs, monitoring/alerting) — does it belong before or after the Phase 1 transact sprint? Recommend after: none of this generates revenue on its own, and it's easier to build agent ownership on top of a product that already has real payment/commerce wiring than to build it on top of mocks.",
+        "Sequencing suggestion: real signal ingestion (nightvision-real-signal-ingestion) and a background job runner are the two prerequisites everything else in this entry depends on — those two would be the actual first build steps, not the per-room agents themselves."
+      ]
+    },
+    {
+      "id": "carpe-diem-spades-poker-pilot",
+      "module": "Carpe Diem (men's side) / Game Room",
+      "name": "Spades + Poker pilot, active-member-only, small scale",
+      "one_liner": "Spades and Poker via an existing third-party gaming platform, scoped specifically to Carpe Diem (masculine edition), gated to 'active member' status rather than full VIP, and deliberately small-scale/pilot-framed to work out bugs before any wider rollout.",
+      "current_state": "NOT BUILT. 'Game Room' already appears as a nav link in the live site's room rail (confirmed via direct fetch of finesselife.vip) alongside Lounge/Entourage/Lab/Switchboard/Lair/Vault/Scale/Nova/Exchange/Embassy — but there is no corresponding page anywhere in src/app/ for it. It's a nav entry with nothing behind it, same class of issue as other mock surfaces found this session.",
+      "depends_on": [
+        "Confirm what 'active member' means precisely as a gate — likely profiles.status = 'active' (set post-onboarding per the SOP), which is broader than VIP/subscription_tier. Needs a decision: is this its own narrower cohort flag, or literally just 'onboarding complete'?",
+        "identifying a real third-party gaming platform with an embeddable/API integration path for Spades and Poker with private-room support — not yet researched this session"
+      ],
+      "build_spec": [
+        "Explicit build direction from Sean: use an existing gaming platform (not custom-built game logic) for both Spades and Poker.",
+        "Explicitly scoped as a small-scale pilot on Carpe Diem only, gated to active-member status — not a full VIP/Backstage launch. Framing is 'work out the bugs' before considering wider rollout (Per Diem side, broader membership tiers).",
+        "Private room setup is a named requirement — members should be able to create a table for their own group, not just join a public table.",
+        "Poker specifically may carry real-money-gaming regulatory exposure depending on whether stakes are involved — flag for a legal read if any wagering (even Vault-credit-based) is considered, separate from a pure-social/no-stakes version."
+      ],
+      "open_questions": [
+        "Is this social/no-stakes play, or could members wager Vault credits? The second option reopens gambling-regulation questions similar in spirit to the Vault money-transmitter flag already in the roadmap.",
+        "Which third-party platform — needs its own research pass before a build spec can be concrete."
+      ],
+      "risk_flag": "Sean suggested Bovada specifically as the third-party platform. FLAGGING, NOT ADOPTING: Bovada is an offshore sportsbook/casino operating without a license in most/all US states — it has been the subject of state Attorney General cease-and-desist actions (Washington State, among others). Integrating or linking a legitimate, investor-facing platform to an unlicensed offshore gambling operator is a real legal and reputational exposure, comparable in severity to the Vault money-transmitter question already in the roadmap but without an obvious compliant path the way Stripe Issuing provides for Vault. Piloting small and active-member-only reduces exposure surface but does not remove the underlying legal question — recommend resolving the platform choice before any integration work, not after."
+    }
+  ]
+}

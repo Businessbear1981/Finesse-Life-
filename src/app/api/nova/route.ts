@@ -90,7 +90,7 @@ function buildNovaTools(userId: string | null) {
 // ─── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const {prompt, system} = await req.json() as {prompt: string; system?: string};
+  const {prompt, system, image} = await req.json() as {prompt: string; system?: string; image?: string};
 
   // Pull user + behavioral profile context (non-blocking, 800ms cap)
   let profileContext = '';
@@ -127,14 +127,35 @@ export async function POST(req: Request) {
   const novaTools = buildNovaTools(userId);
 
   try {
-    const result = await generateText({
-      model: model('anthropic/claude-sonnet-4-6'),
-      system: enrichedSystem,
-      prompt,
-      tools: novaTools,
-      // Allow up to 3 steps: initial call + tool execution + follow-up prose
-      stopWhen: stepCountIs(3),
-    });
+    // Image path (Scout's product-photo analysis): send the actual image as a
+    // multimodal content part instead of embedding base64 text in the prompt —
+    // previously truncated to 200 chars, which sent the model nothing usable.
+    const result = await generateText(
+      image
+        ? {
+            model: model('anthropic/claude-sonnet-4-6'),
+            system: enrichedSystem,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {type: 'text', text: prompt},
+                  {type: 'image', image},
+                ],
+              },
+            ],
+            tools: novaTools,
+            stopWhen: stepCountIs(3),
+          }
+        : {
+            model: model('anthropic/claude-sonnet-4-6'),
+            system: enrichedSystem,
+            prompt,
+            tools: novaTools,
+            // Allow up to 3 steps: initial call + tool execution + follow-up prose
+            stopWhen: stepCountIs(3),
+          },
+    );
 
     // Collect all tool results across all steps
     const toolCalls: Array<{name: string; result: unknown}> = [];

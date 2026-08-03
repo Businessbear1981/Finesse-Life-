@@ -55,17 +55,12 @@ function buildProfileSummary(
     lines.push(`Style cities: ${c}`);
   }
 
-  const connectedSources: string[] = [];
-  if (sources.instagram) connectedSources.push('Instagram (visual identity, brand tags, aesthetic)');
-  if (sources.snapchat) connectedSources.push('Snapchat (social graph, story patterns)');
-  if (sources.plaid) connectedSources.push('Plaid (real transaction data, brand spend)');
-  lines.push(`spotify: ${sources.spotify ? 'Connected — music taste feeds style DNA' : 'Not connected'}`);
-
-  if (connectedSources.length > 0) {
-    lines.push(`Connected data sources: ${connectedSources.join('; ')}`);
-  } else {
-    lines.push('No data sources connected — profile built from questionnaire only.');
-  }
+  // No real OAuth exists for any of instagram/snapchat/plaid/spotify yet — see
+  // docs/decisions/2026-08-01_new-feature-concepts.json (nightvision-real-signal-ingestion).
+  // Previously this told the LLM these were "Connected" based on a client-side
+  // checkbox alone, which produced fabricated-but-plausible-sounding inferences.
+  // Until real ingestion exists, be honest with the model: questionnaire only.
+  lines.push('Profile built from questionnaire answers only — no external data sources are connected yet.');
 
   return lines.join('\n');
 }

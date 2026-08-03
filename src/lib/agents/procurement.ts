@@ -48,47 +48,97 @@ export function generateToken(): string {
   );
 }
 
-export async function findProcurementPath(item: {
-  title: string;
-  category: string;
-  price_cents: number;
-}): Promise<ProcurementPath> {
+async function getServiceClient() {
+  // Dynamically imported so both branches below (partner + scale) can share
+  // one client without a module-level import (kept consistent with this
+  // file's existing lazy-import style).
+  const {createClient} = await import('@supabase/supabase-js');
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+}
+
+// Persists a generated token so "single-use, expires in 72 hours" is real
+// state, not just UI copy — see 20260802_procurement_tokens.sql.
+async function persistToken(params: {
+  userId: string;
+  token: string;
+  method: 'partner' | 'scale';
+  partnerName: string | null;
+  partnerUrl: string | null;
+  item: {title: string; category: string};
+  savingsCents: number;
+}): Promise<void> {
+  const supabase = await getServiceClient();
+  const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
+  await supabase.from('procurement_tokens').insert({
+    user_id: params.userId,
+    token: params.token,
+    method: params.method,
+    partner_name: params.partnerName,
+    partner_url: params.partnerUrl,
+    item_title: params.item.title,
+    item_category: params.item.category,
+    estimated_savings_cents: params.savingsCents,
+    expires_at: expiresAt,
+  });
+}
+
+export async function findProcurementPath(
+  item: {title: string; category: string; price_cents: number},
+  userId?: string,
+): Promise<ProcurementPath> {
   const partner = matchPartner(item.category);
 
   if (partner) {
     const savings = Math.round(item.price_cents * (partner.discount_pct / 100));
+    const token = generateToken();
+    if (userId) {
+      await persistToken({
+        userId, token, method: 'partner',
+        partnerName: partner.name, partnerUrl: partner.url,
+        item, savingsCents: savings,
+      });
+    }
     return {
       method: 'partner',
       partner_name: partner.name,
       partner_url: partner.url,
-      token: generateToken(),
+      token,
       instructions: `Present your Finesse token at ${partner.name} checkout for ${partner.discount_pct}% off. Token is single-use and expires in 72 hours.`,
       estimated_savings_cents: savings,
     };
   }
 
   // Check if Scale has a deal for this category (inline lightweight check)
-  const {createClient} = await import('@supabase/supabase-js');
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  // Real schema (20260611_vault_exchange_scale.sql): group_price_cents,
+  // status open|met|closed|cancelled. No purchase_url column — link to /scale.
+  const supabase = await getServiceClient();
 
   const {data} = await supabase
     .from('scale_deals')
-    .select('id,title,purchase_url,price_cents')
-    .eq('status', 'live')
+    .select('id,title,group_price_cents')
+    .eq('status', 'open')
     .or(`title.ilike.%${item.title}%,category.ilike.%${item.category}%`)
     .limit(1)
     .maybeSingle();
 
   if (data) {
-    const scaleSavings = Math.max(0, item.price_cents - (data as {price_cents: number}).price_cents);
+    const scaleSavings = Math.max(0, item.price_cents - (data as {group_price_cents: number}).group_price_cents);
+    const token = generateToken();
+    if (userId) {
+      await persistToken({
+        userId, token, method: 'scale',
+        partnerName: 'Finesse Scale', partnerUrl: '/scale',
+        item, savingsCents: scaleSavings,
+      });
+    }
     return {
       method: 'scale',
       partner_name: 'Finesse Scale',
-      partner_url: (data as {purchase_url: string | null}).purchase_url,
-      token: generateToken(),
+      partner_url: '/scale',
+      token,
       instructions: `This item is available through a Finesse Scale group buy at a reduced price. Join the campaign to unlock the deal.`,
       estimated_savings_cents: scaleSavings,
     };

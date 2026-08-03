@@ -6,6 +6,7 @@
 
 import { complete } from '@/lib/ai';
 import { getRecentSignals, getSignalCounts } from './bus';
+import { getStoredProfile, isFresh, persistProfile } from './profile-store';
 import type { BehavioralProfile, Signal } from './types';
 
 // Signal weights: higher = stronger buying intent signal
@@ -134,12 +135,19 @@ function extractStyleSignals(signals: Signal[]): string[] {
 }
 
 export async function buildBehavioralProfile(userId: string): Promise<BehavioralProfile> {
+  // Durable cache-through: skip recomputing from 250 raw signals if we
+  // already have a fresh (<15min) persisted profile for this user.
+  const cached = await getStoredProfile(userId);
+  if (isFresh(cached)) {
+    return cached!.profile;
+  }
+
   const [signals, counts] = await Promise.all([
     getRecentSignals(userId, undefined, 250),
     getSignalCounts(userId, 60),
   ]);
 
-  return {
+  const profile: BehavioralProfile = {
     user_id: userId,
     category_affinities: computeCategoryAffinities(signals),
     brand_affinities: computeBrandAffinities(signals),
@@ -148,6 +156,9 @@ export async function buildBehavioralProfile(userId: string): Promise<Behavioral
     style_signals: extractStyleSignals(signals),
     last_updated: new Date().toISOString(),
   };
+
+  void persistProfile(userId, profile);
+  return profile;
 }
 
 export async function predictNextAction(

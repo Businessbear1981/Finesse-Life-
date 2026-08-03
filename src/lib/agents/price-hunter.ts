@@ -49,35 +49,38 @@ export async function huntPrice(
   const supabase = getServiceClient();
 
   // 1. Check Scale deals
+  // Real schema (20260611_vault_exchange_scale.sql): group_price_cents,
+  // status open|met|closed|cancelled. No purchase_url column — link to /scale.
   const {data: scaleData} = await supabase
     .from('scale_deals')
-    .select('title,price_cents,purchase_url,brand')
-    .eq('status', 'live')
+    .select('title,group_price_cents,brand')
+    .eq('status', 'open')
     .or(`title.ilike.%${title}%,brand.ilike.%${brand}%`)
     .limit(3);
 
   if (scaleData) {
     for (const row of scaleData as Array<{
       title: string;
-      price_cents: number;
-      purchase_url: string | null;
+      group_price_cents: number;
       brand: string;
     }>) {
       results.push({
         source: `Finesse Scale — ${row.brand}`,
-        price_cents: row.price_cents,
-        url: row.purchase_url,
+        price_cents: row.group_price_cents,
+        url: '/scale',
         is_members_price: true,
-        savings_cents: Math.max(0, retail_cents - row.price_cents),
+        savings_cents: Math.max(0, retail_cents - row.group_price_cents),
       });
     }
   }
 
   // 2. Check Embassy deals
+  // Real schema (20260609_embassy.sql): retail_price_cents / members_price_cents
+  // are already in cents, status pending|review|live|rejected. No purchase_url.
   const {data: embassyData} = await supabase
     .from('embassy_deals')
-    .select('brand,item,retail_price,members_price,purchase_url')
-    .eq('status', 'active')
+    .select('brand,item,retail_price_cents,members_price_cents')
+    .eq('status', 'live')
     .or(`item.ilike.%${title}%,brand.ilike.%${brand}%,category.ilike.%${category}%`)
     .limit(3);
 
@@ -85,16 +88,15 @@ export async function huntPrice(
     for (const row of embassyData as Array<{
       brand: string;
       item: string;
-      retail_price: number;
-      members_price: number;
-      purchase_url: string | null;
+      retail_price_cents: number | null;
+      members_price_cents: number | null;
     }>) {
-      const membersCents = Math.round(row.members_price * 100);
-      const retailCents = Math.round(row.retail_price * 100);
+      const membersCents = row.members_price_cents ?? 0;
+      const retailCents = row.retail_price_cents ?? 0;
       results.push({
         source: `Embassy — ${row.brand}`,
         price_cents: membersCents,
-        url: row.purchase_url,
+        url: '/embassy',
         is_members_price: true,
         savings_cents: Math.max(0, retailCents - membersCents),
       });
