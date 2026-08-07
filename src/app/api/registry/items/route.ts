@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
+import { parseBody } from '@/lib/api/validate';
 
 export async function GET() {
   try {
@@ -58,15 +60,15 @@ export async function GET() {
   }
 }
 
-interface ItemPayload {
-  title: string;
-  brand?: string;
-  price_cents?: number;
-  category?: string;
-  occasion?: string;
-  source?: string;
-  photo_url?: string | null;
-}
+const itemSchema = z.object({
+  title: z.string().trim().min(1, 'Title required.'),
+  brand: z.string().trim().optional(),
+  price_cents: z.number().int().nonnegative().optional(),
+  category: z.string().trim().optional(),
+  occasion: z.string().trim().optional(),
+  source: z.string().trim().optional(),
+  photo_url: z.string().url().nullable().optional(),
+});
 
 export async function POST(req: Request) {
   try {
@@ -86,11 +88,9 @@ export async function POST(req: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const body = (await req.json()) as ItemPayload;
-
-    if (!body.title?.trim()) {
-      return NextResponse.json({ error: 'Title required.' }, { status: 400 });
-    }
+    const parsed = await parseBody(req, itemSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
 
     if (!user) {
       // Allow unauthenticated in demo — return a synthetic id
@@ -134,9 +134,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, id: data.id });
   } catch (err) {
     console.error('[registry/items] error:', err);
-    return NextResponse.json(
-      { success: true, id: `fallback_${Date.now()}` },
-      { status: 200 },
-    );
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 });
   }
 }

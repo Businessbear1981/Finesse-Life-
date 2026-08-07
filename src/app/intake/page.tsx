@@ -2,6 +2,7 @@
 
 import {useState, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
+import {motion, AnimatePresence} from 'framer-motion';
 
 /* ─── Types ─── */
 type Gender = 'feminine' | 'masculine';
@@ -26,129 +27,136 @@ const VIBES: {key: Vibe; symbol: string; label: string; sub: string}[] = [
   {key: 'intimate',    symbol: '♡', label: 'Intimate',    sub: 'I prefer depth over breadth'},
 ];
 
-/* ─── Progress dots ─── */
-function ProgressDots({step, total}: {step: number; total: number}) {
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+/* ─── Architectural arch ornament (replaces the old plain chandelier lines) ─── */
+function ArchOrnament() {
   return (
-    <div className="flex items-center gap-2 justify-center">
-      {Array.from({length: total}).map((_, i) => (
-        <div
-          key={i}
-          className="transition-all duration-500"
-          style={{
-            width: i === step ? '20px' : '6px',
-            height: '6px',
-            background:
-              i < step
-                ? 'rgba(201,169,97,0.55)'
-                : i === step
-                ? '#C9A961'
-                : 'rgba(201,169,97,0.18)',
-            transform: i === step ? 'none' : 'rotate(45deg)',
-          }}
-        />
-      ))}
+    <motion.svg
+      width="220"
+      height="120"
+      viewBox="0 0 220 120"
+      fill="none"
+      className="mb-6"
+      initial={{opacity: 0, y: -12}}
+      animate={{opacity: 1, y: 0}}
+      transition={{duration: 0.9, ease: EASE}}
+    >
+      {/* Outer arch */}
+      <path
+        d="M20 120 V50 A90 90 0 0 1 200 50 V120"
+        stroke="rgba(201,169,97,0.28)"
+        strokeWidth="1"
+      />
+      {/* Inner arch */}
+      <path
+        d="M40 120 V55 A70 70 0 0 1 180 55 V120"
+        stroke="rgba(201,169,97,0.14)"
+        strokeWidth="1"
+      />
+      {/* Keystone */}
+      <path
+        d="M104 8 L110 2 L116 8 L112 18 L108 18 Z"
+        fill="rgba(201,169,97,0.35)"
+      />
+      {/* Hanging fixture */}
+      <line x1="110" y1="18" x2="110" y2="38" stroke="rgba(201,169,97,0.4)" strokeWidth="1" />
+      <motion.circle
+        cx="110"
+        cy="44"
+        r="4.5"
+        fill="rgba(201,169,97,0.5)"
+        animate={{opacity: [0.5, 1, 0.5]}}
+        transition={{duration: 3.2, repeat: Infinity, ease: 'easeInOut'}}
+      />
+      <motion.circle
+        cx="110"
+        cy="44"
+        r="9"
+        fill="none"
+        stroke="rgba(201,169,97,0.25)"
+        strokeWidth="0.75"
+        animate={{opacity: [0.2, 0.55, 0.2], scale: [1, 1.15, 1]}}
+        transition={{duration: 3.2, repeat: Infinity, ease: 'easeInOut'}}
+      />
+    </motion.svg>
+  );
+}
+
+/* ─── Progress rail — ornate line instead of dots ─── */
+function ProgressRail({step, total}: {step: number; total: number}) {
+  const pct = (step / (total - 1)) * 100;
+  return (
+    <div className="relative w-full max-w-[220px] h-px" style={{background: 'rgba(201,169,97,0.14)'}}>
+      <motion.div
+        className="absolute top-0 left-0 h-px"
+        style={{background: 'linear-gradient(90deg, rgba(201,169,97,0.2), #C9A961)'}}
+        initial={false}
+        animate={{width: `${pct}%`}}
+        transition={{duration: 0.6, ease: EASE}}
+      />
+      <motion.div
+        className="absolute top-1/2 w-1.5 h-1.5 rotate-45"
+        style={{background: '#C9A961', boxShadow: '0 0 8px rgba(201,169,97,0.7)', marginTop: '-3px', marginLeft: '-3px'}}
+        initial={false}
+        animate={{left: `${pct}%`}}
+        transition={{duration: 0.6, ease: EASE}}
+      />
     </div>
   );
 }
 
-/* ─── Chandelier ornament ─── */
-function ChandelierOrnament() {
-  return (
-    <div className="flex flex-col items-center mb-8">
-      <div
-        className="w-px h-6"
-        style={{background: 'linear-gradient(to bottom, rgba(201,169,97,0.5), rgba(201,169,97,0.15))'}}
-      />
-      <div
-        className="w-2.5 h-2.5 rotate-45 border mb-1"
-        style={{borderColor: 'rgba(201,169,97,0.45)', boxShadow: '0 0 10px rgba(201,169,97,0.2)'}}
-      />
-      <div
-        className="w-8 h-1.5 border-x border-b"
-        style={{borderColor: 'rgba(201,169,97,0.22)', background: 'rgba(201,169,97,0.04)'}}
-      />
-      <div
-        className="w-12 h-1.5 border-x border-b"
-        style={{borderColor: 'rgba(201,169,97,0.12)', background: 'rgba(201,169,97,0.02)'}}
-      />
-    </div>
-  );
-}
+const fieldStyle: React.CSSProperties = {
+  borderColor: 'rgba(201,169,97,0.25)',
+  color: '#E8C87A',
+  caretColor: '#C9A961',
+};
+
+const primaryBtn: React.CSSProperties = {
+  borderColor: 'rgba(201,169,97,0.35)',
+  color: '#E8C87A',
+  background: 'linear-gradient(180deg, rgba(201,169,97,0.10), rgba(201,169,97,0.02))',
+};
 
 /* ─── Step 1 — Edition / Gender ─── */
 function StepEdition({onNext}: {onNext: (gender: Gender) => void}) {
+  const cards: {gender: Gender; label: string; sub: string; hue: string}[] = [
+    {gender: 'feminine', label: 'Finesse', sub: 'feminine energy', hue: '255,184,200'},
+    {gender: 'masculine', label: 'Carpe Diem', sub: 'masculine energy', hue: '255,169,107'},
+  ];
   return (
     <div className="flex flex-col items-center">
-      <p
-        className="font-body text-xl italic mb-10 text-center leading-relaxed"
-        style={{color: 'rgba(244,232,208,0.75)'}}
-      >
+      <p className="font-body text-xl italic mb-10 text-center leading-relaxed" style={{color: 'rgba(244,232,208,0.75)'}}>
         How do you move through the world?
       </p>
       <div className="grid grid-cols-1 gap-4 w-full max-w-sm">
-        {/* Feminine */}
-        <button
-          onClick={() => onNext('feminine')}
-          className="group relative border p-7 text-center transition-all duration-500 overflow-hidden"
-          style={{borderColor: 'rgba(255,184,200,0.15)', background: 'rgba(10,4,6,0.6)'}}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,184,200,0.40)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(74,25,34,0.15)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,184,200,0.15)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(10,4,6,0.6)';
-          }}
-        >
-          <div
-            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-            style={{background: 'radial-gradient(ellipse at center, rgba(255,184,200,0.06) 0%, transparent 70%)'}}
-          />
-          <p
-            className="relative z-10 font-display italic text-xl tracking-[0.08em] mb-1"
-            style={{color: '#E8C87A', textShadow: '0 0 20px rgba(255,184,200,0.2)'}}
+        {cards.map((c, i) => (
+          <motion.button
+            key={c.gender}
+            onClick={() => onNext(c.gender)}
+            className="group relative border p-8 text-center overflow-hidden"
+            style={{borderColor: `rgba(${c.hue},0.15)`, background: 'linear-gradient(160deg, rgba(10,4,6,0.7), rgba(20,8,11,0.4))'}}
+            initial={{opacity: 0, y: 16}}
+            animate={{opacity: 1, y: 0}}
+            transition={{duration: 0.5, delay: 0.1 + i * 0.1, ease: EASE}}
+            whileHover={{borderColor: `rgba(${c.hue},0.45)`, y: -2}}
+            whileTap={{scale: 0.98}}
           >
-            Finesse
-          </p>
-          <p
-            className="relative z-10 font-label text-[8px] tracking-[0.35em] uppercase"
-            style={{color: 'rgba(255,184,200,0.45)'}}
-          >
-            feminine energy
-          </p>
-        </button>
-
-        {/* Masculine */}
-        <button
-          onClick={() => onNext('masculine')}
-          className="group relative border p-7 text-center transition-all duration-500 overflow-hidden"
-          style={{borderColor: 'rgba(255,169,107,0.15)', background: 'rgba(10,4,6,0.6)'}}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,169,107,0.40)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(74,25,34,0.15)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,169,107,0.15)';
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(10,4,6,0.6)';
-          }}
-        >
-          <div
-            className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-            style={{background: 'radial-gradient(ellipse at center, rgba(255,169,107,0.06) 0%, transparent 70%)'}}
-          />
-          <p
-            className="relative z-10 font-display italic text-xl tracking-[0.08em] mb-1"
-            style={{color: '#E8C87A', textShadow: '0 0 20px rgba(255,169,107,0.2)'}}
-          >
-            Carpe Diem
-          </p>
-          <p
-            className="relative z-10 font-label text-[8px] tracking-[0.35em] uppercase"
-            style={{color: 'rgba(255,169,107,0.45)'}}
-          >
-            masculine energy
-          </p>
-        </button>
+            <div
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+              style={{background: `radial-gradient(ellipse at center, rgba(${c.hue},0.08) 0%, transparent 70%)`}}
+            />
+            {/* corner foil accents */}
+            <span className="absolute top-2 left-2 w-3 h-3 border-t border-l opacity-40" style={{borderColor: `rgba(${c.hue},0.5)`}} />
+            <span className="absolute bottom-2 right-2 w-3 h-3 border-b border-r opacity-40" style={{borderColor: `rgba(${c.hue},0.5)`}} />
+            <p className="relative z-10 font-display italic text-2xl tracking-[0.08em] mb-1.5" style={{color: '#E8C87A', textShadow: `0 0 24px rgba(${c.hue},0.25)`}}>
+              {c.label}
+            </p>
+            <p className="relative z-10 font-label text-[8px] tracking-[0.35em] uppercase" style={{color: `rgba(${c.hue},0.5)`}}>
+              {c.sub}
+            </p>
+          </motion.button>
+        ))}
       </div>
     </div>
   );
@@ -158,10 +166,7 @@ function StepEdition({onNext}: {onNext: (gender: Gender) => void}) {
 function StepName({value, onChange, onNext}: {value: string; onChange: (v: string) => void; onNext: () => void}) {
   return (
     <div className="flex flex-col items-center w-full max-w-sm">
-      <p
-        className="font-body text-xl italic mb-10 text-center leading-relaxed"
-        style={{color: 'rgba(244,232,208,0.75)'}}
-      >
+      <p className="font-body text-xl italic mb-10 text-center leading-relaxed" style={{color: 'rgba(244,232,208,0.75)'}}>
         What do we call you?
       </p>
       <input
@@ -173,36 +178,20 @@ function StepName({value, onChange, onNext}: {value: string; onChange: (v: strin
         autoFocus
         maxLength={40}
         className="w-full px-5 py-4 border-b bg-transparent font-display italic text-2xl text-center focus:outline-none transition-colors duration-300"
-        style={{
-          borderColor: 'rgba(201,169,97,0.25)',
-          color: '#E8C87A',
-          caretColor: '#C9A961',
-        }}
+        style={fieldStyle}
         onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.6)')}
         onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.25)')}
       />
-      <button
+      <motion.button
         onClick={onNext}
         disabled={value.trim().length < 2}
-        className="mt-8 px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-25"
-        style={{
-          borderColor: 'rgba(201,169,97,0.35)',
-          color: '#E8C87A',
-          background: 'rgba(201,169,97,0.04)',
-        }}
-        onMouseEnter={(e) => {
-          if (value.trim().length >= 2) {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.10)';
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.55)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.04)';
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.35)';
-        }}
+        className="mt-8 px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase disabled:opacity-25"
+        style={primaryBtn}
+        whileHover={value.trim().length >= 2 ? {borderColor: 'rgba(201,169,97,0.6)', background: 'linear-gradient(180deg, rgba(201,169,97,0.18), rgba(201,169,97,0.04))'} : {}}
+        whileTap={{scale: 0.97}}
       >
         Continue →
-      </button>
+      </motion.button>
     </div>
   );
 }
@@ -225,10 +214,7 @@ function StepAgeCIty({
   return (
     <div className="flex flex-col items-center w-full max-w-sm gap-7">
       <div className="w-full flex flex-col gap-2">
-        <label
-          className="font-label text-[9px] tracking-[0.3em] uppercase text-center block"
-          style={{color: 'rgba(201,169,97,0.45)'}}
-        >
+        <label className="font-label text-[9px] tracking-[0.3em] uppercase text-center block" style={{color: 'rgba(201,169,97,0.45)'}}>
           How old are you?
         </label>
         <input
@@ -240,29 +226,19 @@ function StepAgeCIty({
           max={120}
           autoFocus
           className="w-full px-5 py-4 border-b bg-transparent font-display italic text-2xl text-center focus:outline-none transition-colors duration-300"
-          style={{
-            borderColor: 'rgba(201,169,97,0.25)',
-            color: '#E8C87A',
-            caretColor: '#C9A961',
-          }}
+          style={fieldStyle}
           onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.6)')}
           onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.25)')}
         />
         {age && !ageValid && (
-          <p
-            className="font-body text-xs italic text-center"
-            style={{color: 'rgba(255,77,125,0.7)'}}
-          >
+          <p className="font-body text-xs italic text-center" style={{color: 'rgba(255,77,125,0.7)'}}>
             Must be 18 or older
           </p>
         )}
       </div>
 
       <div className="w-full flex flex-col gap-2">
-        <label
-          className="font-label text-[9px] tracking-[0.3em] uppercase text-center block"
-          style={{color: 'rgba(201,169,97,0.45)'}}
-        >
+        <label className="font-label text-[9px] tracking-[0.3em] uppercase text-center block" style={{color: 'rgba(201,169,97,0.45)'}}>
           What city are you in?
         </label>
         <input
@@ -273,38 +249,22 @@ function StepAgeCIty({
           placeholder="City..."
           maxLength={60}
           className="w-full px-5 py-4 border-b bg-transparent font-display italic text-2xl text-center focus:outline-none transition-colors duration-300"
-          style={{
-            borderColor: 'rgba(201,169,97,0.25)',
-            color: '#E8C87A',
-            caretColor: '#C9A961',
-          }}
+          style={fieldStyle}
           onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.6)')}
           onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.25)')}
         />
       </div>
 
-      <button
+      <motion.button
         onClick={onNext}
         disabled={!canContinue}
-        className="px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-25"
-        style={{
-          borderColor: 'rgba(201,169,97,0.35)',
-          color: '#E8C87A',
-          background: 'rgba(201,169,97,0.04)',
-        }}
-        onMouseEnter={(e) => {
-          if (canContinue) {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.10)';
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.55)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.04)';
-          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.35)';
-        }}
+        className="px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase disabled:opacity-25"
+        style={primaryBtn}
+        whileHover={canContinue ? {borderColor: 'rgba(201,169,97,0.6)', background: 'linear-gradient(180deg, rgba(201,169,97,0.18), rgba(201,169,97,0.04))'} : {}}
+        whileTap={{scale: 0.97}}
       >
         Continue →
-      </button>
+      </motion.button>
     </div>
   );
 }
@@ -313,63 +273,47 @@ function StepAgeCIty({
 function StepVibe({value, onSelect}: {value: Vibe | null; onSelect: (v: Vibe) => void}) {
   return (
     <div className="flex flex-col items-center w-full max-w-md">
-      <p
-        className="font-body text-xl italic mb-10 text-center leading-relaxed"
-        style={{color: 'rgba(244,232,208,0.75)'}}
-      >
-        What's your energy?
+      <p className="font-body text-xl italic mb-10 text-center leading-relaxed" style={{color: 'rgba(244,232,208,0.75)'}}>
+        What&apos;s your energy?
       </p>
       <div className="grid grid-cols-2 gap-3 w-full">
-        {VIBES.map((v) => {
+        {VIBES.map((v, i) => {
           const active = value === v.key;
           return (
-            <button
+            <motion.button
               key={v.key}
               onClick={() => onSelect(v.key)}
-              className="group relative border p-4 text-left transition-all duration-400 overflow-hidden"
+              className="group relative border p-4 text-left overflow-hidden"
               style={{
                 borderColor: active ? 'rgba(201,169,97,0.55)' : 'rgba(201,169,97,0.10)',
-                background: active ? 'rgba(201,169,97,0.08)' : 'rgba(10,4,6,0.5)',
-                boxShadow: active ? '0 0 20px rgba(201,169,97,0.08)' : 'none',
+                background: active
+                  ? 'linear-gradient(160deg, rgba(201,169,97,0.12), rgba(201,169,97,0.03))'
+                  : 'rgba(10,4,6,0.5)',
+                boxShadow: active ? '0 0 24px rgba(201,169,97,0.10)' : 'none',
               }}
-              onMouseEnter={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.30)';
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.04)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.10)';
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(10,4,6,0.5)';
-                }
-              }}
+              initial={{opacity: 0, y: 10}}
+              animate={{opacity: 1, y: 0}}
+              transition={{duration: 0.4, delay: 0.05 * i, ease: EASE}}
+              whileHover={!active ? {borderColor: 'rgba(201,169,97,0.32)', background: 'rgba(201,169,97,0.05)'} : {}}
+              whileTap={{scale: 0.97}}
             >
-              <span
-                className="block text-lg mb-1"
-                style={{color: active ? '#E8C87A' : 'rgba(201,169,97,0.40)'}}
-              >
+              <span className="block text-lg mb-1" style={{color: active ? '#E8C87A' : 'rgba(201,169,97,0.40)'}}>
                 {v.symbol}
               </span>
-              <span
-                className="block font-label text-[9px] tracking-[0.22em] uppercase mb-0.5"
-                style={{color: active ? '#E8C87A' : 'rgba(201,169,97,0.55)'}}
-              >
+              <span className="block font-label text-[9px] tracking-[0.22em] uppercase mb-0.5" style={{color: active ? '#E8C87A' : 'rgba(201,169,97,0.55)'}}>
                 {v.label}
               </span>
-              <span
-                className="block font-body text-[11px] italic leading-tight"
-                style={{color: active ? 'rgba(244,232,208,0.65)' : 'rgba(244,232,208,0.28)'}}
-              >
+              <span className="block font-body text-[11px] italic leading-tight" style={{color: active ? 'rgba(244,232,208,0.65)' : 'rgba(244,232,208,0.28)'}}>
                 {v.sub}
               </span>
               {active && (
-                <div
+                <motion.div
+                  layoutId="vibe-active-dot"
                   className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full"
                   style={{background: '#C9A961', boxShadow: '0 0 6px rgba(201,169,97,0.8)'}}
                 />
               )}
-            </button>
+            </motion.button>
           );
         })}
       </div>
@@ -389,16 +333,10 @@ function StepBio({
   const MAX = 200;
   return (
     <div className="flex flex-col items-center w-full max-w-sm">
-      <p
-        className="font-body text-xl italic mb-2 text-center leading-relaxed"
-        style={{color: 'rgba(244,232,208,0.75)'}}
-      >
+      <p className="font-body text-xl italic mb-2 text-center leading-relaxed" style={{color: 'rgba(244,232,208,0.75)'}}>
         Tell us something about yourself
       </p>
-      <p
-        className="font-body text-xs italic mb-8 text-center"
-        style={{color: 'rgba(244,232,208,0.28)'}}
-      >
+      <p className="font-body text-xs italic mb-8 text-center" style={{color: 'rgba(244,232,208,0.28)'}}>
         Optional — you can always add this later
       </p>
       <div className="w-full relative">
@@ -409,11 +347,7 @@ function StepBio({
           rows={4}
           autoFocus
           className="w-full px-4 py-3 border bg-transparent font-body text-sm leading-relaxed focus:outline-none transition-colors duration-300 resize-none"
-          style={{
-            borderColor: 'rgba(201,169,97,0.18)',
-            color: '#F4E8D0',
-            caretColor: '#C9A961',
-          }}
+          style={{borderColor: 'rgba(201,169,97,0.18)', color: '#F4E8D0', caretColor: '#C9A961'}}
           onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.45)')}
           onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.18)')}
         />
@@ -430,34 +364,18 @@ function StepBio({
           disabled={submitting}
           className="font-label text-[9px] tracking-[0.3em] uppercase transition-colors duration-200 disabled:opacity-30"
           style={{color: 'rgba(201,169,97,0.4)'}}
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.65)')
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.4)')
-          }
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.65)')}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.4)')}
         >
           Skip
         </button>
-        <button
+        <motion.button
           onClick={onSubmit}
           disabled={submitting}
-          className="px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-25"
-          style={{
-            borderColor: 'rgba(201,169,97,0.35)',
-            color: '#E8C87A',
-            background: 'rgba(201,169,97,0.04)',
-          }}
-          onMouseEnter={(e) => {
-            if (!submitting) {
-              (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.10)';
-              (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.55)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.04)';
-            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.35)';
-          }}
+          className="px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase disabled:opacity-25"
+          style={primaryBtn}
+          whileHover={!submitting ? {borderColor: 'rgba(201,169,97,0.6)', background: 'linear-gradient(180deg, rgba(201,169,97,0.18), rgba(201,169,97,0.04))'} : {}}
+          whileTap={{scale: 0.97}}
         >
           {submitting ? (
             <span className="flex items-center gap-2">
@@ -468,7 +386,7 @@ function StepBio({
           ) : (
             'Enter →'
           )}
-        </button>
+        </motion.button>
       </div>
     </div>
   );
@@ -478,6 +396,7 @@ function StepBio({
 export default function IntakePage() {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<IntakeData>({
@@ -491,15 +410,19 @@ export default function IntakePage() {
 
   const TOTAL_STEPS = 5;
 
+  const goTo = useCallback((next: number) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  }, [step]);
+
   const handleGender = useCallback((gender: Gender) => {
     localStorage.setItem('finesse_gender', gender);
     setData((d) => ({...d, gender}));
-    setStep(1);
-  }, []);
+    goTo(1);
+  }, [goTo]);
 
   const handleVibePick = useCallback((vibe: Vibe) => {
     setData((d) => ({...d, vibe}));
-    setStep(4);
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -532,134 +455,122 @@ export default function IntakePage() {
     }
   }, [data, router]);
 
+  const gender = data.gender;
+  const accentHue = gender === 'masculine' ? '255,169,107' : '255,184,200';
+
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{background: '#0A0406'}}
-    >
-      {/* Chandelier atmosphere */}
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden" style={{background: '#0A0406'}}>
+      {/* Cinematic vignette + spotlight */}
       <div
-        className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[400px]"
-        style={{
-          background:
-            'radial-gradient(ellipse at top, rgba(201,169,97,0.08) 0%, rgba(74,25,34,0.04) 50%, transparent 70%)',
-          animation: 'chandelier-pulse 4s ease-in-out infinite',
-        }}
+        className="pointer-events-none absolute inset-0"
+        style={{background: 'radial-gradient(ellipse at 50% 0%, rgba(20,10,12,0.4) 0%, transparent 55%), radial-gradient(ellipse at 50% 100%, rgba(0,0,0,0.6) 0%, transparent 60%)'}}
+      />
+      <motion.div
+        className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[460px]"
+        style={{background: `radial-gradient(ellipse at top, rgba(${accentHue},0.06) 0%, rgba(201,169,97,0.05) 40%, transparent 70%)`}}
+        animate={{opacity: [0.65, 1, 0.65]}}
+        transition={{duration: 4, repeat: Infinity, ease: 'easeInOut'}}
       />
       <div
         className="pointer-events-none absolute bottom-0 left-0 right-0 h-[35%]"
-        style={{background: 'linear-gradient(to top, rgba(74,25,34,0.07) 0%, transparent 70%)'}}
+        style={{background: 'linear-gradient(to top, rgba(74,25,34,0.08) 0%, transparent 70%)'}}
       />
+      {/* Vertical vignette edges for cinematic frame */}
+      <div className="pointer-events-none absolute inset-0" style={{boxShadow: 'inset 0 0 160px 40px rgba(0,0,0,0.55)'}} />
 
       <div className="relative z-10 w-full max-w-lg px-6 py-10 flex flex-col items-center">
-        <ChandelierOrnament />
+        <ArchOrnament />
 
-        {/* Step content — fade key triggers re-render on step change */}
-        <div
-          key={step}
-          className="w-full flex flex-col items-center"
-          style={{animation: 'intake-fade-in 0.4s ease-out both'}}
-        >
-          {step === 0 && <StepEdition onNext={handleGender} />}
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            className="w-full flex flex-col items-center"
+            initial={{opacity: 0, x: direction * 24}}
+            animate={{opacity: 1, x: 0}}
+            exit={{opacity: 0, x: direction * -24}}
+            transition={{duration: 0.45, ease: EASE}}
+          >
+            {step === 0 && <StepEdition onNext={handleGender} />}
 
-          {step === 1 && (
-            <StepName
-              value={data.displayName}
-              onChange={(v) => setData((d) => ({...d, displayName: v}))}
-              onNext={() => setStep(2)}
-            />
-          )}
+            {step === 1 && (
+              <StepName
+                value={data.displayName}
+                onChange={(v) => setData((d) => ({...d, displayName: v}))}
+                onNext={() => goTo(2)}
+              />
+            )}
 
-          {step === 2 && (
-            <StepAgeCIty
-              age={data.age}
-              city={data.city}
-              onAgeChange={(v) => setData((d) => ({...d, age: v}))}
-              onCityChange={(v) => setData((d) => ({...d, city: v}))}
-              onNext={() => setStep(3)}
-            />
-          )}
+            {step === 2 && (
+              <StepAgeCIty
+                age={data.age}
+                city={data.city}
+                onAgeChange={(v) => setData((d) => ({...d, age: v}))}
+                onCityChange={(v) => setData((d) => ({...d, city: v}))}
+                onNext={() => goTo(3)}
+              />
+            )}
 
-          {step === 3 && (
-            <>
-              <StepVibe value={data.vibe} onSelect={handleVibePick} />
-              {data.vibe && (
-                <button
-                  onClick={() => setStep(4)}
-                  className="mt-7 px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300"
-                  style={{
-                    borderColor: 'rgba(201,169,97,0.35)',
-                    color: '#E8C87A',
-                    background: 'rgba(201,169,97,0.04)',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.10)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.55)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(201,169,97,0.04)';
-                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(201,169,97,0.35)';
-                  }}
-                >
-                  Continue →
-                </button>
-              )}
-            </>
-          )}
+            {step === 3 && (
+              <>
+                <StepVibe value={data.vibe} onSelect={handleVibePick} />
+                {data.vibe && (
+                  <motion.button
+                    onClick={() => goTo(4)}
+                    className="mt-7 px-10 py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase"
+                    style={primaryBtn}
+                    initial={{opacity: 0, y: 8}}
+                    animate={{opacity: 1, y: 0}}
+                    whileHover={{borderColor: 'rgba(201,169,97,0.6)'}}
+                    whileTap={{scale: 0.97}}
+                  >
+                    Continue →
+                  </motion.button>
+                )}
+              </>
+            )}
 
-          {step === 4 && (
-            <StepBio
-              value={data.bio}
-              onChange={(v) => setData((d) => ({...d, bio: v}))}
-              onSubmit={handleSubmit}
-              submitting={submitting}
-            />
-          )}
-        </div>
+            {step === 4 && (
+              <StepBio
+                value={data.bio}
+                onChange={(v) => setData((d) => ({...d, bio: v}))}
+                onSubmit={handleSubmit}
+                submitting={submitting}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
 
         {/* Error */}
         {error && (
-          <p
+          <motion.p
+            initial={{opacity: 0}}
+            animate={{opacity: 1}}
             className="mt-6 font-body text-sm italic text-center"
             style={{color: 'rgba(255,77,125,0.85)'}}
           >
             {error}
-          </p>
+          </motion.p>
         )}
 
-        {/* Progress dots */}
-        <div className="mt-10">
-          <ProgressDots step={step} total={TOTAL_STEPS} />
+        {/* Progress rail */}
+        <div className="mt-10 flex justify-center">
+          <ProgressRail step={step} total={TOTAL_STEPS} />
         </div>
 
         {/* Back button — hidden on step 0 */}
         {step > 0 && (
           <button
-            onClick={() => setStep((s) => s - 1)}
+            onClick={() => goTo(step - 1)}
             className="mt-5 font-label text-[8px] tracking-[0.3em] uppercase transition-colors duration-200"
             style={{color: 'rgba(201,169,97,0.22)'}}
-            onMouseEnter={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.5)')
-            }
-            onMouseLeave={(e) =>
-              ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.22)')
-            }
+            onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.5)')}
+            onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = 'rgba(201,169,97,0.22)')}
           >
             ← back
           </button>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes chandelier-pulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-        @keyframes intake-fade-in {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

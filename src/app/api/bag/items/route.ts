@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
+import { parseBody } from '@/lib/api/validate';
+
+const bagItemSchema = z.object({
+  name: z.string().trim().min(1),
+  brand: z.string().trim().min(1),
+  category: z.string().trim().optional(),
+  value_est_cents: z.number().int().nonnegative().optional(),
+  color: z.string().trim().optional(),
+  acquired_year: z.string().trim().optional(),
+  photo_url: z.string().url().nullable().optional(),
+  note: z.string().trim().optional(),
+  edition: z.enum(['finesse', 'carpe_diem']).optional(),
+});
 
 const service = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,12 +55,9 @@ export async function POST(req: Request) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const body = await req.json();
-  const { name, brand, category, value_est_cents, color, acquired_year, photo_url, note, edition } = body;
-
-  if (!name?.trim() || !brand?.trim()) {
-    return NextResponse.json({ error: 'name and brand required' }, { status: 400 });
-  }
+  const parsed = await parseBody(req, bagItemSchema);
+  if (parsed.error) return parsed.error;
+  const { name, brand, category, value_est_cents, color, acquired_year, photo_url, note, edition } = parsed.data;
 
   const { data, error } = await service
     .from('bag_items')

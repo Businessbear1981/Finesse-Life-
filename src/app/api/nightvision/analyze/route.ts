@@ -1,14 +1,17 @@
 import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
 
-interface AnalyzeBody {
-  answers: Record<string, string | string[]>;
-  sources: {
-    instagram: boolean;
-    snapchat: boolean;
-    plaid: boolean;
-    spotify: boolean;
-  };
-}
+const analyzeSchema = z.object({
+  answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])).default({}),
+  sources: z.object({
+    instagram: z.boolean(),
+    snapchat: z.boolean(),
+    plaid: z.boolean(),
+    spotify: z.boolean(),
+  }).default({instagram: false, snapchat: false, plaid: false, spotify: false}),
+  photos: z.array(z.object({url: z.string().url(), category: z.string()})).max(6).default([]),
+});
 
 interface NovaAnalysis {
   style_dna: string;
@@ -33,11 +36,18 @@ Music intelligence: The user's Spotify data reveals their aesthetic identity fas
 - Pop/indie (Taylor Swift, Olivia Rodrigo): Reformation, vintage, cottagecore-luxury
 Include music genre in style_tags if music data is available.
 
+Photo intelligence: If style photos are attached (clothing, outfits, art, or
+music/album art the member actually shot), look at them directly — read
+silhouette, fabric, color palette, logo/brand cues, and aesthetic register from
+the images themselves rather than guessing from text alone. Treat attached
+photos as the strongest signal available, stronger than the questionnaire.
+
 Be direct and confident. No hedging. Write the style_dna in second person ("You gravitate toward...").`;
 
 function buildProfileSummary(
   answers: Record<string, string | string[]>,
-  sources: AnalyzeBody['sources'],
+  sources: z.infer<typeof analyzeSchema>['sources'],
+  photos: z.infer<typeof analyzeSchema>['photos'],
 ): string {
   const lines: string[] = ['USER STYLE PROFILE:'];
 
@@ -60,7 +70,18 @@ function buildProfileSummary(
   // Previously this told the LLM these were "Connected" based on a client-side
   // checkbox alone, which produced fabricated-but-plausible-sounding inferences.
   // Until real ingestion exists, be honest with the model: questionnaire only.
-  lines.push('Profile built from questionnaire answers only — no external data sources are connected yet.');
+  if (photos.length > 0) {
+    const byCategory = photos.reduce<Record<string, number>>((acc, p) => {
+      acc[p.category] = (acc[p.category] ?? 0) + 1;
+      return acc;
+    }, {});
+    const summary = Object.entries(byCategory).map(([cat, n]) => `${n} ${cat}`).join(', ');
+    lines.push(`Attached ${photos.length} member-captured style photo(s): ${summary}. Analyze the images directly.`);
+  } else {
+    lines.push('No style photos attached — questionnaire only.');
+  }
+
+  lines.push('Profile built from questionnaire answers' + (photos.length > 0 ? ' and attached photos' : '') + ' only — no external social/financial data sources are connected yet.');
 
   return lines.join('\n');
 }
@@ -100,16 +121,21 @@ function parseNovaJson(text: string): NovaAnalysis | null {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as AnalyzeBody;
-    const {answers, sources} = body;
+    const parsed = await parseBody(req, analyzeSchema);
+    if (parsed.error) return parsed.error;
+    const {answers, sources, photos} = parsed.data;
 
-    const profileSummary = buildProfileSummary(answers ?? {}, sources ?? {instagram: false, snapchat: false, plaid: false, spotify: false});
+    const profileSummary = buildProfileSummary(answers, sources, photos);
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     const novaRes = await fetch(`${siteUrl}/api/nova`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({prompt: profileSummary, system: SYSTEM_PROMPT}),
+      body: JSON.stringify({
+        prompt: profileSummary,
+        system: SYSTEM_PROMPT,
+        images: photos.length > 0 ? photos.map((p) => p.url) : undefined,
+      }),
     });
 
     if (!novaRes.ok) {

@@ -1,26 +1,24 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
 import {createHmac} from 'crypto';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+
+const cashbackSchema = z.object({
+  merchant: z.string().trim().min(1),
+  amount_cents: z.number().positive(),
+  category: z.string().trim().optional(),
+  session_key: z.string().optional(),
+});
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
-  const {merchant, amount_cents, category, session_key} = await req.json() as {
-    merchant: string;
-    amount_cents: number;
-    category: string;
-    session_key?: string;
-  };
-
-  if (!amount_cents || amount_cents <= 0) {
-    return NextResponse.json({error: 'Invalid amount'}, {status: 400});
-  }
-
-  if (!merchant || typeof merchant !== 'string') {
-    return NextResponse.json({error: 'merchant is required'}, {status: 400});
-  }
+  const parsed = await parseBody(req, cashbackSchema);
+  if (parsed.error) return parsed.error;
+  const {merchant, amount_cents, category, session_key} = parsed.data;
 
   // Prospectus rate: 1% cashback, funded by ~1.5% card interchange (~0.5% net
   // to Finesse) — not the 12% this route previously credited from no funding source.

@@ -1,6 +1,30 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
+import { parseBody } from '@/lib/api/validate';
+
+interface OutingRow {
+  id: string;
+  title: string;
+  partner: string | null;
+  occasion_type: string | null;
+  date_at: string | null;
+  note: string | null;
+  status: string;
+}
+
+function toCard(row: OutingRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    partner: row.partner ?? '',
+    occasion_type: row.occasion_type ?? '',
+    date: row.date_at,
+    note: row.note ?? '',
+    status: row.status,
+  };
+}
 
 export async function GET() {
   try {
@@ -26,29 +50,29 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from('outings')
-      .select('id, title, partner, occasion_type, date, note, status')
-      .eq('creator_id', user.id)
+      .select('id, title, partner, occasion_type, date_at, note, status')
+      .eq('host_id', user.id)
       .order('created_at', { ascending: false });
 
     if (error) {
       console.error('[GET /api/registry/outings]', error);
-      return NextResponse.json({ outings: [] });
+      return NextResponse.json({ error: 'Failed to load outings.' }, { status: 500 });
     }
 
-    return NextResponse.json({ outings: data ?? [] });
+    return NextResponse.json({ outings: (data ?? []).map(toCard) });
   } catch (err) {
     console.error('[GET /api/registry/outings] error:', err);
-    return NextResponse.json({ outings: [] });
+    return NextResponse.json({ error: 'Failed to load outings.' }, { status: 500 });
   }
 }
 
-interface OutingPayload {
-  title: string;
-  partner?: string;
-  occasion_type?: string;
-  date?: string;
-  note?: string;
-}
+const outingSchema = z.object({
+  title: z.string().trim().min(1, 'Title required.'),
+  partner: z.string().trim().optional(),
+  occasion_type: z.string().trim().optional(),
+  date: z.string().optional(),
+  note: z.string().trim().optional(),
+});
 
 export async function POST(req: Request) {
   try {
@@ -68,53 +92,36 @@ export async function POST(req: Request) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const body = (await req.json()) as OutingPayload;
-
-    if (!body.title?.trim()) {
-      return NextResponse.json({ error: 'Title required.' }, { status: 400 });
-    }
-
     if (!user) {
-      return NextResponse.json({
-        success: true,
-        message: 'Outing created.',
-        id: `demo_${Date.now()}`,
-      });
+      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
+
+    const parsed = await parseBody(req, outingSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
 
     const { data, error } = await supabase
       .from('outings')
       .insert({
-        creator_id: user.id,
+        host_id: user.id,
         title: body.title.trim(),
         partner: body.partner ?? null,
         occasion_type: body.occasion_type ?? null,
-        date: body.date || null,
+        date_at: body.date || null,
         note: body.note ?? null,
-        status: 'proposed',
+        status: 'open',
       })
-      .select('id')
+      .select('id, title, partner, occasion_type, date_at, note, status')
       .single();
 
     if (error) {
       console.error('[registry/outings] insert error:', error);
-      return NextResponse.json({
-        success: true,
-        message: 'Outing saved.',
-        id: `local_${Date.now()}`,
-      });
+      return NextResponse.json({ error: 'Failed to create outing.' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Outing created.',
-      id: data.id,
-    });
+    return NextResponse.json({ success: true, outing: toCard(data) });
   } catch (err) {
     console.error('[registry/outings] error:', err);
-    return NextResponse.json(
-      { success: true, message: 'Outing queued.' },
-      { status: 200 },
-    );
+    return NextResponse.json({ error: 'Server error.' }, { status: 500 });
   }
 }

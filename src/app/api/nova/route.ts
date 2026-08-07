@@ -4,6 +4,14 @@ import {model} from '@/lib/ai';
 import {createClient} from '@/lib/supabase/server';
 import {buildBehavioralProfile, predictNextAction, generatePersonalizedRecs, emit} from '@/lib/intelligence';
 import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+
+const novaRequestSchema = z.object({
+  prompt: z.string().min(1),
+  system: z.string().optional(),
+  image: z.string().optional(),
+  images: z.array(z.string()).max(6).optional(),
+});
 
 // ─── Tool definitions ──────────────────────────────────────────────────────────
 
@@ -90,7 +98,10 @@ function buildNovaTools(userId: string | null) {
 // ─── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
-  const {prompt, system, image} = await req.json() as {prompt: string; system?: string; image?: string};
+  const parsed = await parseBody(req, novaRequestSchema);
+  if (parsed.error) return parsed.error;
+  const {prompt, system, image, images} = parsed.data;
+  const allImages = images && images.length > 0 ? images : image ? [image] : [];
 
   // Pull user + behavioral profile context (non-blocking, 800ms cap)
   let profileContext = '';
@@ -127,11 +138,12 @@ export async function POST(req: Request) {
   const novaTools = buildNovaTools(userId);
 
   try {
-    // Image path (Scout's product-photo analysis): send the actual image as a
-    // multimodal content part instead of embedding base64 text in the prompt —
-    // previously truncated to 200 chars, which sent the model nothing usable.
+    // Image path (Scout's product-photo analysis, NightVision's style-capture
+    // photos): send actual image(s) as multimodal content parts instead of
+    // embedding base64 text in the prompt — previously truncated to 200 chars,
+    // which sent the model nothing usable. Supports 1..6 images.
     const result = await generateText(
-      image
+      allImages.length > 0
         ? {
             model: model('anthropic/claude-sonnet-4-6'),
             system: enrichedSystem,
@@ -140,7 +152,7 @@ export async function POST(req: Request) {
                 role: 'user',
                 content: [
                   {type: 'text', text: prompt},
-                  {type: 'image', image},
+                  ...allImages.map((img) => ({type: 'image' as const, image: img})),
                 ],
               },
             ],

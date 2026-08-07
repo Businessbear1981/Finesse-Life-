@@ -1,6 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
+import { parseBody } from '@/lib/api/validate';
+
+const joinSchema = z.object({
+  deal_id: z.string().uuid(),
+  amount_cents: z.number().positive(),
+});
 
 // POST { deal_id: string, amount_cents: number }
 // MVP: auth check + record join intent. Full CCBill payment wired in phase 2.
@@ -12,16 +19,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Auth required' }, { status: 401 });
   }
 
-  const body = await req.json() as { deal_id?: string; amount_cents?: number };
-  const { deal_id, amount_cents } = body;
-
-  if (!deal_id || typeof deal_id !== 'string') {
-    return NextResponse.json({ error: 'deal_id is required' }, { status: 400 });
-  }
-
-  if (!amount_cents || amount_cents <= 0) {
-    return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
-  }
+  const parsed = await parseBody(req, joinSchema);
+  if (parsed.error) return parsed.error;
+  const { deal_id, amount_cents } = parsed.data;
 
   // Prospectus rate: 1% cashback, funded by ~1.5% card interchange (~0.5% net
   // to Finesse). This is an estimate shown to the user — actual settlement

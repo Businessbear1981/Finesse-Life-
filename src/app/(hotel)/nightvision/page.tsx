@@ -37,11 +37,17 @@ interface Sources {
   spotify: boolean;
 }
 
+interface StylePhoto {
+  url: string;
+  category: string;
+}
+
 interface NightvisionProfile {
   answers: Answers;
   style_dna: string;
   brand_radar: string[];
   style_tags: string[];
+  photos?: StylePhoto[];
   generated_at: string;
 }
 
@@ -603,6 +609,151 @@ function ConnectCard({title, subtitle, detail, connected, onConnect}: ConnectCar
   );
 }
 
+// ─── Photo Capture Grid ───────────────────────────────────────────────────────
+
+const PHOTO_CATEGORIES = [
+  {key: 'clothing', label: 'Clothing', hint: 'Snap what’s in your closet'},
+  {key: 'style', label: 'Style / Fit', hint: 'A fit you actually wore'},
+  {key: 'art', label: 'Art / Space', hint: 'Art, decor, a room you love'},
+  {key: 'music', label: 'Music', hint: 'Album art, a show, an instrument'},
+] as const;
+
+function PhotoCaptureGrid({
+  photos,
+  uploading,
+  onUpload,
+  onRemove,
+}: {
+  photos: StylePhoto[];
+  uploading: string | null;
+  onUpload: (category: string, file: File) => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div style={{display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px'}}>
+      <SectionLabel>STYLE PHOTOS · OPTIONAL</SectionLabel>
+      <p
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontStyle: 'italic',
+          fontSize: '12px',
+          color: 'rgba(244,232,208,0.4)',
+          marginTop: '-8px',
+          marginBottom: '4px',
+          lineHeight: 1.6,
+        }}
+      >
+        Snap photos of your actual clothing, fits, art, or music — Nova reads them directly to build your Style DNA.
+      </p>
+      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px'}}>
+        {PHOTO_CATEGORIES.map((cat) => {
+          const inCategory = photos.filter((p) => p.category === cat.key);
+          const busy = uploading === cat.key;
+          return (
+            <div
+              key={cat.key}
+              style={{
+                border: `1px solid ${inCategory.length > 0 ? TEAL + '55' : 'rgba(201,169,97,0.15)'}`,
+                background: inCategory.length > 0 ? `${TEAL}06` : 'rgba(244,232,208,0.015)',
+                padding: '14px',
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '9px',
+                  letterSpacing: '0.25em',
+                  textTransform: 'uppercase',
+                  color: inCategory.length > 0 ? TEAL : BRASS,
+                  marginBottom: '3px',
+                }}
+              >
+                {cat.label}
+              </p>
+              <p
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontStyle: 'italic',
+                  fontSize: '10px',
+                  color: 'rgba(244,232,208,0.35)',
+                  marginBottom: '10px',
+                }}
+              >
+                {cat.hint}
+              </p>
+
+              {inCategory.length > 0 && (
+                <div style={{display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '10px'}}>
+                  {inCategory.map((p) => {
+                    const globalIndex = photos.indexOf(p);
+                    return (
+                      <div key={p.url} style={{position: 'relative', width: '40px', height: '40px'}}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={p.url}
+                          alt={cat.label}
+                          style={{width: '100%', height: '100%', objectFit: 'cover', border: `1px solid ${TEAL}44`}}
+                        />
+                        <button
+                          onClick={() => onRemove(globalIndex)}
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            width: '14px',
+                            height: '14px',
+                            borderRadius: '50%',
+                            background: '#0A0406',
+                            border: '1px solid rgba(255,77,125,0.5)',
+                            color: 'rgba(255,77,125,0.85)',
+                            fontSize: '9px',
+                            lineHeight: '12px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <label
+                style={{
+                  display: 'inline-block',
+                  fontFamily: 'var(--font-label)',
+                  fontSize: '8px',
+                  letterSpacing: '0.25em',
+                  textTransform: 'uppercase',
+                  color: busy ? 'rgba(244,232,208,0.3)' : TEAL,
+                  border: `1px solid ${busy ? 'rgba(244,232,208,0.15)' : TEAL}`,
+                  padding: '6px 12px',
+                  cursor: busy ? 'default' : 'pointer',
+                }}
+              >
+                {busy ? 'UPLOADING…' : '+ ADD PHOTO'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  capture="environment"
+                  disabled={busy}
+                  style={{display: 'none'}}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) onUpload(cat.key, file);
+                    e.target.value = '';
+                  }}
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function NightvisionPage() {
@@ -638,6 +789,31 @@ export default function NightvisionPage() {
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
   const [currentQ, setCurrentQ] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+
+  // ── style photos ──
+  const [photos, setPhotos] = useState<StylePhoto[]>([]);
+  const [uploadingCategory, setUploadingCategory] = useState<string | null>(null);
+
+  async function handlePhotoUpload(category: string, file: File) {
+    setUploadingCategory(category);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', 'nightvision');
+      const res = await fetch('/api/upload', {method: 'POST', body: formData});
+      const data = (await res.json()) as {url?: string; error?: string};
+      if (!res.ok || !data.url) throw new Error(data.error ?? 'Upload failed');
+      setPhotos((prev) => [...prev, {url: data.url!, category}]);
+    } catch {
+      showToast('Photo upload failed — try again');
+    } finally {
+      setUploadingCategory(null);
+    }
+  }
+
+  function handlePhotoRemove(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
 
   // ── scan state ──
   const [scanChecks, setScanChecks] = useState<boolean[]>(new Array(SCAN_LINES.length).fill(false));
@@ -770,7 +946,7 @@ export default function NightvisionPage() {
       const res = await fetch('/api/nightvision/analyze', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({answers, sources}),
+        body: JSON.stringify({answers, sources, photos}),
       });
 
       const data = (await res.json()) as AnalyzeResponse;
@@ -780,6 +956,7 @@ export default function NightvisionPage() {
         style_dna: data.style_dna,
         brand_radar: data.brand_radar,
         style_tags: data.style_tags,
+        photos,
         generated_at: new Date().toISOString(),
       };
 
@@ -1038,6 +1215,14 @@ export default function NightvisionPage() {
                   onConnect={handleConnectSpotify}
                 />
               </div>
+
+              {/* Style photo capture */}
+              <PhotoCaptureGrid
+                photos={photos}
+                uploading={uploadingCategory}
+                onUpload={handlePhotoUpload}
+                onRemove={handlePhotoRemove}
+              />
 
               {/* Questionnaire */}
               <div style={{marginBottom: '40px'}}>

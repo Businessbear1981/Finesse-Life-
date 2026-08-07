@@ -1,28 +1,30 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { parseBody } from '@/lib/api/validate';
 
 // POST { brand, item, source, retail_price, members_price, category, tier }
 // Was a pure stub that always returned success without touching the database —
 // nothing submitted via the Embassy brand-deal form ever actually persisted.
 // Real schema (20260609_embassy.sql): retail_price_cents / members_price_cents
 // (integers, cents), status defaults to 'pending' for ops review.
+const dealSchema = z.object({
+  brand: z.string().trim().min(1),
+  item: z.string().trim().min(1),
+  source: z.string().trim().optional(),
+  retail_price: z.number().positive().optional(),
+  members_price: z.number().positive().optional(),
+  category: z.string().trim().optional(),
+  tier: z.enum(['budget', 'mid', 'contemporary', 'premium']).optional(),
+});
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const body = (await req.json()) as {
-    brand?: string;
-    item?: string;
-    source?: string;
-    retail_price?: number;
-    members_price?: number;
-    category?: string;
-    tier?: string;
-  };
-
-  if (!body.brand?.trim() || !body.item?.trim()) {
-    return NextResponse.json({ error: 'brand and item are required' }, { status: 400 });
-  }
+  const parsed = await parseBody(req, dealSchema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
 
   const { error } = await supabase.from('embassy_deals').insert({
     brand: body.brand.trim(),

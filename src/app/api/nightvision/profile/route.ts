@@ -6,6 +6,7 @@ interface NightvisionData {
   style_dna: string;
   brand_radar: string[];
   style_tags: string[];
+  photos?: {url: string; category: string}[];
   generated_at: string;
 }
 
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
       style_dna: string;
       brand_radar: string[];
       style_tags: string[];
+      photos?: {url: string; category: string}[];
     };
 
     const nightvision_data: NightvisionData = {
@@ -68,6 +70,7 @@ export async function POST(req: Request) {
       style_dna: body.style_dna ?? '',
       brand_radar: body.brand_radar ?? [],
       style_tags: body.style_tags ?? [],
+      photos: body.photos ?? [],
       generated_at: new Date().toISOString(),
     };
 

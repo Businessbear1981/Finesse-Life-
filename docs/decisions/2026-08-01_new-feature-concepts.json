@@ -43,6 +43,7 @@
         "Add occasion/formality/category tagging to bag_items (or a new wardrobe_items table if bag_items is meant to stay 'collection value' rather than 'wearable pieces').",
         "Extend stylist.ts with an outfit-assembly mode: given occasion + wardrobe inventory, return N complete combinations, not just style advice text.",
         "UI: a rotation/carousel view showing 'today's look' with a visible attribution ('Nova picked this because...') — matches the 'client can see what the intelligence picked' requirement.",
+        "Segmented carousel structure per Sean (2026-08-06): rotate by category zone, not just whole-outfit — waist-down (pants/shorts/skirts), tops/shirts, accessories, and dresses as their own full-torso rotation, rather than one single top-to-bottom carousel. Each zone should be independently swipeable so a client can hold a top constant and cycle bottoms against it, matching how people actually mix-and-match.",
         "This is explicitly called out as equal priority to Per Diem (the men's date planner) — should get comparable design investment, not be an afterthought."
       ],
       "open_questions": ["Does this require the photo-capture pipeline to be live first (to populate real wardrobe inventory), or does it ship with manually-entered items?"]
@@ -165,6 +166,89 @@
         "Which third-party platform — needs its own research pass before a build spec can be concrete."
       ],
       "risk_flag": "Sean suggested Bovada specifically as the third-party platform. FLAGGING, NOT ADOPTING: Bovada is an offshore sportsbook/casino operating without a license in most/all US states — it has been the subject of state Attorney General cease-and-desist actions (Washington State, among others). Integrating or linking a legitimate, investor-facing platform to an unlicensed offshore gambling operator is a real legal and reputational exposure, comparable in severity to the Vault money-transmitter question already in the roadmap but without an obvious compliant path the way Stripe Issuing provides for Vault. Piloting small and active-member-only reduces exposure surface but does not remove the underlying legal question — recommend resolving the platform choice before any integration work, not after."
+    },
+    {
+      "id": "nightvision-barcode-sku-identification",
+      "module": "NIGHTVISION / Wardrobe",
+      "name": "Barcode/SKU scanning for verified designer, size, and fit data",
+      "one_liner": "Add a barcode/product-tag scanner (alongside the plain photo capture just built) so items are identified with real SKU-level data — designer, size, fit, material — instead of inferred purely from a photo.",
+      "current_state": "NOT BUILT. The photo-capture pipeline built 2026-08-06 (PhotoCaptureGrid in nightvision/page.tsx) sends raw photos to Nova for visual inference only — no barcode/UPC decoding, no SKU lookup against any product database.",
+      "depends_on": [
+        "a barcode-decoding library on the client (e.g. a JS barcode/QR scanner using the device camera) — nothing like this exists in the repo today",
+        "a product/SKU lookup source once a barcode is decoded — UPC databases exist (e.g. UPCitemdb, Barcode Lookup API) but have not been researched or selected this session",
+        "wardrobe-photo-capture-pipeline (already in this file) — barcode scanning is a precision upgrade to that pipeline, not a separate capture flow"
+      ],
+      "build_spec": [
+        "Add a scan mode to PhotoCaptureGrid (or a new capture surface) using a client-side barcode decoder against the device camera.",
+        "On successful decode, look up the UPC/EAN against a product database API to pull verified brand/designer, category, and (where available) size/fit metadata — falls back to Nova's visual inference when no barcode is present or the lookup misses.",
+        "Store decoded SKU data alongside the existing photo record (bag_items/wardrobe_looks or a new table) so downstream signal (style-quality scoring, Scale opportunity detection) can use structured designer/size data instead of just LLM-inferred labels.",
+        "This is the foundation the other two new entries below (style-quality signal, Scale opportunity detection) get meaningfully more accurate with — recommend sequencing this before those, not after."
+      ],
+      "open_questions": ["Which UPC lookup provider — cost and coverage vary a lot; needs a research pass before implementation, same as the affiliate-network research already done for Embassy."]
+    },
+    {
+      "id": "nightvision-style-quality-signal-gamified",
+      "module": "NIGHTVISION",
+      "name": "Self-learning style-quality signal with gamified, subtle hinting",
+      "one_liner": "Beyond just building a Style DNA description, have the system form a quiet, self-improving judgment of how strong a member's actual style/wardrobe is, and surface that as gentle, non-insulting hints and gamified prompts ('your fit could use range in outerwear') rather than a blunt score.",
+      "current_state": "NOT BUILT. Today NIGHTVISION only produces a descriptive style_dna/brand_radar/style_tags summary (src/app/api/nightvision/analyze/route.ts) — it is affirming-by-design (the system prompt explicitly says 'be direct and confident, no hedging') and has no notion of quality, gaps, or improvement suggestions at all.",
+      "depends_on": [
+        "wardrobe-photo-capture-pipeline and nightvision-barcode-sku-identification (both in this file) — meaningful quality signal needs a real wardrobe inventory (verified pieces, not just a handful of onboarding photos) to judge gaps/range/quality against",
+        "a defined rubric for what 'good style' means well enough to hint at without being reductive or offensive — this is a product/editorial decision, not purely an engineering one"
+      ],
+      "build_spec": [
+        "Extend behavioral.ts / the NIGHTVISION profile with a private 'style range' signal computed from actual wardrobe inventory (category coverage, price-tier consistency, versus what similar high-affinity members hold) — never shown as a raw score to the member.",
+        "Surface findings only as soft, actionable hints inside Nova conversation or a wardrobe UI nudge (e.g. 'You're strong in eveningwear — light on tailored daywear') — framed as an opportunity, never a deficiency callout. This needs real copywriting/editorial review before shipping, not just an engineering pass.",
+        "Gamification layer: badges/progress toward 'range' completeness, tied to actual capture activity (uploading more photos/scans increases signal fidelity) — gives members a reason to keep feeding the system, which also compounds the self-learning loop.",
+        "Self-learning loop: every wardrobe addition should re-run the range/gap computation, same durable-cache pattern already used for buildBehavioralProfile (src/lib/intelligence/profile-store.ts, 15-min freshness) rather than recomputing from scratch each time."
+      ],
+      "open_questions": ["Who defines the 'good style' rubric this scores against — an internal stylist/editorial team, or purely peer-comparison against other members' verified wardrobes (which sidesteps taste judgments but needs enough member data to be meaningful)?"]
+    },
+    {
+      "id": "scale-aggregate-demand-signal-and-private-label",
+      "module": "Scale / Embassy / Intelligence Engine",
+      "name": "Aggregate wardrobe/barcode signal feeds Scale deal-sourcing and a potential Finesse-branded product line",
+      "one_liner": "As members capture real wardrobe photos and barcodes, aggregate the signal across the member base to (1) actively hunt matching deals/discounts for items members already want, (2) detect trending items early enough to launch a real-time Scale group-buy or Embassy deal, and eventually (3) justify a private-label Finesse product (e.g. a manufacturer run of a popular scarf/jacket silhouette) once demand signal is strong enough. Sean explicitly talked through and set aside a broader 'thrift-store-style peer marketplace' framing as out of scope for now — 'that's too much, our own brand and scale is a good idea' — so this entry is scoped to demand-signal-driven sourcing/private-label, not a peer-to-peer resale marketplace.",
+      "current_state": "NOT BUILT. Scale (scale_deals/scale_joins) and Embassy (embassy_deals) are both currently either staff-seeded or staff-submitted — no aggregate member-demand signal feeds either today, and there is no private-label/manufacturing pathway anywhere in the codebase or docs.",
+      "depends_on": [
+        "nightvision-barcode-sku-identification (this file) — trend/demand detection is far more reliable off verified SKU data than off photo-only inference",
+        "wardrobe-photo-capture-pipeline (this file) — needs volume of real capture activity across the member base before any aggregate signal is meaningful",
+        "intelligence-agent-swarm-deployment / multi-agent-operations-architecture (this file) — this is exactly the kind of standing, always-on deal-sourcing agent role already scoped generally in multi-agent-operations-architecture; this entry is the concrete Scale/Embassy application of that idea",
+        "a real manufacturing/sourcing relationship before the private-label piece is anything but a roadmap idea — no vendor research has been done this session (distinct from the existing Alibaba/Amazon-MCF unit-economics note in CONTEXT.md for the Scale model generally)"
+      ],
+      "build_spec": [
+        "Phase 1 (deal-hunting agent): extend the existing agent pattern (src/lib/agents/) with a standing role that takes aggregate wardrobe/wishlist signal (categories, brands, price tiers members are capturing) and actively searches for matching discounts/deals to feed into Scale or Embassy — this is the operational Scale/Embassy application of the deal-sourcing agent role already scoped in multi-agent-operations-architecture.",
+        "Phase 2 (trend detection): once barcode/SKU data gives verified designer+item identity, detect repeated captures of the same or highly similar SKU across multiple members within a time window — that's the 'signal to launch a real-time Scale/Embassy deal on the thing that's suddenly hot' capability.",
+        "Phase 3 (private label, speculative/long-horizon): if trend detection repeatedly surfaces strong demand for a specific silhouette/category, that becomes a data-backed case for a Finesse-branded manufacturing run — explicitly the long-horizon payoff Sean described, not a near-term build. Needs real sourcing/manufacturing partnership work before this is anything but a roadmap flag.",
+        "Explicitly NOT in scope per Sean's own scoping-down in this conversation: a peer-to-peer 'thrift store' resale marketplace where members sell directly to each other — Exchange (src/app/api/exchange/) already covers peer resale in a narrower form; this entry is about demand-signal-driven sourcing and private label, not expanding peer resale."
+      ],
+      "open_questions": [
+        "What volume of member capture activity is needed before aggregate signal is statistically meaningful rather than noise? Needs a data/product decision once nightvision-barcode-sku-identification and the photo-capture pipeline are actually live and generating real volume.",
+        "Manufacturing/private-label is a genuinely separate business line (sourcing, MOQs, inventory risk) from the software platform — worth a dedicated business-planning conversation, not something to scope as an engineering task alongside the rest of this file."
+      ]
+    },
+    {
+      "id": "wardrobe-3d-body-accurate-virtual-fitting",
+      "module": "Wardrobe",
+      "name": "AI-generated 3D model of the client's actual body for pre-purchase fit preview",
+      "one_liner": "Generate a 3D model sized to the client's real body (not a generic mannequin) and render prospective clothing on it, so a member can see how a piece will actually fit before buying — Sean's framing: 'never go to the store and find out these jeans won't fit.'",
+      "current_state": "NOT BUILT. Nothing in the repo does body measurement capture, 3D avatar generation, or garment-fit simulation of any kind. media_jobs/media_assets (R2-backed) handle flat image/video generation only — no 3D asset pipeline exists.",
+      "depends_on": [
+        "a body-measurement capture method — options range from a short guided-photo capture (2-4 photos, similar to how e.g. 3DLOOK/Presize-style products work) to manual measurement entry; full accuracy needs the former, which is a real computer-vision problem, not a prompt-engineering one",
+        "a garment-fit rendering pipeline — this is the hard, genuinely novel part: draping/simulating a specific garment's actual cut and size chart onto a body-accurate 3D mesh is a distinct technical discipline from image generation, and no existing Finesse infrastructure does this",
+        "a real product/garment catalog with actual size charts and, ideally, garment mesh/pattern data per SKU — connects directly to the missing-real-catalog gap already flagged in the June 23 due-diligence audit, and to nightvision-barcode-sku-identification (this file) for verified item identity"
+      ],
+      "build_spec": [
+        "This is not a small feature — treat as its own project with a build-vs-buy decision up front. Existing virtual-try-on/body-fit vendors (Zeekit — acquired by Walmart and not available as a third-party API since; 3DLOOK; Presize; Vue.ai) exist and solve pieces of this; a build-vs-license research pass should happen before any custom engineering starts.",
+        "Phase 1 (measurement capture): guided photo or manual-measurement intake added to the intake/NIGHTVISION flow, stored on the member profile.",
+        "Phase 2 (avatar generation): generate a body-accurate 3D mesh/avatar from captured measurements — likely a licensed third-party model rather than something built in-house, given the specialized computer-vision expertise required.",
+        "Phase 3 (garment fit rendering): drape/render a specific SKU (from a real catalog with size-chart or pattern data) onto the avatar — the hardest and most novel piece; realistically needs either a specialized vendor or a dedicated ML effort, not a quick integration.",
+        "Sean's 'perhaps issue a free fitting to all clients' idea — a complimentary/included virtual-fitting session as a membership perk — is a packaging/pricing decision to revisit once Phases 1-3 have a real technical path, not before."
+      ],
+      "open_questions": [
+        "Build vs. license — given the specialized 3D/computer-vision work involved, licensing an existing virtual-try-on vendor is very likely faster and cheaper than building this in-house; needs a vendor research pass (comparable to the affiliate-network and UPC-lookup research already flagged elsewhere in this file) before committing either way.",
+        "This has a hard dependency on a real product catalog with actual size/fit data per SKU — without that, there is nothing to fit the avatar against no matter how good the avatar generation is. Sequencing-wise this likely sits well behind nightvision-barcode-sku-identification and the general 'no real catalog exists' gap from the June 23 audit."
+      ]
     }
   ]
 }

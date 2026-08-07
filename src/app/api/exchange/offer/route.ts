@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
+import { parseBody } from '@/lib/api/validate';
 
-interface OfferPayload {
-  listing_id: string;
-  offer_price_cents: number;
-  message?: string;
-}
+const offerSchema = z.object({
+  listing_id: z.string().uuid(),
+  offer_price_cents: z.number().int().min(100, 'Minimum offer is $1.'),
+  message: z.string().trim().optional(),
+});
 
 export async function POST(req: Request) {
   try {
@@ -29,14 +31,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
     }
 
-    const body = (await req.json()) as OfferPayload;
-
-    if (!body.listing_id) {
-      return NextResponse.json({ error: 'listing_id required.' }, { status: 400 });
-    }
-    if (!body.offer_price_cents || body.offer_price_cents < 100) {
-      return NextResponse.json({ error: 'Minimum offer is $1.' }, { status: 400 });
-    }
+    const parsed = await parseBody(req, offerSchema);
+    if (parsed.error) return parsed.error;
+    const body = parsed.data;
 
     // Verify buyer is not the seller
     const { data: listing, error: listingError } = await supabase
@@ -69,7 +66,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('[exchange/offer] insert error:', error);
-      return NextResponse.json({ success: true, id: `local_${Date.now()}` });
+      return NextResponse.json({ error: 'Failed to submit offer.' }, { status: 500 });
     }
 
     // Emit behavioral signal (fire-and-forget)
