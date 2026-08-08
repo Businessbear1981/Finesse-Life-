@@ -111,7 +111,6 @@ function fromEnv(vendor: string): VendorConfig {
     suno: {api_key: process.env.SUNO_API_KEY, api_base: process.env.SUNO_API_BASE},
     langsmith: {api_key: process.env.LANGSMITH_API_KEY, project: process.env.LANGSMITH_PROJECT},
     porkbun: {api_key: process.env.PORKBUN_API_KEY, secret_key: process.env.PORKBUN_SECRET_KEY},
-    railway: {project_id: process.env.RAILWAY_PROJECT_ID, token: process.env.RAILWAY_TOKEN},
     vercel: {token: process.env.VERCEL_TOKEN, team_id: process.env.VERCEL_TEAM_ID},
   };
   const obj = map[vendor] ?? {};

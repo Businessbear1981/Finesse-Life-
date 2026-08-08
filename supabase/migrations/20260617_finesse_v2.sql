@@ -1,10 +1,21 @@
 -- ============================================================
--- FINESSE — COMPLETE SCHEMA v2
+-- FINESSE — COMPLETE SCHEMA v2   ** CANONICAL MASTER SCHEMA **
 -- 41 tables, all triggers, all RLS policies
 -- Run this on a fresh or existing database — fully idempotent
 -- Tables:  CREATE TABLE IF NOT EXISTS (safe if already exists)
 -- Policies: DROP IF EXISTS + CREATE (safe to re-run)
 -- Triggers: DROP IF EXISTS + CREATE (safe to re-run)
+--
+-- Consolidation 2026-07-26: the byte-identical duplicate
+-- (20260617_master_finesse_schema.sql) and the divergent draft
+-- (20260617_wire_all_modules.sql) were deleted. This file is the
+-- single source of truth for target schema. NOTE: verified against
+-- the live DB 2026-07-26 — this file has NEVER been applied there;
+-- the live DB runs the June 09–11 migration wave only (26 tables).
+-- Because tables use IF NOT EXISTS, applying this file will NOT
+-- reshape existing live tables (embassy_deals in particular differs;
+-- see docs/STATE.md "Database"). Reconciling live tables requires
+-- explicit ALTER migrations.
 -- ============================================================
 
 create extension if not exists "uuid-ossp";

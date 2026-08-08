@@ -44,8 +44,12 @@ host:     db.zcqcgqsovrjlxxiipuzg.supabase.co
 port:     5432
 database: postgres
 user:     postgres
-password: Superdog#109918
+password: set SUPABASE_DB_PASSWORD in .env.local — NEVER in this file
 ```
+
+> The password was rotated 2026-07-26 after the previous one was committed here.
+> It lives in `.env.local` (gitignored) only. If you don't have it, get it from Kevin
+> via a one-time-secret link — never over text/email in plaintext.
 
 **Run a migration:**
 ```bash
@@ -77,22 +81,6 @@ Note: Cloudflare = storage only. DNS is on Porkbun.
 **Domain:** `finesselife.vip` (and `finesselife.app`)  
 **Dashboard:** `https://porkbun.com/account/domainsSpeedy`  
 **Porkbun keys:** not yet saved in `.env.local` — add when needed for automation
-
----
-
-## Backend Python Service (Railway)
-
-**Status: DORMANT** — built but not deployed. All API logic currently lives in Next.js `/api` routes.  
-**What it would do:** heavy AI agent orchestration, media pipeline, long-running jobs  
-**Project ID:** `e91bd0fe-8810-4216-ae98-3fc79df731df`  
-**Dashboard:** `https://railway.app/project/e91bd0fe-8810-4216-ae98-3fc79df731df`
-
-When ready to activate:
-1. Go to Railway dashboard → Deploy from `backend/` directory
-2. Set env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `FRONTEND_URL=https://finesselife.app`, `ANTHROPIC_API_KEY`
-3. Get the Railway public URL (e.g. `https://api-xxx.up.railway.app`)
-4. Set `NEXT_PUBLIC_API_URL` in Vercel env vars to that URL
-5. Redeploy frontend
 
 ---
 
@@ -139,5 +127,8 @@ npm run dev   # → localhost:3000
 | File storage  | Cloudflare R2   | finesse-life bucket                           |
 | DNS           | Porkbun         | finesselife.vip + finesselife.app             |
 | AI (frontend) | Vercel AI GW    | via AI_GATEWAY_API_KEY                        |
-| Backend AI    | Railway         | DORMANT — activate when heavy agents needed   |
 | Code backup   | GitHub          | Businessbear1981/Finesse-Life-                |
+
+> The dormant FastAPI/Railway backend was deleted 2026-07-26 (ADR-0002). All server
+> logic lives in Next.js `/api` routes. If heavy jobs ever need a separate service,
+> recover from git history (`31a7812`) behind a new ADR.

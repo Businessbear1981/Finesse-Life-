@@ -22,13 +22,12 @@ Finesse is a luxury social-connection / lifestyle platform — a 1920s grand-hot
 | Database + Auth | Supabase | **`zcqcgqsovrjlxxiipuzg`** (Sean's org). Migrate via `npm run db:migrate <file>` — NOT `supabase db push` (pooler URL doesn't resolve) |
 | Object storage | Cloudflare R2, bucket `finesse-life` (storage only; DNS is Porkbun) | — |
 | AI | Anthropic Claude via Vercel AI Gateway (Nova / Stylist concierge) | — |
-| Backend | `backend/` FastAPI on Railway — **DORMANT**, built but not deployed (ADR-0001). Do not build on it unless deliberately activating it | — |
+| Backend | None — all server logic is Next.js `/api` routes on Vercel. The old FastAPI/Railway scaffold was deleted (ADR-0002); do not reintroduce a second server surface without a new ADR | — |
 
 ```
 Finesse-Life-/
 ├── src/app/            Next.js App Router — ACTIVE. (auth)/ (hotel)/ rooms, api/ (all live server logic)
 ├── src/components/     UI — Payload shell (rails, tiles) + hotel skin
-├── backend/            FastAPI — DORMANT, not deployed (ADR-0001)
 ├── supabase/           SQL migrations (run via npm run db:migrate)
 ├── docs/
 │   ├── STATE.md        current built/wired/live state (read at session start)
