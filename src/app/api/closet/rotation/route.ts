@@ -13,15 +13,20 @@ export async function GET(req: NextRequest) {
   const p = q.safeParse(Object.fromEntries(req.nextUrl.searchParams));
   const week = mondayOf(p.success && p.data.week ? new Date(`${p.data.week}T12:00:00Z`) : new Date());
 
-  const [{data: looks, error: lErr}, {data: saved, error: rErr}, {data: missing, error: mErr}] = await Promise.all([
+  const [{data: looks, error: lErr}, {data: hung}, {data: saved, error: rErr}, {data: missing, error: mErr}] = await Promise.all([
     ctx.supabase.from('wardrobe_looks').select('id, photo_url, caption, brands').eq('user_id', ctx.userId).order('created_at', {ascending: false}).limit(40),
+    // Camera items hung in the Closet stay private; served through the owner-only image route.
+    ctx.supabase.from('camera_items').select('id, label').eq('user_id', ctx.userId).eq('routed_to', 'closet').order('created_at', {ascending: false}).limit(40),
     ctx.supabase.from('closet_rotations').select('days, approved_at, updated_at').eq('user_id', ctx.userId).eq('week_start', week).maybeSingle(),
     ctx.supabase.from('closet_missing_pieces').select('id, description, route_to, created_at').eq('user_id', ctx.userId).order('created_at', {ascending: false}).limit(10),
   ]);
   const err = lErr ?? rErr ?? mErr;
   if (err) return dbFailure(err, ctx.traceId, 'closet');
 
-  const owned = looks ?? [];
+  const owned = [
+    ...((looks ?? []) as Record<string, unknown>[]).map((l) => ({id: l.id as string, photo_url: l.photo_url as string, caption: (l.caption as string | null) ?? null, source: 'wardrobe' as const})),
+    ...((hung ?? []) as Record<string, unknown>[]).map((c) => ({id: c.id as string, photo_url: `/api/camera/items/${c.id}/image`, caption: (c.label as string | null) ?? null, source: 'camera' as const})),
+  ];
   let days: RotationDay[] = (saved?.days as RotationDay[] | undefined) ?? emptyWeek();
   const drafted = !saved && owned.length > 0;
   if (drafted) days = emptyWeek().map((d, i) => ({...d, lookId: owned[i % owned.length].id}));

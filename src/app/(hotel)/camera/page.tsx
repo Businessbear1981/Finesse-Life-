@@ -49,7 +49,7 @@ function ItemCard({item, accent, reload}: {item: Item; accent: string; reload: (
             <span className="font-display text-lg italic">{item.label}</span>
             {(['closet', 'exchange', 'bag'] as const).map((to) => (
               <button key={to} type="button" disabled={busy} onClick={async () => { const r = await call(`/api/camera/items/${item.id}/route`, {method: 'POST', json: {to}}); if (r.ok && r.body.href) router.push(r.body.href); }} className={`${btnCls} border-brass/40 text-cream/80`}>
-                {to === 'closet' ? 'Hang in the Closet' : to === 'exchange' ? 'Offer on the Exchange' : 'Find a match in the Bag'}
+                {to === 'closet' ? 'Hang in my Closet (private)' : to === 'exchange' ? 'Offer on the Exchange' : 'Find a match in the Bag'}
               </button>
             ))}
           </div>

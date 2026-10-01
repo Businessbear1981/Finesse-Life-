@@ -57,6 +57,3 @@ CREATE POLICY kitchen_orders_owner_insert ON public.kitchen_orders FOR INSERT WI
 DROP POLICY IF EXISTS kitchen_orders_owner_cancel ON public.kitchen_orders;
 CREATE POLICY kitchen_orders_owner_cancel ON public.kitchen_orders FOR UPDATE
   USING (auth.uid() = user_id AND state = 'intent') WITH CHECK (auth.uid() = user_id AND state IN ('intent','cancelled'));
-
--- Camera → Closet: keep a reference to the private photo so the look never points at an expiring URL.
-ALTER TABLE public.wardrobe_looks ADD COLUMN IF NOT EXISTS camera_item_id UUID REFERENCES public.camera_items(id) ON DELETE SET NULL;

@@ -20,9 +20,12 @@ export async function POST(req: NextRequest) {
   const ids = [...new Set(parsed.data.days.map((d) => d.lookId).filter(Boolean))] as string[];
 
   if (ids.length) {
-    const {data: mine, error} = await ctx.supabase.from('wardrobe_looks').select('id').eq('user_id', ctx.userId).in('id', ids);
+    const [{data: mine, error}, {data: hung}] = await Promise.all([
+      ctx.supabase.from('wardrobe_looks').select('id').eq('user_id', ctx.userId).in('id', ids),
+      ctx.supabase.from('camera_items').select('id').eq('user_id', ctx.userId).eq('routed_to', 'closet').in('id', ids),
+    ]);
     if (error) return dbFailure(error, ctx.traceId, 'closet');
-    if ((mine ?? []).length !== ids.length) return json({error: 'not_owned', message: 'Only your own looks can go on the rail.'}, ctx.traceId, 422);
+    if ((mine ?? []).length + (hung ?? []).length !== ids.length) return json({error: 'not_owned', message: 'Only your own looks can go on the rail.'}, ctx.traceId, 422);
   }
 
   const now = new Date().toISOString();

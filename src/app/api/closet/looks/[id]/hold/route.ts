@@ -15,9 +15,12 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
   if (parsed.error) return parsed.error;
   const week = mondayOf(new Date(`${parsed.data.weekStart}T12:00:00Z`));
 
-  const {data: look, error: lErr} = await ctx.supabase.from('wardrobe_looks').select('id').eq('id', id).eq('user_id', ctx.userId).maybeSingle();
+  const [{data: look, error: lErr}, {data: hung}] = await Promise.all([
+    ctx.supabase.from('wardrobe_looks').select('id').eq('id', id).eq('user_id', ctx.userId).maybeSingle(),
+    ctx.supabase.from('camera_items').select('id').eq('id', id).eq('user_id', ctx.userId).eq('routed_to', 'closet').maybeSingle(),
+  ]);
   if (lErr) return dbFailure(lErr, ctx.traceId, 'closet');
-  if (!look) return json({error: 'not_owned'}, ctx.traceId, 404);
+  if (!look && !hung) return json({error: 'not_owned'}, ctx.traceId, 404);
 
   const {data: row, error: rErr} = await ctx.supabase.from('closet_rotations').select('days').eq('user_id', ctx.userId).eq('week_start', week).maybeSingle();
   if (rErr) return dbFailure(rErr, ctx.traceId, 'closet');

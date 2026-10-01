@@ -2,7 +2,6 @@ import {NextRequest} from 'next/server';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
 import {dbFailure, json, requireMember} from '@/lib/api/room';
-import {presignGet} from '@/lib/r2';
 import {CAMERA_ROUTES, CAMERA_SELECT, withViewUrl, type CameraRow} from '@/lib/camera';
 import {recordEngagement} from '@/lib/revenue/events';
 
@@ -13,7 +12,7 @@ const DESTINATION_HREF: Record<(typeof CAMERA_ROUTES)[number], string> = {
 };
 
 // POST /api/camera/items/:id/route — send a CATALOGUED item somewhere, by the member's choice.
-// "closet" files it as an owned look; the others hand off with an intent event (never revenue).
+// "closet" hangs it privately on the rail; the others hand off with an intent event (never revenue).
 export async function POST(req: NextRequest, {params}: {params: Promise<{id: string}>}) {
   const ctx = await requireMember();
   if (!('userId' in ctx)) return ctx;
@@ -29,13 +28,8 @@ export async function POST(req: NextRequest, {params}: {params: Promise<{id: str
     return json({error: 'review_first', message: 'Review and catalogue the item before it goes anywhere.'}, ctx.traceId, 409);
   }
 
-  if (parsed.data.to === 'closet') {
-    // Owned look on the rail. Long-lived URL is a presigned view; refreshed by the Closet on read in a later pass.
-    const photo = await presignGet(item.image_key, 7 * 24 * 3600).catch(() => null);
-    if (photo) {
-      await ctx.supabase.from('wardrobe_looks').insert({user_id: ctx.userId, photo_url: photo, caption: item.label, brands: item.brand_guess ? [item.brand_guess] : []});
-    }
-  }
+  // "closet" keeps the photo PRIVATE: the Closet reads routed camera items directly.
+  // (Copying into wardrobe_looks would publish it — that table is feed-readable.)
   const {data: updated, error: upErr} = await ctx.supabase
     .from('camera_items')
     .update({state: 'routed', routed_to: parsed.data.to, updated_at: new Date().toISOString()})
