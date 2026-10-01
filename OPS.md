@@ -44,7 +44,7 @@ host:     db.zcqcgqsovrjlxxiipuzg.supabase.co
 port:     5432
 database: postgres
 user:     postgres
-password: Superdog#109918
+password: (set SUPABASE_DB_PASSWORD in your shell — never commit it; the previous value is compromised and must be rotated)
 ```
 
 **Run a migration:**

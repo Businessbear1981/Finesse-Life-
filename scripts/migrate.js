@@ -11,12 +11,17 @@ if (!file) { console.error('Usage: node scripts/migrate.js <path-to-sql-file>');
 
 const sql = fs.readFileSync(path.resolve(file), 'utf8');
 
+if (!process.env.SUPABASE_DB_PASSWORD) {
+  console.error('Set SUPABASE_DB_PASSWORD in your shell (never commit it).');
+  process.exit(1);
+}
+
 const client = new Client({
-  host:     'db.zcqcgqsovrjlxxiipuzg.supabase.co',
+  host:     process.env.SUPABASE_DB_HOST ?? 'db.zcqcgqsovrjlxxiipuzg.supabase.co',
   port:     5432,
   database: 'postgres',
   user:     'postgres',
-  password: 'Superdog#109918',
+  password: process.env.SUPABASE_DB_PASSWORD,
   ssl:      {rejectUnauthorized: false},
 });
 
