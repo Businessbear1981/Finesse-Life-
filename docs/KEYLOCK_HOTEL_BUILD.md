@@ -17,13 +17,13 @@ audit, Private-Lift elevator design, revenue/API architecture, 30-Sep-2026 sourc
 | `/vip/penthouse` (inside room 23), `/penthouse` → redirect | `src/app/(hotel)/vip/penthouse/*`, middleware | wired |
 | VIP middleware RLS bug (anon bearer → every VIP bounced) | `src/lib/supabase/middleware.ts` | fixed |
 | 31-room directory in the Lobby | `src/components/hotel/room-directory.tsx` | wired |
-| Six missing plates: Ballroom, Jazz Club, This Is You, Closet, Diary, Camera | `src/app/(hotel)/{ballroom,jazz-club,this-is-you,closet,diary,camera}` | specified/preview (honest) |
+| Six missing plates: Ballroom, Jazz Club, This Is You, Closet, Diary, Camera | `src/app/(hotel)/{ballroom,jazz-club,this-is-you,closet,diary,camera}` | superseded by Pass 3 below |
 | Shared plate frame: loading/empty/preview/gated/error/confirmed, disclosure, escalation | `src/components/hotel/room-plate.tsx`, `GET /api/rooms/:id` | wired |
 | Append-only revenue ledger + Stripe confirmed/refund rows | migration, `src/lib/revenue/events.ts`, Stripe webhook | wired |
 | Vault: freeze member-minted writes, parameterised rate, no secret fallback | `src/lib/vault-guard.ts`, vault routes | gated |
 | Backstage KeyLock fails closed | `src/app/api/keylock/enter` | fixed |
 | Committed DB password removed from `scripts/migrate.js` / `OPS.md` | — | **rotate the password** |
-| Expo mobile app (Lobby, 31 rooms, Penthouse preview) | `mobile/` | preview |
+| Expo mobile app (Lobby, 31 rooms, Penthouse) | `mobile/` | Penthouse wired in Pass 4 |
 | Claude skills: keylock-security, room-implementation, revenue-events, art-deco-motion | `.claude/skills/finesse-*` | — |
 
 ## Pass 3–4 (2026-10-01, continued)
@@ -55,7 +55,7 @@ Extra migrations: `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql
 
 - Vault rate & partner (1% code vs 12% manual vs −1% Scale cost). Writes stay frozen until signed.
 - Payment processor for membership/Scale (Stripe vs CCBill) — nothing transacts yet.
-- Profile lens / hidden score policy before "This Is You" is wired.
+- Hidden-score / eligibility policy: This Is You is wired with projections, but no hidden score exists; any future score needs a consent, appeal and legal decision first.
 - Partner adapters: Ballroom holds (OpenTable/Resy/hotel), Jazz Club audio (LiveKit) and tips, Scale payment request — states exist, providers don't. Gym and Kitchen keep their existing pages.
 - Mobile: run `npx expo install` for the new deps and test sign-in + lift on a device (not type-checked here — Expo install exceeded the sandbox time limit).
 - Manus React/Vite preview (`App.tsx`, `index.css`) is a separate managed project and was not merged here.
