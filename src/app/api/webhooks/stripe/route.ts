@@ -1,6 +1,7 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {stripe, STRIPE_WEBHOOK_SECRET} from '@/lib/stripe';
+import {recordEvent} from '@/lib/revenue/events';
 
 // Stripe webhook. Verifies signature, idempotency-checks against stripe_events,
 // upserts the relevant subscription/payment rows. Service-role Supabase client
@@ -84,6 +85,52 @@ export async function POST(req: NextRequest) {
         status: pi.status,
         metadata: pi.metadata ?? {},
       });
+      // Revenue ledger: only a processor-confirmed success is booked revenue.
+      if (event.type === 'payment_intent.succeeded') {
+        await recordEvent({
+          eventType: pi.metadata?.event_type ?? 'payment.succeeded',
+          idempotencyKey: `stripe:${event.id}`,
+          traceId: pi.metadata?.trace_id ?? `stripe_${event.id}`,
+          roomId: pi.metadata?.room_id ?? 'unattributed',
+          track: pi.metadata?.track === 'carpe_diem' || pi.metadata?.track === 'finesse' ? pi.metadata.track : null,
+          memberId: pi.metadata?.user_id ?? null,
+          providerId: 'stripe',
+          providerReceiptId: pi.id,
+          amountMinor: pi.amount_received ?? pi.amount,
+          currency: pi.currency.toUpperCase(),
+          state: 'confirmed',
+        });
+      }
+      break;
+    }
+    case 'charge.refunded': {
+      // Reversal: append a refund row that references the original booked event.
+      const ch = event.data.object;
+      const piId = typeof ch.payment_intent === 'string' ? ch.payment_intent : ch.payment_intent?.id;
+      if (piId) {
+        const {data: original} = await admin
+          .from('revenue_events')
+          .select('id, room_id, track, member_id, event_type')
+          .eq('provider_receipt_id', piId)
+          .eq('state', 'confirmed')
+          .maybeSingle();
+        if (original) {
+          await recordEvent({
+            eventType: `${original.event_type}.refunded`,
+            idempotencyKey: `stripe:${event.id}`,
+            traceId: `stripe_${event.id}`,
+            roomId: original.room_id,
+            track: original.track,
+            memberId: original.member_id,
+            providerId: 'stripe',
+            providerReceiptId: ch.id,
+            amountMinor: -Math.abs(ch.amount_refunded),
+            currency: ch.currency.toUpperCase(),
+            state: 'refunded',
+            reversesEventId: original.id,
+          });
+        }
+      }
       break;
     }
     case 'product.created':

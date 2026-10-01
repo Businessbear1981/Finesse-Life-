@@ -3,6 +3,7 @@ import {createClient} from '@/lib/supabase/server';
 import {createHmac} from 'crypto';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
+import {cashbackRateBps, vaultWritesFrozen} from '@/lib/vault-guard';
 
 const cashbackSchema = z.object({
   merchant: z.string().trim().min(1),
@@ -12,6 +13,16 @@ const cashbackSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // Frozen until a partner-settled event source exists — a member-supplied amount
+  // must never mint spendable cashback.
+  const frozen = vaultWritesFrozen();
+  if (frozen) return frozen;
+  const rateBps = cashbackRateBps();
+  const secret = process.env.INTEGRATIONS_ENCRYPTION_KEY;
+  if (rateBps === null || !secret) {
+    return NextResponse.json({error: 'Vault is not configured (rate or signing key missing).'}, {status: 503});
+  }
+
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
@@ -22,13 +33,12 @@ export async function POST(req: NextRequest) {
 
   // Prospectus rate: 1% cashback, funded by ~1.5% card interchange (~0.5% net
   // to Finesse) — not the 12% this route previously credited from no funding source.
-  const cashback_cents = Math.floor(amount_cents * 0.01);
+  const cashback_cents = Math.floor((amount_cents * rateBps) / 10_000);
 
   // KeyLock cipher: HMAC-SHA256(secret, userId:amount:timestamp:sessionKey) — ties
   // this transaction to the moment it was initiated. vault_transactions has no
   // `cipher` column, so this is returned to the caller for verification but not
   // persisted; a schema migration would be needed to store it.
-  const secret = process.env.INTEGRATIONS_ENCRYPTION_KEY ?? 'finesse-keylock-default';
   const ts = Date.now();
   const cipherInput = `${user.id}:${amount_cents}:${ts}:${session_key ?? 'public'}`;
   const cipher = createHmac('sha256', secret).update(cipherInput).digest('hex');
@@ -56,7 +66,7 @@ export async function POST(req: NextRequest) {
   // Record the cashback credit as a separate transaction line.
   const {error: creditError} = await supabase.from('vault_transactions').insert({
     user_id: user.id,
-    merchant: `1% back — ${merchant}`,
+    merchant: `${rateBps / 100}% back — ${merchant}`,
     amount_cents: cashback_cents,
     cashback_cents: 0,
     category: 'cashback',

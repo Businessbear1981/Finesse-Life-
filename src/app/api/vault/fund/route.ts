@@ -1,8 +1,14 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
 import {emit} from '@/lib/intelligence';
+import {vaultWritesFrozen} from '@/lib/vault-guard';
 
 export async function POST(req: NextRequest) {
+  // A top-up with no processor receipt would mint balance from nothing. Frozen
+  // until funding arrives through a verified partner/processor event.
+  const frozen = vaultWritesFrozen();
+  if (frozen) return frozen;
+
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});

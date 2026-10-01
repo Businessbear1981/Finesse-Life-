@@ -146,13 +146,13 @@ export default function VaultPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount_cents: 50000 }), // $500
       });
-      const data = await res.json() as { funded?: boolean; new_balance_cents?: number; error?: string };
+      const data = await res.json() as { funded?: boolean; new_balance_cents?: number; error?: string; message?: string };
       if (res.ok && data.funded) {
         setShowFundModal(false);
         showToast(`$500.00 deposited to your Vault`);
         await fetchVault();
       } else {
-        showToast(data.error ?? 'Top-up failed', 'error');
+        showToast(data.message ?? data.error ?? 'Top-up failed', 'error');
       }
     } catch {
       showToast('Network error — try again', 'error');
