@@ -1,11 +1,25 @@
 'use client';
 
 import {useState, useRef, useEffect, useCallback} from 'react';
-import {motion, useAnimation, AnimatePresence} from 'framer-motion';
+import {motion, useAnimation, AnimatePresence, useReducedMotion} from 'framer-motion';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 
-const DEMO_PIN = '123456';
+// The accepted code is never shipped to the browser. All six digits are verified
+// once, server-side, by POST /api/keylock/entrance/verify (see src/lib/entrance-keylock.ts).
+type EntranceMode = 'production' | 'preview';
+type Challenge = {challengeId: string; mode: EntranceMode};
+
+async function requestChallenge(): Promise<Challenge | {error: string}> {
+  try {
+    const res = await fetch('/api/keylock/entrance/challenge', {method: 'POST', cache: 'no-store'});
+    const body = await res.json() as {state: string; challengeId?: string; mode?: EntranceMode; message?: string};
+    if (body.state === 'ready' && body.challengeId && body.mode) return {challengeId: body.challengeId, mode: body.mode};
+    return {error: body.message ?? 'The entrance is being serviced.'};
+  } catch {
+    return {error: 'The entrance is being serviced.'};
+  }
+}
 
 // Each puzzle segment: angle around the dial, display label
 const SEGMENTS = [
@@ -25,11 +39,25 @@ export default function VaultEntrance() {
   const [opening, setOpening] = useState(false);
   const [lightFlood, setLightFlood] = useState(false);
   const [showGenderSelect, setShowGenderSelect] = useState(false);
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [message, setMessage] = useState('The mechanism holds.');
+  const reduceMotion = useReducedMotion();
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const shakeControls = useAnimation();
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  const loadChallenge = useCallback(async () => {
+    const next = await requestChallenge();
+    if ('error' in next) { setChallenge(null); setMessage(next.error); return; }
+    setChallenge(next);
+  }, []);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial challenge fetch on mount
+    void loadChallenge();
+  }, [loadChallenge]);
 
   // Clear piece flash after 700ms
   useEffect(() => {
@@ -39,7 +67,9 @@ export default function VaultEntrance() {
   }, [flash]);
 
   const selectGender = (gender: 'feminine' | 'masculine') => {
+    // Visual side selection only — never an entitlement or identity claim.
     localStorage.setItem('finesse_gender', gender);
+    localStorage.setItem('finesse_track', gender === 'masculine' ? 'carpe_diem' : 'finesse');
     router.push('/lobby');
   };
 
@@ -54,9 +84,39 @@ export default function VaultEntrance() {
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  const fail = useCallback((text: string) => {
+    setMessage(text);
+    setError(true);
+    shakeControls.start({x: [0, -14, 14, -9, 9, -5, 5, 0], transition: {duration: 0.5}});
+    setTimeout(() => { reset(); void loadChallenge(); }, 1400);
+  }, [shakeControls, reset, loadChallenge]);
+
+  const verify = useCallback(async (code: string) => {
+    if (!challenge) { fail('The entrance is being serviced.'); return; }
+    setVerifying(true);
+    try {
+      const res = await fetch('/api/keylock/entrance/verify', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({challengeId: challenge.challengeId, code}),
+      });
+      const body = await res.json() as {state: string; message?: string};
+      if (body.state !== 'open') { fail(body.message ?? 'The mechanism holds.'); return; }
+      // Server approved — only now does the machine open and the brass sweep run.
+      const lag = reduceMotion ? 0 : 1;
+      setOpening(true);
+      setTimeout(() => setLightFlood(true), 900 * lag);
+      setTimeout(() => setShowGenderSelect(true), reduceMotion ? 200 : 2500);
+    } catch {
+      fail('The entrance is being serviced.');
+    } finally {
+      setVerifying(false);
+    }
+  }, [challenge, fail, reduceMotion]);
+
   const handleInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value.replace(/\D/g, '');
-    if (opening || error || showGenderSelect) return;
+    if (opening || error || showGenderSelect || verifying) return;
 
     const prevLen = digits.length;
     const newLen = val.length;
@@ -70,33 +130,14 @@ export default function VaultEntrance() {
 
     if (newLen > 6) return;
 
-    // New digit entered — validate immediately
-    const newDigit = val[newLen - 1];
-    const expected = DEMO_PIN[newLen - 1];
-
-    if (newDigit !== expected) {
-      setError(true);
-      shakeControls.start({
-        x: [0, -14, 14, -9, 9, -5, 5, 0],
-        transition: {duration: 0.5},
-      });
-      setTimeout(reset, 1400);
-      return;
-    }
-
-    // Correct — assemble piece
+    // Each digit assembles one piece of the mechanism. Correctness is NOT revealed
+    // per digit (that would leak the code one digit at a time).
     setDigits(val.split(''));
     setAssembled(newLen);
     setFlash(newLen - 1);
 
-    if (newLen === 6) {
-      setTimeout(() => {
-        setOpening(true);
-        setTimeout(() => setLightFlood(true), 900);
-        setTimeout(() => setShowGenderSelect(true), 2500);
-      }, 500);
-    }
-  }, [digits, opening, error, showGenderSelect, shakeControls, reset]);
+    if (newLen === 6) setTimeout(() => void verify(val), reduceMotion ? 0 : 450);
+  }, [digits, opening, error, showGenderSelect, verifying, verify, reduceMotion]);
 
   return (
     <div
@@ -409,6 +450,20 @@ export default function VaultEntrance() {
         style={{background: 'radial-gradient(ellipse at center, rgba(255,169,107,0.9) 0%, rgba(201,169,97,0.6) 40%, #0A0406 100%)'}}
       />
 
+      {/* Brass sweep — the completed cipher opens the entrance; the gender-side selector remains the next decision. */}
+      <motion.div
+        className="pointer-events-none fixed inset-[-35%] z-35"
+        initial={{x: '-120%', opacity: 0}}
+        animate={opening && !reduceMotion ? {x: '120%', opacity: [0, 1, 0]} : {x: '-120%', opacity: 0}}
+        transition={{duration: 1.35, delay: 0.16, ease: [0.16, 1, 0.3, 1], times: [0, 0.22, 1]}}
+        style={{
+          transform: 'skewX(-14deg)',
+          background: 'linear-gradient(105deg, transparent 37%, rgba(201,169,97,0.08) 44%, rgba(232,200,122,0.62) 49%, rgba(255,244,194,0.94) 50%, rgba(232,200,122,0.16) 54%, transparent 62%)',
+          filter: 'blur(3px)',
+          mixBlendMode: 'screen',
+        }}
+      />
+
       {/* Members Only tag */}
       <motion.p
         initial={{opacity: 0}} animate={{opacity: 1}} transition={{delay: 0.8}}
@@ -425,6 +480,7 @@ export default function VaultEntrance() {
           ref={inputRef} type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={6}
           value={digits.join('')} onChange={handleInput}
           className="absolute opacity-0 w-0 h-0" autoFocus autoComplete="off"
+          aria-label="Six-digit entrance code" aria-describedby="entrance-status"
         />
         <div className="flex gap-3 justify-center" onClick={() => inputRef.current?.focus()}>
           {Array.from({length: 6}).map((_, i) => {
@@ -468,7 +524,15 @@ export default function VaultEntrance() {
             initial={{opacity: 0}} animate={{opacity: 1}}
             className="text-center mt-4 font-body text-sm italic"
             style={{color: '#F4E0A0'}}
-          >Access denied</motion.p>
+          >{message}</motion.p>
+        )}
+        <p id="entrance-status" role="status" aria-live="polite" className="sr-only">
+          {verifying ? 'Checking the mechanism' : error ? message : `${digits.length} of 6 digits aligned`}
+        </p>
+        {challenge?.mode === 'preview' && !opening && (
+          <p className="text-center mt-4 font-label text-[9px] tracking-[0.35em] uppercase" style={{color: '#C9A96199'}}>
+            Preview entrance · any six digits open the doors
+          </p>
         )}
       </motion.div>
 
