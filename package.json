@@ -10,7 +10,9 @@
     "deploy": "vercel deploy --prod --yes",
     "db:migrate": "node scripts/migrate.js",
     "rooms:validate": "node tooling/validate-project.mjs",
-    "check": "node tooling/validate-project.mjs && tsc --noEmit"
+    "check": "node tooling/validate-project.mjs && tsc --noEmit && vitest run",
+    "test": "vitest run",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
@@ -53,6 +55,7 @@
     "prettier": "^3.8.3",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

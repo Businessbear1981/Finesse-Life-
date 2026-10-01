@@ -1,0 +1,39 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      # Placeholders so the build can compile; no secrets are needed for CI.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+      STRIPE_SECRET_KEY: sk_test_ci_placeholder
+      KEYLOCK_SECRET: ci-placeholder-ci-placeholder-ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Room registry
+        run: npm run rooms:validate
+      - name: Types
+        run: npx tsc --noEmit
+      - name: Unit + contract tests
+        run: npm test
+      - name: Lint (new hotel-build code; legacy pages have known findings)
+        run: npx eslint src/lib src/components/hotel src/app/api/keylock src/app/api/vip-keylock src/app/api/rooms src/app/api/diary src/app/api/ballroom src/app/api/closet src/app/api/identity src/app/api/camera src/app/api/jazz-club src/app/api/gym src/app/api/kitchen src/app/api/scale
+      - name: Build
+        run: npx next build
+      - name: Smoke (signed-out)
+        run: |
+          npx next start -p 3000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/keylock/entrance/challenge -X POST >/dev/null && break; sleep 1; done
+          BASE_URL=http://localhost:3000 npm run smoke
