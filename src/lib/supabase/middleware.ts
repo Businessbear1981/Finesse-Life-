@@ -61,6 +61,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/nightvision') ||
     pathname.startsWith('/stylist') ||
     pathname.startsWith('/carpe-diem') ||
+    // Public entrance KeyLock — must be reachable before sign-in
+    pathname.startsWith('/api/keylock/entrance') ||
     // Agent dispatch API — callable from authenticated or public contexts
     pathname.startsWith('/api/agents') ||
     // AI APIs — auth is optional; routes handle no-session gracefully
