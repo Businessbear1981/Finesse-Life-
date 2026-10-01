@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Finesse Life",
+    "slug": "finesse-life",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "finesse",
+    "userInterfaceStyle": "dark",
+    "ios": { "supportsTablet": true },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#080406"
+      }
+    },
+    "web": { "bundler": "metro", "favicon": "./assets/images/favicon.png" },
+    "plugins": ["expo-router", ["expo-splash-screen", { "backgroundColor": "#17090D", "image": "./assets/images/splash-icon.png", "imageWidth": 88 }]],
+    "experiments": { "typedRoutes": true }
+  }
+}

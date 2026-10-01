@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "deploy": "vercel deploy --prod --yes",
-    "db:migrate": "node scripts/migrate.js"
+    "db:migrate": "node scripts/migrate.js",
+    "rooms:validate": "node tooling/validate-project.mjs",
+    "check": "node tooling/validate-project.mjs && tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

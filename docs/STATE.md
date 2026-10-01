@@ -1,7 +1,7 @@
 # Finesse Life — State
 
 > **Status:** PRE-LAUNCH (demand-gated — build weight stays low until the founding-cohort / anchor-partner side is confirmed)
-> **Last updated:** 2026-07-14 (agent-infra install) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
+> **Last updated:** 2026-10-01 (Keylock hotel build branch — see `docs/KEYLOCK_HOTEL_BUILD.md`) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
 > **One-liner:** Luxury hotel-styled social/lifestyle PWA with AI concierge, curated commerce, and a member rebate card program — live at finesselife.vip, membership not yet transacting.
 > **Current state:** UI + concierge are real; **no payment path exists** (no checkout, no subscriptions). The gate to the transact sprint is demand confirmation, not engineering.
 > **Links:** `AGENTS.md` (charter/SOP) · `docs/decisions/` (ADRs) · `CONTEXT.md` (glossary) · `OPS.md` (runbook) · GitHub Issues (work tracking)
@@ -49,11 +49,21 @@ From the 2026-06-23 line-by-line audit — `asserted` (predates the June/July ro
 
 Canonical: Supabase `zcqcgqsovrjlxxiipuzg`. Migrations live in `supabase/migrations/` and run via `npm run db:migrate <file>` (direct connection) — `supabase db push` does not work here. Which migrations are applied vs merely on disk has **not** been re-verified since the June audit; billing/subscription tables have no migrations at all. `asserted`.
 
+## 2026-10-01 — Keylock hotel build (`sean/keylock-hotel-build`)
+
+`asserted` until deployed: server-verified entrance KeyLock (client `DEMO_PIN` removed), Lobby private lift →
+`/vip/penthouse` (separate lock, consumes `is_vip`), VIP middleware RLS bug fixed, 31-room registry + Lobby
+directory, six new plates (Ballroom, Jazz Club, This Is You, Closet, Diary, Camera — preview/specified),
+append-only `revenue_events`, Vault member writes **frozen** (423) pending partner sign-off, secret fallbacks
+removed, committed DB password stripped from tracked files (**rotation still required**), Expo app in `mobile/`.
+Needs: migration `20261001_keylocks_vip_lift_revenue_ledger.sql` + env `KEYLOCK_SECRET`, `ENTRANCE_KEYLOCK_CODE`.
+ADR: `docs/decisions/0002-keylocks-private-lift-and-vault-freeze.md`.
+
 ## Known gaps that will bite
 
 1. **No payment path** — membership cannot transact. This is the whole Phase-1 sprint, gated on demand confirmation.
-2. **Committed secret:** `OPS.md` contains the Supabase DB password in plaintext (in git history too). Rotate the password, then strip it from the file. `verified` 2026-07-14.
-3. **Vault 12% rebate bug** (see above) — must be corrected before any real money flows.
+2. **Committed secret:** the Supabase DB password was in `OPS.md` and `scripts/migrate.js` — stripped from tracked files on 2026-10-01 but still in git history. **Rotate it.**
+3. **Vault** — code now 1%-parameterised and member writes frozen (423) until the rate/partner decision is signed off.
 4. Scout / Price-Hunter / scale-join schema mismatches — features silently return nothing.
 5. Stale-domain drift: OPS.md and older docs still say `finesselife.app`.
 
