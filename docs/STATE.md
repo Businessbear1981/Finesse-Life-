@@ -59,6 +59,10 @@ removed, committed DB password stripped from tracked files (**rotation still req
 Needs: migration `20261001_keylocks_vip_lift_revenue_ledger.sql` + env `KEYLOCK_SECRET`, `ENTRANCE_KEYLOCK_CODE`.
 ADR: `docs/decisions/0002-keylocks-private-lift-and-vault-freeze.md`.
 
+Continued same day (`asserted`): APIs + live views for Diary, Ballroom, Closet, This Is You, Camera, Jazz Club;
+Scale pledge state machine (no charge path); API 401 JSON + **webhooks no longer redirected to /login**; mobile
+sign-in + real private lift. Migrations `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql`.
+
 ## Known gaps that will bite
 
 1. **No payment path** — membership cannot transact. This is the whole Phase-1 sprint, gated on demand confirmation.
