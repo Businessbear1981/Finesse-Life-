@@ -12,6 +12,6 @@ export async function GET() {
     .gte('starts_at', from).lte('starts_at', to).neq('state', 'cancelled')
     .order('starts_at');
   if (error) return dbFailure(error, ctx.traceId, 'jazz-club');
-  const sessions = data ?? [];
+  const sessions = (data ?? []) as {id: string; state: string}[];
   return json({sessions, live: sessions.find((s) => s.state === 'live') ?? null, audioProvider: process.env.LIVEKIT_URL ? 'configured' : 'not_connected'}, ctx.traceId);
 }

@@ -4,7 +4,7 @@
  * + vip_expires_at, granted by /api/vip/redeem) may open a cinematic destination,
  * and issues a short-lived, scoped session separate from every other KeyLock.
  */
-import {cookies} from 'next/headers';
+import {cookies, headers} from 'next/headers';
 import {createClient} from '@/lib/supabase/server';
 import {VIP_LIFT_COOKIE, hasServiceRole, keylockSecret, service, sha256} from '@/lib/keylock-server';
 
@@ -45,7 +45,7 @@ export async function getActiveLiftSession(): Promise<
   {active: true; userId: string; destination: 'vip-room' | 'penthouse'; expiresAt: string} | {active: false}
 > {
   if (!liftReady()) return {active: false};
-  const token = (await cookies()).get(VIP_LIFT_COOKIE)?.value;
+  const token = (await cookies()).get(VIP_LIFT_COOKIE)?.value ?? (await headers()).get('x-finesse-lift') ?? undefined;
   if (!token) return {active: false};
   const ent = await getVipEntitlement();
   if (ent.state !== 'entitled') return {active: false};

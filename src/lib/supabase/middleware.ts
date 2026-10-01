@@ -24,7 +24,14 @@ export async function updateSession(request: NextRequest) {
   );
 
   // IMPORTANT: do not put logic between client creation and getUser().
-  const {data: {user}} = await supabase.auth.getUser();
+  const {data: {user: cookieUser}} = await supabase.auth.getUser();
+  let user = cookieUser;
+  // Native clients (Expo app) send the member's access token as a bearer header.
+  const authz = request.headers.get('authorization') ?? '';
+  if (!user && request.nextUrl.pathname.startsWith('/api/') && authz.toLowerCase().startsWith('bearer ')) {
+    const {data} = await supabase.auth.getUser(authz.slice(7).trim());
+    user = data.user;
+  }
 
   const pathname = request.nextUrl.pathname;
 

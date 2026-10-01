@@ -8,6 +8,7 @@ import {
 } from '@/lib/keylock-server';
 import {LIFT_COPY, getVipEntitlement, liftReady} from '@/lib/vip-lift';
 import {recordEngagement} from '@/lib/revenue/events';
+import {isBearerRequest} from '@/lib/supabase/server';
 
 // POST /api/vip-keylock/verify — checks the six digits on the doors against the
 // member's lift PIN (or enrolls it on first ride), re-checks VIP, and issues a
@@ -73,13 +74,17 @@ export async function POST(req: NextRequest) {
   await audit({lock: 'vip_lift', eventType: 'vip.keylock_verified', outcome: 'ok', subjectHash: subject, userId: ent.userId, challengeId, traceId});
   await recordEngagement('vip.keylock_verified', {traceId, roomId: 'vip-room', memberId: ent.userId});
 
-  const res = reply({
+  // Native clients cannot hold an httpOnly cookie; they get the token once, in the body,
+  // and present it as X-Finesse-Lift. Browsers never see it outside the cookie.
+  const bearer = await isBearerRequest();
+  const res = NextResponse.json({
     state: 'unlocked',
     destination,
     href: destination === 'penthouse' ? '/vip/penthouse' : '/vip',
     expiresAt,
     traceId,
-  });
+    ...(bearer ? {liftToken: token} : {}),
+  } satisfies VipLiftVerifyResponse & {liftToken?: string}, {headers: NO_STORE});
   res.cookies.set(VIP_LIFT_COOKIE, token, {
     httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/',
     maxAge: VIP_LIFT_SESSION_TTL_MS / 1000,

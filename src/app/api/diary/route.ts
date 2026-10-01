@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     .order('starts_at');
   if (error) return dbFailure(error, ctx.traceId, 'diary');
 
-  const items = data ?? [];
+  const items = (data ?? []) as {id: string; state: string}[];
   const needsYou = items.filter((i) => i.state === 'needs_member_action');
   return json({day, items, nextDecision: needsYou[0] ?? null, counts: {
     done: items.filter((i) => i.state === 'done').length,
