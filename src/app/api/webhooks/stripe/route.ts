@@ -85,6 +85,11 @@ export async function POST(req: NextRequest) {
         status: pi.status,
         metadata: pi.metadata ?? {},
       });
+      // Scale: a processor-confirmed payment is the ONLY path from payment_requested → paid.
+      if (event.type === 'payment_intent.succeeded' && pi.metadata?.scale_join_id) {
+        await admin.from('scale_joins').update({state: 'paid', payment_ref: pi.id})
+          .eq('id', pi.metadata.scale_join_id).eq('state', 'payment_requested');
+      }
       // Revenue ledger: only a processor-confirmed success is booked revenue.
       if (event.type === 'payment_intent.succeeded') {
         await recordEvent({
@@ -114,6 +119,9 @@ export async function POST(req: NextRequest) {
           .eq('provider_receipt_id', piId)
           .eq('state', 'confirmed')
           .maybeSingle();
+        if (ch.refunded) {
+          await admin.from('scale_joins').update({state: 'refunded'}).eq('payment_ref', piId).in('state', ['paid', 'fulfilled']);
+        }
         if (original) {
           await recordEvent({
             eventType: `${original.event_type}.refunded`,

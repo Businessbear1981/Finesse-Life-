@@ -116,6 +116,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // API callers get a JSON 401, never an HTML login redirect (which fetch() would
+  // follow and mistake for success).
+  if (!user && !isPublicRoute && pathname.startsWith('/api/')) {
+    // Webhooks authenticate by signature, not session.
+    if (!pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/telegram/webhook')) {
+      return NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
+    }
+    return supabaseResponse;
+  }
+
   if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
