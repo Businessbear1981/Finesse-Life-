@@ -63,6 +63,9 @@ Continued same day (`asserted`): APIs + live views for Diary, Ballroom, Closet, 
 Scale pledge state machine (no charge path); API 401 JSON + **webhooks no longer redirected to /login**; mobile
 sign-in + real private lift. Migrations `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql`.
 
+Pass 5 (`asserted`): Gym + Kitchen APIs/live panels (migration `20261004_gym_kitchen.sql`), Camera photos kept
+private in the Closet, 19 vitest tests (`npm test`), signed-out smoke (`npm run smoke`), GitHub Actions CI.
+
 ## Known gaps that will bite
 
 1. **No payment path** — membership cannot transact. This is the whole Phase-1 sprint, gated on demand confirmation.

@@ -43,19 +43,33 @@ audit, Private-Lift elevator design, revenue/API architecture, 30-Sep-2026 sourc
 
 Extra migrations: `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql`.
 
+## Pass 5 (2026-10-01)
+
+| Plan item | Where | Truth |
+|---|---|---|
+| Gym API: today, log/delete sets, rest timer, explainable recovery; live log panel on the existing page | `src/app/api/gym/*`, `src/components/hotel/gym-log.tsx` | wired (health-app sync not connected) |
+| Kitchen API: weekly plan, kcal ledger, grocery list, ONE order intent, partner options; live week panel | `src/app/api/kitchen/*`, `src/components/hotel/kitchen-week.tsx` | preview — no grocery partner |
+| Sample content on Gym / Kitchen / Lobby labelled as sample | pages | — |
+| Camera → Closet keeps photos private (was copying into the feed-readable wardrobe table); owner-only image route, no expiring links | `src/app/api/camera/items/[id]/{image,route}`, `src/app/api/closet/*` | fixed |
+| Contract + unit tests (19): registry, revenue rules, KeyLock contracts, PIN hashing, signed cookie, closet weeks, recovery, kcal, identity allowlists | `tests/*.test.ts` (`npm test`) | passing |
+| Signed-out HTTP smoke (17 checks), safe against production | `scripts/smoke.mjs` (`BASE_URL=… npm run smoke`) | passing locally |
+| CI: registry, types, tests, lint (new code), build, smoke | `.github/workflows/ci.yml` | added |
+
+Extra migration: `20261004_gym_kitchen.sql`.
+
 ## Deploy checklist (principal approval required — AGENTS.md)
 
 1. Rotate the Supabase DB password (it is in git history).
 2. Vercel env: `KEYLOCK_SECRET` (`openssl rand -hex 32`), `ENTRANCE_KEYLOCK_CODE` (six digits; `123456` reproduces today's behaviour), confirm `SUPABASE_SERVICE_ROLE_KEY`, `INTEGRATIONS_ENCRYPTION_KEY`.
-3. Apply, in order: `20261001_keylocks_vip_lift_revenue_ledger.sql`, `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql` (`SUPABASE_DB_PASSWORD=… npm run db:migrate <file>`)
+3. Apply, in order: `20261001_keylocks_vip_lift_revenue_ledger.sql`, `20261002_plates_24_31.sql`, `20261003_scale_pledge_states.sql`, `20261004_gym_kitchen.sql` (`SUPABASE_DB_PASSWORD=… npm run db:migrate <file>`)
 4. Merge PR → `npm run deploy`.
-5. Smoke: `/` opens with the code, wrong code shakes; Lobby → Call the lift as a VIP (first ride enrols a PIN) → `/vip/penthouse`; non-VIP sees "remains closed"; `/vip` loads for VIPs.
+5. `BASE_URL=https://finesselife.vip npm run smoke`, then by hand: `/` opens with the code, wrong code shakes; Lobby → Call the lift as a VIP (first ride enrols a PIN) → `/vip/penthouse`; non-VIP sees "remains closed"; `/vip` loads for VIPs.
 
 ## Still open (decisions, not code)
 
 - Vault rate & partner (1% code vs 12% manual vs −1% Scale cost). Writes stay frozen until signed.
 - Payment processor for membership/Scale (Stripe vs CCBill) — nothing transacts yet.
 - Hidden-score / eligibility policy: This Is You is wired with projections, but no hidden score exists; any future score needs a consent, appeal and legal decision first.
-- Partner adapters: Ballroom holds (OpenTable/Resy/hotel), Jazz Club audio (LiveKit) and tips, Scale payment request — states exist, providers don't. Gym and Kitchen keep their existing pages.
+- Partner adapters: Ballroom holds (OpenTable/Resy/hotel), Jazz Club audio (LiveKit) and tips, Scale payment request, Kitchen grocery partner (Instacart), Gym health sync (HealthKit / Health Connect) — states exist, providers don't.
 - Mobile: run `npx expo install` for the new deps and test sign-in + lift on a device (not type-checked here — Expo install exceeded the sandbox time limit).
 - Manus React/Vite preview (`App.tsx`, `index.css`) is a separate managed project and was not merged here.
