@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { UtensilsCrossed, Wine, ChefHat, Calendar, ShoppingBag, MapPin, Clock, Users } from 'lucide-react';
+import {KitchenWeek} from '@/components/hotel/kitchen-week';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -286,6 +287,8 @@ export default function KitchenPage() {
 
       {/* ── Main content */}
       <div className="relative z-10 max-w-2xl mx-auto px-4 pb-32">
+        <KitchenWeek accent={accent} />
+        <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample tables and recipes</p>
 
         {/* ════════════════════ FEMININE ════════════════════ */}
         {!isMasc && (

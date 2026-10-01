@@ -1165,7 +1165,7 @@
         "partner services"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Private gym at dawn with smoked mirrors and walnut benches",
         "focalObject": "Current set, rest timer and recovery readout",
@@ -1205,7 +1205,7 @@
         "partner commission"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "preview",
       "sceneBlueprint": {
         "architecture": "Warm service kitchen with slate menu and copper pans",
         "focalObject": "Weekly meals beside one grocery order",

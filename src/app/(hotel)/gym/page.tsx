@@ -3,6 +3,7 @@
 import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import Link from 'next/link';
+import {GymLog} from '@/components/hotel/gym-log';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -241,8 +242,8 @@ export default function GymPage() {
               style={{fontSize: '0.76rem', color: 'rgba(244,232,208,0.45)', lineHeight: 1.55}}
             >
               {isMasc
-                ? 'Nova says: You skipped Monday. I\'m not judging — I\'m rescheduling.'
-                : 'Nova noticed you went 3 for 3 this week. Consistency is the move.'}
+                ? 'Log a set below and Nova will read your recovery from it.'
+                : 'Log a set below and Nova will read your recovery from it.'}
             </p>
           </motion.div>
         </motion.div>
@@ -250,6 +251,8 @@ export default function GymPage() {
 
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <main className="max-w-lg mx-auto px-4 pb-32 relative z-10">
+        <GymLog accent={accent} />
+        <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample studio programme</p>
 
         {/* ════ FEMININE EXPERIENCE ═══════════════════════════════════════════ */}
         {!isMasc && (
