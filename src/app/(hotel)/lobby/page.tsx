@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { PrivateLift } from '@/components/hotel/private-lift';
+import { RoomDirectory } from '@/components/hotel/room-directory';
 import { Shirt, ShoppingBag, Scissors, Plane, DollarSign, TrendingUp, Sun, Compass } from 'lucide-react';
 
 /* ─── Gender detection ─── */
@@ -66,7 +68,7 @@ const FEMININE_GRID = [
 ];
 
 const MASC_GRID = [
-  { label: 'Per Diem', href: '/per-diem', icon: DollarSign },
+  { label: 'Per Diem', href: '/perdiem', icon: DollarSign },
   { label: 'Market', href: '/market', icon: TrendingUp },
   { label: 'Carpe Diem', href: '/carpe-diem', icon: Sun },
   { label: 'Departures', href: '/departures', icon: Plane },
@@ -217,7 +219,7 @@ export default function LobbyPage() {
               className="font-label uppercase tracking-widest mb-4"
               style={{ fontSize: '8px', color: 'rgba(201,169,97,0.35)' }}
             >
-              Today&apos;s Brief
+              Today&apos;s Brief <span style={{ color: 'rgba(244,232,208,0.35)' }}>· sample</span>
             </p>
             <div
               className="border p-5"
@@ -266,7 +268,7 @@ export default function LobbyPage() {
               className="font-label uppercase tracking-widest mb-4"
               style={{ fontSize: '8px', color: 'rgba(201,169,97,0.35)' }}
             >
-              Today&apos;s Picks — Curated for You
+              Today&apos;s Picks — Curated for You <span style={{ color: 'rgba(244,232,208,0.35)' }}>· sample</span>
             </p>
             <div className="space-y-3">
               {FEMININE_PICKS.map((pick) => (
@@ -342,7 +344,7 @@ export default function LobbyPage() {
             className="font-label uppercase tracking-widest mb-3"
             style={{ fontSize: '8px', color: 'rgba(201,169,97,0.35)' }}
           >
-            Featured Tonight
+            Featured Tonight <span style={{ color: 'rgba(244,232,208,0.35)' }}>· sample</span>
           </p>
           <div
             className="relative overflow-hidden border"
@@ -437,10 +439,18 @@ export default function LobbyPage() {
             style={{ fontSize: '12px', color: 'rgba(244,232,208,0.3)', lineHeight: 1.4 }}
           >
             {isMasc
-              ? 'Dinner reservation at Nobu 57 confirmed for 8 PM. Dress accordingly.'
-              : 'Your stylist added 2 new pieces to your wishlist while you were out.'}
+              ? 'Nova can hold a table, plan the route and brief your tailor — ask at the desk.'
+              : 'Nova can pull looks, book the salon and plan the evening — ask at the desk.'}
           </p>
         </motion.div>
+
+        {/* ── The Private Lift (VIP / Penthouse KeyLock — separate from the entrance lock) ── */}
+        <div id="private-lift" className="-mx-4 scroll-mt-8">
+          <PrivateLift track={isMasc ? 'carpe_diem' : 'finesse'} />
+        </div>
+
+        {/* ── Hotel directory: all 31 rooms in building-rail order ── */}
+        <RoomDirectory track={isMasc ? 'carpe_diem' : 'finesse'} />
 
       </div>
 

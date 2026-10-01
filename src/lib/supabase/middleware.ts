@@ -74,25 +74,24 @@ export async function updateSession(request: NextRequest) {
   // Authenticated but non-VIP users are redirected to /profile?upgrade=true.
   const isVipRoute = pathname.startsWith('/vip');
 
-  if (isVipRoute && user) {
-    const profileRes = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_vip,vip_expires_at`,
-      {
-        headers: {
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-      },
-    );
+  // Penthouse lives INSIDE the VIP Room (room 23) — never a 32nd room.
+  if (pathname === '/penthouse') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/vip/penthouse';
+    return NextResponse.redirect(url);
+  }
 
-    if (profileRes.ok) {
-      const profiles = (await profileRes.json()) as Array<{
-        is_vip: boolean;
-        vip_expires_at: string | null;
-      }>;
-      const profile = profiles[0];
+  if (isVipRoute && user) {
+    // Query as the signed-in member (their JWT, RLS applies). The previous version
+    // sent the anon key as the bearer, which RLS answers with [] → every VIP was
+    // bounced to /profile?upgrade=true.
+    const {data: profile, error} = await supabase
+      .from('profiles')
+      .select('is_vip, vip_expires_at')
+      .eq('id', user.id)
+      .single();
+
+    if (!error) {
       const isVip =
         profile?.is_vip === true &&
         (!profile.vip_expires_at || new Date(profile.vip_expires_at) > new Date());
@@ -100,11 +99,12 @@ export async function updateSession(request: NextRequest) {
       if (!isVip) {
         const url = request.nextUrl.clone();
         url.pathname = '/profile';
+        url.search = '';
         url.searchParams.set('upgrade', 'true');
         return NextResponse.redirect(url);
       }
     }
-    // If the fetch failed we let the page's own server-side check handle it
+    // On a read error the page's own server-side check (vip/page.tsx) still gates.
   }
 
   // /intake without auth → send to /login
