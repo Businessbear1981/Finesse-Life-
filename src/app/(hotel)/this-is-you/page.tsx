@@ -2,7 +2,65 @@
 
 import {useState} from 'react';
 import {motion} from 'framer-motion';
-import {PlateAction, RoomPlate} from '@/components/hotel/room-plate';
+import {PlateAction, RoomPlate, type LiveCtx} from '@/components/hotel/room-plate';
+import {btnCls, roomCall} from '@/lib/room-client';
+
+type IdentityData = {
+  self: Record<string, unknown>;
+  projection: {public_fields: string[]; visibility: Record<string, string>};
+  publicView: Record<string, unknown>;
+  projectableFields: string[];
+  neverProjected: string[];
+};
+const FIELD_LABEL: Record<string, string> = {display_name: 'Name', username: 'Handle', avatar_url: 'Portrait', vibe: 'Vibe line', bio: 'Bio', city: 'City', interests: 'Interests'};
+
+function IdentityLive({data, accent, reload, onLens}: LiveCtx<IdentityData> & {onLens: (l: Lens) => void}) {
+  const [fields, setFields] = useState<string[]>(data.projection.public_fields);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    const r = await roomCall('/api/identity/projections', {method: 'PATCH', json: {publicFields: fields}});
+    setBusy(false);
+    setMsg(r.ok ? 'Saved. Other members now see only these fields.' : r.body.message ?? 'Nothing was saved.');
+    if (r.ok) { onLens('public'); reload(); }
+  };
+  const lounge = async (v: 'members' | 'nobody') => {
+    const r = await roomCall('/api/identity/visibility', {method: 'PATCH', json: {lounge: v}});
+    setMsg(r.ok ? (v === 'nobody' ? 'You are hidden from the Lounge.' : 'The Lounge can see your public stage.') : 'Nothing was changed.');
+    if (r.ok) reload();
+  };
+  const show = (v: unknown) => (Array.isArray(v) ? v.join(', ') : v === null || v === undefined || v === '' ? '—' : String(v));
+  return (
+    <div className="space-y-5">
+      <fieldset>
+        <legend className="font-label text-[9px] uppercase tracking-[0.35em] text-brass/80">Members may see</legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {data.projectableFields.map((f) => (
+            <label key={f} className="flex min-h-11 items-center gap-3 border border-brass/15 px-3">
+              <input type="checkbox" checked={fields.includes(f)} onChange={(e) => setFields((xs) => (e.target.checked ? [...xs, f] : xs.filter((x) => x !== f)))} />
+              <span className="font-body text-sm">{FIELD_LABEL[f] ?? f}</span>
+              <span className="ml-auto truncate font-body text-xs italic text-cream/50">{show(data.self[f])}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <button type="button" disabled={busy} onClick={save} className={btnCls} style={{borderColor: accent, color: accent}}>Edit what others see</button>
+      <div className="border border-brass/15 p-3">
+        <p className="font-label text-[9px] uppercase tracking-[0.35em] text-brass/80">Exactly what the Lounge receives (from the server)</p>
+        <pre className="mt-2 overflow-x-auto font-mono text-xs text-cream/75">{JSON.stringify(data.publicView, null, 2)}</pre>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={() => lounge(data.projection.visibility.lounge === 'nobody' ? 'members' : 'nobody')} className={`${btnCls} border-brass/40 text-cream/80`}>
+          {data.projection.visibility.lounge === 'nobody' ? 'Show me in the Lounge' : 'Hide me from the Lounge'}
+        </button>
+        <a href="/api/identity/export" className={`${btnCls} inline-flex items-center border-brass/40 text-cream/80`}>Download my data</a>
+      </div>
+      <p className="font-body text-xs italic text-cream/55">Never shown to anyone: {data.neverProjected.join(', ')}. Profile traffic is yours alone.</p>
+      {msg && <p role="status" className="font-body text-sm italic text-cream/80">{msg}</p>}
+    </div>
+  );
+}
 
 type Lens = 'public' | 'private';
 
@@ -11,6 +69,8 @@ export default function ThisIsYouPage() {
   return (
     <RoomPlate
       roomId="this-is-you"
+      liveEndpoint="/api/identity/context"
+      live={(ctx: LiveCtx<IdentityData>) => <IdentityLive {...ctx} onLens={setLens} />}
       lede={{
         finesse: 'The double-sided mirror: what the hotel sees, and what only you do. You decide which way it turns.',
         carpe_diem: 'The double-sided mirror: your public record, and the private one. You decide which way it turns.',

@@ -1,7 +1,82 @@
 'use client';
 
+import {useState} from 'react';
 import {motion} from 'framer-motion';
-import {PlateAction, RoomPlate} from '@/components/hotel/room-plate';
+import {PlateAction, RoomPlate, type LiveCtx} from '@/components/hotel/room-plate';
+import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+
+type Evening = {id: string; title: string; occasion: string | null; starts_at: string; party_size: number; components: {kind: string; label: string; state: string}[]; state: string};
+type BallroomData = {evenings: Evening[]; sources: {looks: number; registryWishes: number}};
+const STAGE_OF: Record<string, number> = {proposal: 0, hold_requested: 0, held: 1, confirmed: 2};
+const KINDS = ['table', 'look', 'gift', 'route'] as const;
+
+function BallroomLive({data, accent, track, reload}: LiveCtx<BallroomData>) {
+  const [title, setTitle] = useState('');
+  const [when, setWhen] = useState('');
+  const [parts, setParts] = useState<Record<string, string>>({table: '', look: '', gift: '', route: ''});
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const compose = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const components = KINDS.filter((k) => parts[k].trim()).map((k) => ({kind: k, label: parts[k].trim()}));
+    if (!title.trim() || !when || components.length === 0) { setMsg('Give the evening a name, a time and at least one element.'); return; }
+    setBusy(true);
+    const r = await roomCall('/api/ballroom/compose', {method: 'POST', json: {title, startsAt: new Date(when).toISOString(), track, components}});
+    setBusy(false);
+    if (r.ok) { setTitle(''); setWhen(''); setParts({table: '', look: '', gift: '', route: ''}); setMsg('Proposal written. It is also waiting in your Diary.'); reload(); }
+    else setMsg(r.body.message ?? 'Nothing was composed.');
+  };
+  const step = async (id: string, kind: 'hold' | 'confirm') => {
+    setBusy(true);
+    const r = await roomCall(`/api/ballroom/${kind}`, {method: 'POST', json: {eveningId: id}});
+    setBusy(false);
+    setMsg(r.body.message ?? (r.ok ? null : 'Nothing was changed.'));
+    if (r.ok) reload();
+  };
+
+  return (
+    <div className="space-y-6">
+      {data.evenings.map((ev) => (
+        <article key={ev.id} className="border border-brass/20 p-4">
+          <header className="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="font-display text-xl italic">{ev.title}</h3>
+            <time className="font-label text-[9px] uppercase tracking-[0.3em] text-cream/60">{new Date(ev.starts_at).toLocaleString([], {weekday: 'short', hour: '2-digit', minute: '2-digit'})}</time>
+          </header>
+          <ol className="mt-3 flex gap-2" aria-label="Stages">
+            {STAGES.map((st, i) => (
+              <li key={st} className="flex-1 border px-2 py-1 text-center font-label text-[9px] uppercase tracking-[0.25em]"
+                style={{borderColor: i <= (STAGE_OF[ev.state] ?? 0) ? accent : 'rgba(201,169,97,0.2)', color: i <= (STAGE_OF[ev.state] ?? 0) ? '#F4E8D0' : 'rgba(244,232,208,0.45)'}}>
+                {st}{ev.state === 'hold_requested' && i === 1 ? ' · requested' : ''}
+              </li>
+            ))}
+          </ol>
+          <ul className="mt-3 grid gap-1 font-body text-sm text-cream/75 sm:grid-cols-2">
+            {ev.components.map((c, i) => <li key={i}><span className="font-label text-[9px] uppercase tracking-[0.25em] text-brass/70">{c.kind}</span> {c.label}</li>)}
+          </ul>
+          <div className="mt-3 flex gap-2">
+            {ev.state === 'proposal' && <button type="button" disabled={busy} onClick={() => step(ev.id, 'hold')} className={btnCls} style={{borderColor: accent, color: accent}}>Ask the desk for holds</button>}
+            {ev.state === 'held' && <button type="button" disabled={busy} onClick={() => step(ev.id, 'confirm')} className={btnCls} style={{borderColor: accent, color: accent}}>Confirm the evening</button>}
+            {ev.state === 'hold_requested' && <p className="font-body text-xs italic text-cream/60">Waiting on partners — nothing is held until they say so.</p>}
+          </div>
+        </article>
+      ))}
+      <form onSubmit={compose} className="space-y-2 border-t border-brass/15 pt-4">
+        <p className="font-label text-[9px] uppercase tracking-[0.35em] text-brass/80">Compose an evening</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <input aria-label="Evening name" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Anniversary, Friday" className={fieldCls} maxLength={160} />
+          <input aria-label="Start time" type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={fieldCls} />
+          {KINDS.map((k) => (
+            <input key={k} aria-label={k} value={parts[k]} onChange={(e) => setParts((p) => ({...p, [k]: e.target.value}))} placeholder={`${k[0].toUpperCase()}${k.slice(1)} — e.g. ${k === 'table' ? 'corner booth, 8:30' : k === 'look' ? 'from my Closet' : k === 'gift' ? 'Registry wish' : 'car at 8:05'}`} className={fieldCls} maxLength={160} />
+          ))}
+        </div>
+        <p className="font-body text-xs italic text-cream/55">{data.sources.looks} owned looks and {data.sources.registryWishes} Registry wishes can feed this evening.</p>
+        <button type="submit" disabled={busy} className={`${btnCls} border-brass/60 text-brass-highlight`}>Write the proposal</button>
+      </form>
+      {msg && <p role="status" className="font-body text-sm italic text-cream/80">{msg}</p>}
+    </div>
+  );
+}
 
 const STAGES = ['Proposal', 'Hold', 'Confirmed'] as const;
 
@@ -9,6 +84,9 @@ export default function BallroomPage() {
   return (
     <RoomPlate
       roomId="ballroom"
+      liveEndpoint="/api/ballroom/context"
+      isEmpty={(d: BallroomData) => d.evenings.length === 0}
+      live={(ctx) => <BallroomLive {...ctx} />}
       lede={{
         finesse: 'One evening, composed: the table, the look, the gift and the route — under one chandelier.',
         carpe_diem: 'One night, composed: the table, the car, the suit and the timing — under one chandelier.',

@@ -1085,7 +1085,7 @@
         "gift referral"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "preview",
       "sceneBlueprint": {
         "architecture": "Double-height ballroom with laid tables and chandelier grid",
         "focalObject": "A complete date or event proposal",
@@ -1126,7 +1126,7 @@
         "replay"
       ],
       "phase": "5",
-      "truthState": "specified",
+      "truthState": "preview",
       "sceneBlueprint": {
         "architecture": "Basement club, green-black walls and a single brass lamp",
         "focalObject": "Tonight’s live trio, replay and tip rail",
@@ -1245,7 +1245,7 @@
         "no default private-data monetization"
       ],
       "phase": "5",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Portrait gallery with a rotating double-sided mirror",
         "focalObject": "Public Stage versus private identity projection",
@@ -1285,7 +1285,7 @@
         "Exchange supply"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Inside-lit walnut wardrobe with a turning brass garment rack",
         "focalObject": "Approved weekly rotation from already-owned pieces",
@@ -1328,7 +1328,7 @@
         "indirect retention"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Leather-bound day planner on a writing desk",
         "focalObject": "Four completed entries and one approval needed",
@@ -1370,7 +1370,7 @@
         "Exchange referral after confirmed outbound action"
       ],
       "phase": "3",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Dark viewfinder with calibrated brass reticle",
         "focalObject": "One identified item and confidence / provenance",

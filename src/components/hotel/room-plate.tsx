@@ -11,7 +11,9 @@ import Link from 'next/link';
 import {motion, useReducedMotion} from 'framer-motion';
 import {RAILS, TRUTH_LABEL, roomById, trackAccent, trackFromGender, type Track} from '@/lib/rooms/registry';
 
-export type PlateState = 'loading' | 'empty' | 'preview' | 'gated' | 'error' | 'confirmed';
+export type PlateState = 'loading' | 'empty' | 'preview' | 'gated' | 'error' | 'confirmed' | 'live';
+
+export type LiveCtx<T> = {data: T; accent: string; track: Track; reload: () => void; reduce: boolean};
 
 export function useTrack(): Track {
   const [track, setTrack] = useState<Track>('finesse');
@@ -22,8 +24,13 @@ export function useTrack(): Track {
   return track;
 }
 
-type Props = {
+type Props<T = unknown> = {
   roomId: string;
+  /** Member data endpoint. 200 → live view; 401 / 503 (not opened) → honest preview. */
+  liveEndpoint?: string;
+  live?: (ctx: LiveCtx<T>) => ReactNode;
+  /** Live data counts as empty (shows emptyCopy above the live body). */
+  isEmpty?: (data: T) => boolean;
   /** Scene renderer receives the accent + current state so motion can respond. */
   scene: (ctx: {accent: string; track: Track; state: PlateState; reduce: boolean}) => ReactNode;
   /** Track-aware one-line greeting under the title. */
@@ -35,24 +42,39 @@ type Props = {
   actionConsequence: string;
 };
 
-export function RoomPlate({roomId, scene, lede, preview, emptyCopy, actionConsequence}: Props) {
+export function RoomPlate<T = unknown>({roomId, scene, lede, preview, emptyCopy, actionConsequence, liveEndpoint, live, isEmpty}: Props<T>) {
   const room = roomById(roomId);
   const track = useTrack();
   const reduce = Boolean(useReducedMotion());
   const [state, setState] = useState<PlateState>('loading');
   const [acted, setActed] = useState(false);
+  const [data, setData] = useState<T | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/rooms/${roomId}`, {cache: 'no-store'})
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-      .then((b: {truthState: string}) => {
+    (async () => {
+      try {
+        const reg = await fetch(`/api/rooms/${roomId}`, {cache: 'no-store'});
+        if (!reg.ok) throw new Error(String(reg.status));
+        const b = (await reg.json()) as {truthState: string};
         if (!alive) return;
-        setState(b.truthState === 'gated' ? 'gated' : b.truthState === 'wired' ? 'empty' : 'preview');
-      })
-      .catch(() => alive && setState('error'));
+        if (b.truthState === 'gated') { setState('gated'); return; }
+        if (!liveEndpoint) { setState('preview'); return; }
+        const res = await fetch(liveEndpoint, {cache: 'no-store'});
+        if (!alive) return;
+        if (res.ok) { setData((await res.json()) as T); setState('live'); return; }
+        if (res.status === 401) setNote('Sign in to open your own room — below is a rehearsal with sample content.');
+        else if (res.status === 503) setNote('This room is still being fitted out — below is a rehearsal with sample content.');
+        else { setState('error'); return; }
+        setState('preview');
+      } catch {
+        if (alive) setState('error');
+      }
+    })();
     return () => { alive = false; };
-  }, [roomId]);
+  }, [roomId, liveEndpoint, nonce]);
 
   if (!room) return null;
   const accent = trackAccent(track);
@@ -115,6 +137,14 @@ export function RoomPlate({roomId, scene, lede, preview, emptyCopy, actionConseq
           </div>
         )}
         {state === 'empty' && <p className="font-body text-base italic text-cream/70">{emptyCopy}</p>}
+        {state === 'live' && data !== null && live && (
+          <div className="border border-brass/25 bg-ink/70 p-5">
+            <p className="font-label text-[9px] uppercase tracking-[0.35em] text-emerald-200/80">Your room · live</p>
+            {isEmpty?.(data) && <p className="mt-3 font-body text-base italic text-cream/70">{emptyCopy}</p>}
+            <div className="mt-4">{live({data, accent, track, reduce, reload: () => setNonce((n) => n + 1)})}</div>
+          </div>
+        )}
+        {note && state === 'preview' && <p className="mb-3 font-body text-sm italic text-cream/65">{note}</p>}
         {(state === 'preview' || state === 'confirmed') && (
           <div className="border border-brass/20 bg-ink/70 p-5">
             <p className="font-label text-[9px] uppercase tracking-[0.35em]" style={{color: accent}}>

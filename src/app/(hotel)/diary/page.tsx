@@ -3,6 +3,69 @@
 import {useState} from 'react';
 import {motion} from 'framer-motion';
 import {PlateAction, RoomPlate} from '@/components/hotel/room-plate';
+import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+
+type LiveItem = {id: string; title: string; starts_at: string; source_room: string; state: string};
+type DiaryData = {day: string; items: LiveItem[]; nextDecision: LiveItem | null};
+const LIVE_LABEL: Record<string, string> = {needs_member_action: 'Needs you', held: 'Held', moved: 'Moved', approved: 'Approved', done: 'Done'};
+
+function DiaryLive({data, accent, reload}: {data: DiaryData; accent: string; reload: () => void}) {
+  const [title, setTitle] = useState('');
+  const [time, setTime] = useState('19:00');
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const act = async (id: string, kind: 'approve' | 'hold' | 'done') => {
+    setBusy(true);
+    const r = kind === 'done'
+      ? await roomCall(`/api/diary/items/${id}`, {method: 'PATCH', json: {state: 'done'}})
+      : await roomCall(`/api/diary/items/${id}/${kind}`, {method: 'POST'});
+    setBusy(false);
+    setMsg(r.ok ? null : r.body.message ?? 'Nothing was changed.');
+    if (r.ok) reload();
+  };
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    const startsAt = new Date(`${data.day}T${time}:00`).toISOString();
+    const r = await roomCall('/api/diary/items', {method: 'POST', json: {title, startsAt}});
+    setBusy(false);
+    if (r.ok) { setTitle(''); reload(); } else setMsg(r.body.message ?? 'Nothing was added.');
+  };
+  return (
+    <div className="space-y-4">
+      {data.nextDecision && (
+        <div className="border p-4" style={{borderColor: accent}}>
+          <p className="font-label text-[9px] uppercase tracking-[0.35em]" style={{color: accent}}>One thing needs you</p>
+          <p className="mt-1 font-display text-xl italic">{data.nextDecision.title}</p>
+          <div className="mt-3 flex gap-2">
+            <button type="button" disabled={busy} onClick={() => act(data.nextDecision!.id, 'approve')} className={btnCls} style={{borderColor: accent, color: accent}}>Approve</button>
+            <button type="button" disabled={busy} onClick={() => act(data.nextDecision!.id, 'hold')} className={`${btnCls} border-brass/40 text-cream/70`}>Hold</button>
+          </div>
+        </div>
+      )}
+      <ul className="space-y-1">
+        {data.items.map((i) => (
+          <li key={i.id} className="flex items-center justify-between gap-3 border-b border-brass/10 py-2 font-body text-sm">
+            <span>{new Date(i.starts_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})} — {i.title}</span>
+            <span className="flex items-center gap-2">
+              <span className="italic text-cream/55">{LIVE_LABEL[i.state] ?? i.state}</span>
+              {i.state !== 'done' && <button type="button" disabled={busy} onClick={() => act(i.id, 'done')} className="min-h-9 px-2 font-label text-[9px] uppercase tracking-[0.2em] text-brass/80">Done</button>}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <form onSubmit={add} className="flex flex-col gap-2 sm:flex-row">
+        <label className="sr-only" htmlFor="diary-title">New entry</label>
+        <input id="diary-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Add to today's page" className={fieldCls} maxLength={200} />
+        <label className="sr-only" htmlFor="diary-time">Time</label>
+        <input id="diary-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} className={`${fieldCls} sm:w-32`} />
+        <button type="submit" disabled={busy} className={`${btnCls} border-brass/50 text-brass-highlight`}>Write it in</button>
+      </form>
+      {msg && <p role="alert" className="font-body text-sm italic text-neon-pink/90">{msg}</p>}
+    </div>
+  );
+}
 
 type ItemState = 'done' | 'moved' | 'held' | 'needs_you' | 'approved';
 const ITEMS: {t: string; what: string; s: ItemState}[] = [
@@ -19,6 +82,9 @@ export default function DiaryPage() {
   return (
     <RoomPlate
       roomId="diary"
+      liveEndpoint="/api/diary"
+      isEmpty={(d: DiaryData) => d.items.length === 0}
+      live={({data, accent, reload}) => <DiaryLive data={data} accent={accent} reload={reload} />}
       lede={{
         finesse: 'Four things handled. One that needs you. The day, on a single page.',
         carpe_diem: 'Four things handled. One decision left. The day, on a single page.',
