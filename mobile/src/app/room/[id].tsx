@@ -6,8 +6,10 @@ import {Panel, RoomPlate, plateText} from '@/components/plate/RoomPlate';
 import {Lounge} from '@/components/rooms/Lounge';
 import {Concierge} from '@/components/rooms/Concierge';
 import {Vault} from '@/components/rooms/Vault';
+import {useSide} from '@/lib/session';
+import type {Side} from '@/lib/deco';
 
-const BUILT: Record<string, () => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault};
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault};
 
 export default function RoomDetail() {
   const {id} = useLocalSearchParams<{id: string}>();
@@ -21,9 +23,10 @@ export default function RoomDetail() {
     );
   }
   const Built = BUILT[room.id];
+  const side = useSide();
   return (
     <RoomPlate room={room}>
-      {Built ? <Built /> : (
+      {Built ? <Built side={side} /> : (
         <>
           <Panel title="THE SCENE">
             <Text style={plateText.lead}>{room.sceneBlueprint.architecture}.</Text>

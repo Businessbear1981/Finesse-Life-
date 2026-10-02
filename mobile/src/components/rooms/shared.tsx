@@ -12,10 +12,36 @@ export function Segmented<T extends string>({options, value, onChange}: {options
         return (
           <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{selected: on}}
             style={[s.segItem, {backgroundColor: on ? deco.brassHighlight : 'transparent', borderLeftWidth: i ? 1 : 0}]}>
-            <Text style={[s.segText, {color: on ? '#140E08' : deco.cream}]}>{label}</Text>
+            <Text style={[s.segText, options.length >= 4 && {fontSize: 8.5, letterSpacing: 0.6}, {color: on ? '#140E08' : deco.cream, textAlign: 'center'}]}>{label}</Text>
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/** Wrapping chip row (design: selected = brass highlight, others outlined). */
+export function Chips<T extends string>({options, value, onChange, accent}: {options: T[]; value: T; onChange: (v: T) => void; accent?: string}) {
+  return (
+    <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
+      {options.map((o) => {
+        const on = o === value;
+        return (
+          <Pressable key={o} onPress={() => onChange(o)} accessibilityRole="button" accessibilityState={{selected: on}}
+            style={{minHeight: 34, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: on ? (accent ?? deco.brassHighlight) : 'rgba(201,169,97,0.45)', backgroundColor: on ? (accent ?? deco.brassHighlight) : 'transparent'}}>
+            <Text style={{fontFamily: fonts.capsBold, fontSize: 9.5, letterSpacing: 1.3, color: on ? '#140E08' : deco.cream}}>{o.toUpperCase()}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Monogram stand-in for a member photo until real portraits are uploaded. */
+export function Monogram({name, size = 44, ring = deco.brass, fill = '#1E1410'}: {name: string; size?: number; ring?: string; fill?: string}) {
+  return (
+    <View style={{width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: ring, backgroundColor: fill, alignItems: 'center', justifyContent: 'center'}}>
+      <Text style={{fontFamily: fonts.displayBold, fontSize: size * 0.42, color: deco.brassHighlight}}>{name.slice(0, 1)}</Text>
     </View>
   );
 }

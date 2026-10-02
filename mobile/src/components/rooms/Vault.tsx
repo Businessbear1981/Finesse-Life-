@@ -1,125 +1,142 @@
+// The Vault — the Finesse card in gun metal, rose gold or platinum, tap-to-reveal balance and the
+// ledger drawers (from the design). Live figures come from /api/vault/balance; when the ledger can't be
+// read, a clearly labelled sample is shown instead of a guessed balance. The full card number is never
+// rendered — only the last four. Funding stays paused until the card partner signs off.
 import {useEffect, useState} from 'react';
-import {Text, View} from 'react-native';
-import {useAvailableWidth} from '@/lib/layout';
+import {Pressable, Text, View} from 'react-native';
+import Animated, {FadeIn, useAnimatedStyle, withTiming} from 'react-native-reanimated';
+import Svg, {Circle, Defs, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
 import {Link} from 'expo-router';
-import Animated, {Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming} from 'react-native-reanimated';
-import Svg, {Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {api} from '@/lib/api';
-import {BEZEL_STOPS, conicRing, deco, polar} from '@/lib/deco';
-import {Panel, plateText} from '@/components/plate/RoomPlate';
-import {btn, btnText} from './Lounge';
+import {deco, easeCine, fonts, track, type Side} from '@/lib/deco';
+import {useAvailableWidth} from '@/lib/layout';
+import {ActionBar, SampleNote, Segmented, s} from './shared';
 
 type Tx = {id: string; merchant: string; amount_cents: number; cashback_cents: number; direction: string; created_at: string};
 type Balance = {balance_cents: number; cashback_earned_cents: number; transactions: Tx[]};
+type Tier = 'gunmetal' | 'rosegold' | 'platinum';
+const TIERS: Record<Tier, {label: string; stops: string[]; ink: string; name: string}> = {
+  gunmetal: {label: 'GUN METAL', stops: ['#5A5E66', '#2A2D33', '#44484F', '#1A1C20'], ink: '#E8E6E0', name: 'MEMBER'},
+  rosegold: {label: 'ROSE GOLD', stops: ['#F2C9B8', '#B76E79', '#E8B4A0', '#8E4B55'], ink: '#2A1014', name: 'VIP'},
+  platinum: {label: 'PLATINUM', stops: ['#F4F4F2', '#B9BCC2', '#E6E7E9', '#8E9298'], ink: '#1A1C20', name: 'PENTHOUSE'},
+};
+type State = 'SETTLED' | 'PENDING' | 'HELD';
+const STATE: Record<State, [string, string]> = {SETTLED: [deco.brassHighlight, '#140E08'], PENDING: ['#3A2A1A', deco.cream], HELD: ['#5A1A26', '#FFB8C8']};
+type Drawer = [string, string, Array<[string, string, State]>];
+const SAMPLE: Drawer[] = [
+  ['Rebates earned', '$318.40', [['Maison Aurel · evening bag', '+$96.00', 'SETTLED'], ['Scale · cashmere wrap', '+$42.40', 'PENDING'], ['Atelier Nuit · gown', '+$180.00', 'SETTLED']]],
+  ['Purchases', '$4,120.00', [['Satin slingbacks', '$890.00', 'SETTLED'], ['Pearl drop earrings', '$1,430.00', 'SETTLED'], ['Weekly grocery order', '$186.40', 'PENDING']]],
+  ['Held for you', '$2,150.00', [['Exchange · tote offer in escrow', '$2,150.00', 'HELD']]],
+];
 const money = (c: number) => `$${(c / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-const RING = conicRing(150, 150, 70, 62, BEZEL_STOPS, 210, 90);
 
-/** A brass safe behind smoked glass; the dial turns for presentation only. */
-function SafeScene() {
-  const W = Math.min(useAvailableWidth() - 20, 340);
-  const k = W / 300;
-  const spin = useSharedValue(0);
-  useEffect(() => { spin.value = withRepeat(withTiming(360, {duration: 30000, easing: Easing.linear}), -1); }, [spin]);
-  const dial = useAnimatedStyle(() => ({transform: [{rotate: `${spin.value}deg`}]}));
+function Card({tier, open, name, onPress}: {tier: Tier; open: boolean; name: string; onPress: () => void}) {
+  const T = TIERS[tier];
+  const W = Math.min(useAvailableWidth(), 360), H = W * 0.63;
+  const tilt = useAnimatedStyle(() => ({transform: [{perspective: 800}, {rotateX: withTiming(open ? '0deg' : '8deg', {duration: 700, easing: easeCine})}, {scale: withTiming(open ? 1 : 0.97, {duration: 700})}]}));
+  const sheen = useAnimatedStyle(() => ({transform: [{translateX: withTiming(open ? W * 1.2 : -W * 0.4, {duration: 1100, easing: easeCine})}, {rotate: '20deg'}]}));
   return (
-    <View style={{width: W, height: W, alignSelf: 'center'}}>
-      <Svg width={W} height={W} viewBox="0 0 300 300" style={{position: 'absolute'}}>
-        <Defs>
-          <LinearGradient id="door" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#2A1A10" />
-            <Stop offset="0.5" stopColor="#140A06" />
-            <Stop offset="1" stopColor="#050203" />
-          </LinearGradient>
-          <LinearGradient id="frame" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={deco.brassWhite} />
-            <Stop offset="0.5" stopColor={deco.brass} />
-            <Stop offset="1" stopColor={deco.brassShadow} />
-          </LinearGradient>
-          <LinearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.12} />
-            <Stop offset="0.4" stopColor="#FFFFFF" stopOpacity={0} />
-          </LinearGradient>
-        </Defs>
-        <Rect x={10} y={10} width={280} height={280} rx={6} fill="url(#door)" stroke="url(#frame)" strokeWidth={5} />
-        <Rect x={26} y={26} width={248} height={248} fill="none" stroke={deco.brass} strokeOpacity={0.35} />
-        {[[30, 30], [270, 30], [30, 270], [270, 270]].map(([x, y]) => <Circle key={`${x}${y}`} cx={x} cy={y} r={4} fill="url(#frame)" />)}
-        {[60, 100, 200, 240].map((y) => <Rect key={y} x={262} y={y - 10} width={22} height={20} rx={2} fill="url(#frame)" />)}
-        {RING.map((w, i) => <Path key={i} d={w.d} fill={w.fill} />)}
-        <Circle cx={150} cy={150} r={62} fill="#0A0406" />
-        <Path d="M150 70 L156 80 L144 80 Z" fill={deco.pink} />
-        <Rect x={0} y={0} width={300} height={300} fill="url(#glass)" />
-      </Svg>
-      <Animated.View style={[{position: 'absolute', left: 88 * k, top: 88 * k, width: 124 * k, height: 124 * k}, dial]}>
-        <Svg width={124 * k} height={124 * k} viewBox="0 0 124 124">
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel="Tap the card to reveal your balance" style={{alignSelf: 'center'}}>
+      <Animated.View style={[{width: W, height: H, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 18, shadowOffset: {width: 0, height: 12}, elevation: 12}, tilt]}>
+        <Svg width={W} height={H} style={{position: 'absolute'}}>
           <Defs>
-            <RadialGradient id="knob" cx="62" cy="52" r="60" gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={deco.brassWhite} />
-              <Stop offset="0.6" stopColor={deco.brass} />
-              <Stop offset="1" stopColor={deco.brassShadow} />
-            </RadialGradient>
+            <LinearGradient id={`cd-${tier}`} x1="0" y1="0" x2="1" y2="1">
+              {T.stops.map((c, i) => <Stop key={i} offset={[0, 0.4, 0.6, 1][i]} stopColor={c} />)}
+            </LinearGradient>
+            <LinearGradient id="chip" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={deco.brassWhite} /><Stop offset="0.5" stopColor={deco.brass} /><Stop offset="1" stopColor={deco.brassShadow} /></LinearGradient>
           </Defs>
-          {Array.from({length: 40}, (_, i) => {
-            const a = polar(62, 62, 58, i * 9), b = polar(62, 62, i % 5 === 0 ? 48 : 53, i * 9);
-            return <Path key={i} d={`M${a.x} ${a.y} L${b.x} ${b.y}`} stroke={deco.brassHighlight} strokeWidth={i % 5 === 0 ? 1.6 : 0.8} />;
-          })}
-          <Circle cx={62} cy={62} r={30} fill="url(#knob)" />
-          {[0, 120, 240].map((d) => { const p = polar(62, 62, 26, d); return <Path key={d} d={`M62 62 L${p.x} ${p.y}`} stroke={deco.brassShadow} strokeWidth={6} strokeLinecap="round" />; })}
-          <Circle cx={62} cy={62} r={7} fill={deco.ink} stroke={deco.brassHighlight} />
+          <Rect width={W} height={H} rx={16} fill={`url(#cd-${tier})`} />
+          {/* deco sunburst engraving */}
+          {Array.from({length: 13}, (_, i) => { const a = Math.PI + (i / 12) * Math.PI; return <Path key={i} d={`M${W * 0.82} ${H * 1.05} L${W * 0.82 + Math.cos(a) * W * 0.7} ${H * 1.05 + Math.sin(a) * W * 0.7}`} stroke={T.ink} strokeOpacity={0.07} strokeWidth={1} />; })}
+          <Rect x={10} y={10} width={W - 20} height={H - 20} rx={10} fill="none" stroke={T.ink} strokeOpacity={0.18} />
+          <Rect x={W * 0.08} y={H * 0.38} width={W * 0.13} height={H * 0.17} rx={4} fill="url(#chip)" />
+          <Path d={`M${W * 0.08} ${H * 0.465} H${W * 0.21} M${W * 0.145} ${H * 0.38} V${H * 0.55}`} stroke={deco.brassShadow} strokeOpacity={0.6} />
+          <Circle cx={W * 0.86} cy={H * 0.2} r={H * 0.07} fill="none" stroke={T.ink} strokeOpacity={0.35} />
         </Svg>
+        <Animated.View pointerEvents="none" style={[{position: 'absolute', top: -H * 0.5, width: W * 0.18, height: H * 2, backgroundColor: 'rgba(255,255,255,0.18)'}, sheen]} />
+        <View style={{flex: 1, padding: W * 0.07, justifyContent: 'space-between'}}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+            <Text style={{fontFamily: fonts.displayHeavy, fontSize: W * 0.085, color: T.ink}}>Finesse</Text>
+            <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 2, color: T.ink, opacity: 0.8, marginTop: 6, marginRight: H * 0.12}}>{T.name}</Text>
+          </View>
+          <View style={{gap: 4}}>
+            <Text style={{fontFamily: fonts.mono, fontSize: W * 0.048, letterSpacing: 2, color: T.ink}}>•••• •••• •••• 0412</Text>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+              <Text style={{fontFamily: fonts.caps, fontSize: 11, letterSpacing: 1.6, color: T.ink}}>{name}</Text>
+              <Text style={{fontFamily: fonts.label, fontSize: 8, letterSpacing: 2, color: T.ink, opacity: 0.7}}>EST. MMXXVI</Text>
+            </View>
+          </View>
+        </View>
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 
-export function Vault() {
-  const [state, setState] = useState<{kind: 'loading'} | {kind: 'signed_out'} | {kind: 'offline'} | {kind: 'error'} | {kind: 'ok'; data: Balance}>({kind: 'loading'});
+export function Vault({side}: {side: Side}) {
+  const acc = track[side].acc;
+  const [tier, setTier] = useState<Tier>('gunmetal');
+  const [open, setOpen] = useState(false);
+  const [drawer, setDrawer] = useState<number | null>(null);
+  const [live, setLive] = useState<{kind: 'loading' | 'signed_out' | 'offline' | 'error'} | {kind: 'ok'; data: Balance}>({kind: 'loading'});
   useEffect(() => {
     api<Balance>('/api/vault/balance').then((r) => {
-      if (r.ok) setState({kind: 'ok', data: r.body});
-      else if (r.status === 401) setState({kind: 'signed_out'});
-      else if (r.status === 0) setState({kind: 'offline'});
-      else setState({kind: 'error'});
+      if (r.ok) setLive({kind: 'ok', data: r.body});
+      else setLive({kind: r.status === 401 ? 'signed_out' : r.status === 0 ? 'offline' : 'error'});
     });
   }, []);
+  const isLive = live.kind === 'ok';
+  const drawers: Drawer[] = isLive ? [
+    ['Rebates earned', money(live.data.cashback_earned_cents), live.data.transactions.filter((t) => t.cashback_cents > 0).map((t) => [t.merchant, `+${money(t.cashback_cents)}`, 'SETTLED'])],
+    ['Ledger', money(live.data.balance_cents), live.data.transactions.map((t) => [t.merchant, `${t.direction === 'credit' ? '+' : '−'}${money(Math.abs(t.amount_cents))}`, 'SETTLED'])],
+  ] : SAMPLE;
+  const balance = isLive ? money(live.data.balance_cents) : '$318.40';
+
   return (
-    <>
-      <SafeScene />
-      <Text style={[plateText.small, {textAlign: 'center'}]}>The dial turns for presentation. Balances change only when the ledger records them.</Text>
-      {state.kind === 'ok' ? (
-        <>
-          <Panel title="VERIFIED BALANCE">
-            <Text style={plateText.figure} accessibilityLabel={`Balance ${money(state.data.balance_cents)}`}>{money(state.data.balance_cents)}</Text>
-            <Text style={plateText.small}>Rebates earned · {money(state.data.cashback_earned_cents)}</Text>
-          </Panel>
-          <Panel title="THE LEDGER">
-            {state.data.transactions.length === 0 ? <Text style={plateText.body}>No entries yet.</Text> : null}
-            {state.data.transactions.map((t) => (
-              <View key={t.id} style={{flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderColor: 'rgba(201,169,97,0.2)', paddingTop: 8}}>
-                <View style={{flex: 1}}>
-                  <Text style={plateText.body}>{t.merchant}</Text>
-                  <Text style={plateText.small}>{new Date(t.created_at).toLocaleDateString()}</Text>
-                </View>
-                <Text style={[plateText.body, {color: t.direction === 'credit' ? deco.brassLight : deco.cream}]}>{t.direction === 'credit' ? '+' : '−'}{money(Math.abs(t.amount_cents))}</Text>
-              </View>
-            ))}
-          </Panel>
-        </>
-      ) : (
-        <Panel title="THE LEDGER">
-          <Text style={plateText.body}>
-            {state.kind === 'loading' ? 'Opening the ledger drawers…'
-              : state.kind === 'signed_out' ? 'The Vault opens for signed-in members.'
-              : state.kind === 'offline' ? 'The house line is offline. No balance is shown rather than a guessed one.'
-              : 'The ledger could not be read just now.'}
-          </Text>
-          {state.kind === 'signed_out' ? (
-            <Link href="/sign-in" asChild><View style={btn}><Text style={btnText}>SIGN IN</Text></View></Link>
-          ) : null}
-        </Panel>
-      )}
-      <Panel title="FUNDING">
-        <Text style={plateText.small}>Adding funds opens once our card partner signs off. Finesse never holds member money itself.</Text>
-      </Panel>
-    </>
+    <View style={{gap: 12}}>
+      <Segmented options={(Object.keys(TIERS) as Tier[]).map((k) => [k, TIERS[k].label] as [Tier, string])} value={tier} onChange={setTier} />
+      <Card tier={tier} open={open} name={side === 'her' ? 'AMARA' : 'JULIAN'} onPress={() => setOpen((o) => !o)} />
+      <Text style={{textAlign: 'center', fontFamily: fonts.mono, fontSize: 9.5, letterSpacing: 1.2, color: open ? '#7AF5B8' : deco.brassHighlight}}>
+        {open ? 'UNLOCKED' : 'TAP THE CARD TO REVEAL'}
+      </Text>
+
+      <View style={{alignItems: 'center', gap: 4, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.35)'}}>
+        <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2.4, color: deco.brassHighlight}}>{isLive ? 'BALANCE' : 'REBATE BALANCE · SAMPLE'}</Text>
+        <Text style={{fontFamily: fonts.displayHeavy, fontSize: 36, color: open ? deco.brassWhite : 'rgba(255,241,194,0.4)'}} accessibilityLabel={open ? `Balance ${balance}` : 'Balance hidden'}>{open ? balance : '$•••.••'}</Text>
+        <Text style={s.small}>{open ? (isLive ? 'Read from the ledger just now.' : '$42.40 pending · settles when Scale closes Sunday') : 'Open the safe to see your balance'}</Text>
+      </View>
+
+      {drawers.map(([label, total, rows], i) => {
+        const o = open && drawer === i;
+        return (
+          <View key={label} style={{borderWidth: 1, borderColor: o ? deco.brassHighlight : 'rgba(201,169,97,0.35)', backgroundColor: 'rgba(20,12,10,0.7)'}}>
+            <Pressable onPress={() => { setOpen(true); setDrawer(drawer === i ? null : i); }} accessibilityRole="button" accessibilityState={{expanded: o}}
+              style={{minHeight: 50, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12}}>
+              <View style={{width: 18, height: 4, borderRadius: 2, backgroundColor: deco.brass}} />
+              <Text style={{flex: 1, fontFamily: fonts.label, fontSize: 13, color: deco.cream}}>{label}</Text>
+              <Text style={{fontFamily: fonts.mono, fontSize: 11, color: deco.brassHighlight}}>{open ? total : '—'}</Text>
+            </Pressable>
+            {o ? (
+              <Animated.View entering={FadeIn.duration(300)} style={{borderTopWidth: 1, borderColor: 'rgba(201,169,97,0.3)'}}>
+                {rows.length === 0 ? <Text style={[s.small, {padding: 12}]}>No entries yet.</Text> : null}
+                {rows.map(([t, amt, st], k) => (
+                  <View key={`${t}${k}`} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9}}>
+                    <View style={{flex: 1, gap: 3}}>
+                      <Text style={{fontFamily: fonts.body, fontSize: 12.5, color: deco.cream}}>{t}</Text>
+                      <Text style={{alignSelf: 'flex-start', paddingHorizontal: 5, paddingVertical: 1, backgroundColor: STATE[st][0], fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: STATE[st][1]}}>{st}</Text>
+                    </View>
+                    <Text style={{fontFamily: fonts.mono, fontSize: 11, color: deco.cream}}>{amt}</Text>
+                  </View>
+                ))}
+              </Animated.View>
+            ) : null}
+          </View>
+        );
+      })}
+
+      <ActionBar label="FUND THE VAULT" color={acc} disabled />
+      <Text style={s.small}>Adding funds opens once our card partner signs off. Finesse never holds member money itself.</Text>
+      {live.kind === 'signed_out' ? <Link href="/sign-in" style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: deco.brassHighlight, textAlign: 'center', paddingVertical: 8}}>SIGN IN FOR YOUR REAL LEDGER</Link> : null}
+      {!isLive ? <SampleNote>{live.kind === 'loading' ? 'OPENING THE LEDGER…' : 'SAMPLE LEDGER · YOUR REAL BALANCE SHOWS WHEN THE LEDGER CAN BE READ · CARD TIERS FOLLOW YOUR MEMBERSHIP'}</SampleNote> : null}
+    </View>
   );
 }

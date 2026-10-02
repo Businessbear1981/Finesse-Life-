@@ -16,6 +16,11 @@ import {Vault} from '@/components/rooms/Vault';
 import {Wardrobe} from '@/components/rooms/Wardrobe';
 import {Gym} from '@/components/rooms/Gym';
 import {Calendar} from '@/components/rooms/Calendar';
+import {Kitchen} from '@/components/rooms/Kitchen';
+import {Salon} from '@/components/rooms/Salon';
+import {Scrapbook} from '@/components/rooms/Scrapbook';
+import {Stylist} from '@/components/rooms/Stylist';
+import {Starmaker} from '@/components/rooms/Starmaker';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -34,24 +39,25 @@ const L_HER = [
 ];
 const L_HIM = [L_HER[0], L_HER[1], L_HER[2], RM('perdiem', 'Per Diem', 'wallet', 'PRIVATE LIFE', 'Date and event planner, built around your budget.', 'PLAN THE NIGHT'), L_HER[4],
   RM('market', 'Market', 'store', 'PUBLIC FLOOR', 'Partner market, disclosed offers, honest prices.', 'BROWSE'),
-  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Book.', 'TAKE A SEAT'), L_HER[7], L_HER[8]];
+  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Book.', 'TAKE A SEAT'), L_HER[5], L_HER[7], L_HER[8]];
 const R_HER = [
   RM('archive', 'Scrapbook', 'clapperboard', 'PRIVATE LIFE', 'Seasons and chapters of your life.', 'OPEN THE SCRAPBOOK'),
   RM('lounge', 'Lounge', 'martini', 'PUBLIC FLOOR'),
   RM('entourage', 'Entourage', 'users', 'PRIVATE LIFE', 'Dossiers on the people you love.', 'OPEN A DOSSIER'),
   RM('lab', 'Lab', 'flaskconical', 'ORCHESTRATOR', 'Nova drafts posts; you approve.', 'REVIEW DRAFTS'),
+  RM('starmaker', 'Starmaker', 'mic', 'PUBLIC FLOOR'),
   RM('switchboard', 'Switchboard', 'phone', 'ARRIVAL', 'Connected accounts and consent.', 'CONNECT AN ACCOUNT'),
   RM('calendar', 'Calendar', 'calendardays', 'PRIVATE LIFE', 'Nova finds time and moves things.', 'OPEN THE DAY'),
   RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Book.', 'TAKE A SEAT'),
   RM('departures', 'Depart', 'plane', 'ARRIVAL', 'Boarding pass in gold foil, composed itinerary, live weather.', 'COMPOSE A DEPARTURE'),
 ];
-const R_HIM = [R_HER[0], R_HER[1], R_HER[2], R_HER[3], R_HER[4], R_HER[5],
-  RM('carpe-diem', 'Carpe Diem', 'trendingup', 'PRIVATE LIFE', 'Sharper amber track, performance brief, portfolio.', "OPEN TODAY'S BRIEF"), R_HER[7]];
+const R_HIM = [R_HER[0], R_HER[1], R_HER[2], R_HER[3], R_HER[4], R_HER[5], R_HER[6],
+  RM('carpe-diem', 'Carpe Diem', 'trendingup', 'PRIVATE LIFE', 'Sharper amber track, performance brief, portfolio.', "OPEN TODAY'S BRIEF"), R_HER[8]];
 const D_L = [RM('vault', 'Vault', 'lock', 'ORCHESTRATOR'), RM('scale', 'Scale', 'scale', 'PUBLIC FLOOR', 'Group buys: the price falls as people join.', 'JOIN A BUY')];
 const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign with provenance and offers.', 'CONSIGN A PIECE'), RM('embassy', 'Embassy', 'building2', 'ARRIVAL', 'Partner offers, fully disclosed.', 'SEE THE OFFERS')];
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar};
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker};
 const RAIL = 58;
 
 export default function HotelScreen() {
