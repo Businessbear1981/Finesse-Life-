@@ -17,8 +17,12 @@ export function Backdrop({centerY, arrive, open, drift}: Props) {
   }));
   const coneStyle = useAnimatedStyle(() => ({opacity: 0.45 + 0.35 * arrive.value + 0.2 * open.value}));
 
+  const photo = useAnimatedStyle(() => ({opacity: 0.5 * arrive.value}));
   return (
     <>
+      {/* the entrance hall, dimmed — design: entranceBg at 0.62 with contrast lifted */}
+      <Animated.Image source={require('../../../assets/scenes/lobby-finesse.jpg')} resizeMode="cover"
+        style={[StyleSheet.absoluteFill, {width, height}, photo]} />
       <Animated.View pointerEvents="none" style={[{position: 'absolute', left: width / 2 - span / 2, top: centerY - span / 2, width: span, height: span}, sunStyle]}>
         <Svg width={span} height={span}>
           {rays.map((deg) => (

@@ -1,5 +1,6 @@
 import {useState} from 'react';
-import {ActivityIndicator, Pressable, Text, TextInput, View, useWindowDimensions} from 'react-native';
+import {ActivityIndicator, Pressable, Text, TextInput, View} from 'react-native';
+import {useAvailableWidth} from '@/lib/layout';
 import Animated, {FadeInDown} from 'react-native-reanimated';
 import Svg, {Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {api} from '@/lib/api';
@@ -11,8 +12,7 @@ type Docket = {id: number; ask: string; reply: string; at: string};
 
 /** Walnut reception desk beneath a single pool of light, with the service bell. */
 function DeskScene() {
-  const {width} = useWindowDimensions();
-  const W = Math.min(width - 40, 480);
+  const W = Math.min(useAvailableWidth(), 480);
   return (
     <Svg width={W} height={W * 0.42} viewBox="0 0 400 168" style={{alignSelf: 'center'}}>
       <Defs>

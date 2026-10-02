@@ -18,12 +18,28 @@ export const deco = {
   pink: '#FF4D7D',
 } as const;
 
+// Design type: Playfair Display italic (display), Cinzel (caps), Cormorant Garamond italic (script),
+// Marcellus (labels), Manrope (body), JetBrains Mono (status). Cinzel / Cormorant / JetBrains are not
+// installed yet, so caps → Marcellus, script → Playfair italic, mono → platform monospace until they are.
 export const fonts = {
   display: 'PlayfairDisplay_400Regular_Italic',
   displayBold: 'PlayfairDisplay_700Bold_Italic',
+  displayHeavy: 'PlayfairDisplay_800ExtraBold_Italic',
   label: 'Marcellus_400Regular',
+  caps: 'Marcellus_400Regular',
+  capsBold: 'Marcellus_400Regular',
+  script: 'PlayfairDisplay_400Regular_Italic',
   body: 'Manrope_500Medium',
+  bodyStrong: 'Manrope_500Medium',
+  mono: 'monospace',
 } as const;
+
+/** Track accents from the design: Finesse (her) blush, Carpe Diem (him) amber. */
+export const track = {
+  her: {acc: deco.pink, soft: '#FFB8C8', deep: '#6B1424', name: 'Finesse'},
+  him: {acc: deco.lamp, soft: '#FFD2B0', deep: '#3E220C', name: 'Carpe Diem'},
+} as const;
+export type Side = keyof typeof track;
 
 // Cinematic ease from the Finesse motion spec: [0.16, 1, 0.3, 1].
 export const easeCine = Easing.bezier(0.16, 1, 0.3, 1);

@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
-import {Text, View, useWindowDimensions} from 'react-native';
+import {Text, View} from 'react-native';
+import {useAvailableWidth} from '@/lib/layout';
 import {Link} from 'expo-router';
 import Animated, {Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming} from 'react-native-reanimated';
 import Svg, {Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
@@ -15,8 +16,7 @@ const RING = conicRing(150, 150, 70, 62, BEZEL_STOPS, 210, 90);
 
 /** A brass safe behind smoked glass; the dial turns for presentation only. */
 function SafeScene() {
-  const {width} = useWindowDimensions();
-  const W = Math.min(width - 60, 340);
+  const W = Math.min(useAvailableWidth() - 20, 340);
   const k = W / 300;
   const spin = useSharedValue(0);
   useEffect(() => { spin.value = withRepeat(withTiming(360, {duration: 30000, easing: Easing.linear}), -1); }, [spin]);

@@ -1,5 +1,6 @@
 import {useEffect, useState} from 'react';
-import {Pressable, Share, Text, View, useWindowDimensions} from 'react-native';
+import {Pressable, Share, Text, View} from 'react-native';
+import {useAvailableWidth} from '@/lib/layout';
 import Animated, {useAnimatedStyle, useSharedValue, withDelay, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
 import Svg, {Defs, Ellipse, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {api} from '@/lib/api';
@@ -10,8 +11,7 @@ type Post = {id: string; content: string; created_at: string; profiles?: {displa
 
 /** Velvet seating islands; presence lamps light one table at a time, never a feed cascade. */
 function LoungeScene() {
-  const {width} = useWindowDimensions();
-  const W = Math.min(width - 40, 480), H = W * 0.46;
+  const W = Math.min(useAvailableWidth(), 480), H = W * 0.46;
   const tables = [0.12, 0.31, 0.5, 0.69, 0.88];
   return (
     <View style={{width: W, height: H, alignSelf: 'center'}}>
