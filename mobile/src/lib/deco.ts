@@ -106,14 +106,14 @@ export function keystonePath(cx: number, cy: number, rIn: number, rOut: number, 
   if (inset) {
     return `M${P(ro, s0)} A${ro} ${ro} 0 0 1 ${P(ro, s1)} L${P(ri, s1)} A${ri} ${ri} 0 0 0 ${P(ri, s0)} Z`;
   }
-  const tab = 4.5, nIn = 5, nOut = 8; // dovetail: narrow at the root, wide at the tip
+  const kr = 6.5; // rounded knuckle: a knob on the clockwise edge, a matching cup on the other
   return [
     `M${P(ro, a0)}`,
     `A${ro} ${ro} 0 0 1 ${P(ro, a1)}`,
-    `L${P(rm + nIn, a1)}`, `L${P(rm + nOut, a1 + tab)}`, `L${P(rm - nOut, a1 + tab)}`, `L${P(rm - nIn, a1)}`,
+    `L${P(rm + kr, a1)}`, `A${kr} ${kr} 0 0 1 ${P(rm - kr, a1)}`,
     `L${P(ri, a1)}`,
     `A${ri} ${ri} 0 0 0 ${P(ri, a0)}`,
-    `L${P(rm - nIn, a0)}`, `L${P(rm - nOut, a0 + tab)}`, `L${P(rm + nOut, a0 + tab)}`, `L${P(rm + nIn, a0)}`,
+    `L${P(rm - kr, a0)}`, `A${kr} ${kr} 0 0 0 ${P(rm + kr, a0)}`,
     'Z',
   ].join(' ');
 }

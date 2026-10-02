@@ -242,7 +242,7 @@ function Tumbler({index, t, k}: {index: number; t: SharedValue<number>; k: numbe
   const dir = {x: Math.sin((mid * Math.PI) / 180), y: -Math.cos((mid * Math.PI) / 180)};
   const size = V * k;
   const style = useAnimatedStyle(() => ({
-    opacity: 0.55 + 0.45 * t.value,
+    opacity: 0.8 + 0.2 * t.value,
     transform: [
       {translateX: dir.x * 26 * k * (1 - t.value)},
       {translateY: dir.y * 26 * k * (1 - t.value)},
@@ -285,13 +285,13 @@ function Tumbler({index, t, k}: {index: number; t: SharedValue<number>; k: numbe
       <Svg style={{position: 'absolute'}} width={size} height={size} viewBox={`0 0 ${V} ${V}`}>
         <Defs>
           <RadialGradient id={`${id}d`} cx={C} cy={C} r={R_OUT} gradientUnits="userSpaceOnUse">
-            <Stop offset={R_IN / R_OUT} stopColor="#1C120A" />
-            <Stop offset="0.72" stopColor="#3A2814" />
-            <Stop offset="0.93" stopColor="#24170C" />
-            <Stop offset="1" stopColor="#4A3416" />
+            <Stop offset={R_IN / R_OUT} stopColor="#2A1C10" />
+            <Stop offset="0.7" stopColor="#5A4220" />
+            <Stop offset="0.9" stopColor="#3A2A14" />
+            <Stop offset="1" stopColor="#7A5C2C" />
           </RadialGradient>
         </Defs>
-        <Path d={body} fill={`url(#${id}d)`} stroke="#000" strokeOpacity={0.8} strokeWidth={1} />
+        <Path d={body} fill={`url(#${id}d)`} stroke={deco.brass} strokeOpacity={0.55} strokeWidth={0.9} />
         <Engraving light={false} />
       </Svg>
       {/* polished brass */}
