@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "token-tracker": {
+      "command": "node",
+      "args": [
+        "C:\Users\Sean Gilmore\dev-brain-starter\projects\Finesse-Life-\dist\mcp-plugin.js"
+      ],
+      "env": {
+        "OBSIDIAN_VAULT": "C:\Users\Sean Gilmore\AppData\Roaming\Claude\scratch-workspaces\edb77b4d-0c5b-4b05-853d-bd3d53beb000\a0dee38a-e6cd-4b0a-84c6-da8e83075dbd\scratch-2026-09-22-83d8c3\obsidian-vault"
+      }
+    }
+  }
+}
