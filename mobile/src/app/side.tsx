@@ -8,7 +8,7 @@ import {houseSession} from '@/lib/session';
 
 const PANELS: Record<Side, {img: number; tint: string; eyebrow: string; eyebrowColor: string; name: string; size: number; color: string; line: string; bottom: number}> = {
   her: {img: require('../../assets/scenes/lobby-finesse.jpg'), tint: '#6B1424', eyebrow: 'HER · FEMININE ENERGY', eyebrowColor: '#FFB8C8', name: 'Finesse', size: 80, color: deco.pink, line: 'Handbags · shoes · beauty · spa', bottom: 22},
-  him: {img: require('../../assets/scenes/lobby-carpe.jpg'), tint: '#3E220C', eyebrow: 'HIM · MASCULINE ENERGY', eyebrowColor: '#FFD2B0', name: 'Carpe Diem', size: 66, color: deco.lamp, line: 'Watches · golf · suits · whiskey', bottom: 36},
+  him: {img: require('../../assets/scenes/lobby-carpe.jpg'), tint: '#3E220C', eyebrow: 'HIM · MASCULINE ENERGY', eyebrowColor: '#FFD2B0', name: 'Carpe Diem', size: 54, color: deco.lamp, line: 'Watches · golf · suits · whiskey', bottom: 36},
 };
 
 export default function ChooseSide() {
@@ -42,7 +42,7 @@ function Panel({side, onPick}: {side: Side; onPick: (s: Side) => void}) {
       </Svg>
       <Animated.View entering={FadeIn.duration(700).delay(side === 'him' ? 180 : 0)} style={[styles.copy, {bottom: p.bottom}]}>
         <Text style={[styles.eyebrow, {color: p.eyebrowColor}]}>{p.eyebrow}</Text>
-        <Text style={[styles.name, {fontSize: p.size, lineHeight: p.size * 1.02, color: p.color}]} adjustsFontSizeToFit numberOfLines={1}>{p.name}</Text>
+        <Text style={[styles.name, {fontSize: p.size, lineHeight: p.size * 1.02, color: p.color}]}>{p.name}</Text>
         <View style={styles.lineRow}>
           <Text style={styles.line}>{p.line}</Text>
           <Text style={styles.line}>→</Text>

@@ -160,7 +160,9 @@ function NovaButton({on, onPress}: {on: boolean; onPress: () => void}) {
         {NOVA_RING.map((w, i) => <Path key={i} d={w.d} fill={w.fill} />)}
         <Circle cx={36} cy={36} r={29} fill="url(#nf)" />
       </Svg>
-      <Icon name="power" size={26} color={on ? deco.brassWhite : deco.brass} strokeWidth={2} />
+      <View style={{position: 'absolute', left: 23, top: 23, zIndex: 2}}>
+        <Icon name="power" size={26} color={on ? deco.brassWhite : deco.brassLight} strokeWidth={2} />
+      </View>
     </Pressable>
   );
 }
@@ -208,7 +210,7 @@ function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
   ];
   return (
     <Animated.View entering={FadeIn.duration(600)}>
-      <View style={{height: 220}}>
+      <View style={{height: 220, overflow: 'hidden'}}>
         <Image source={her ? require('../../assets/scenes/lobby-finesse.jpg') : require('../../assets/scenes/lobby-carpe.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
           <Defs><LinearGradient id="lh" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#0A0406" stopOpacity={0.2} /><Stop offset="0.65" stopColor="#0A0406" stopOpacity={0.6} /><Stop offset="1" stopColor="#0A0406" stopOpacity={1} /></LinearGradient></Defs>
