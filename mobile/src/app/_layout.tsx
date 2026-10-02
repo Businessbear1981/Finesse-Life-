@@ -1,21 +1,33 @@
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { colors } from '@/lib/tokens';
+import {Stack} from 'expo-router';
+import {StatusBar} from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import {useEffect} from 'react';
+import {useFonts} from 'expo-font';
+import {PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic} from '@expo-google-fonts/playfair-display';
+import {Marcellus_400Regular} from '@expo-google-fonts/marcellus';
+import {Manrope_500Medium} from '@expo-google-fonts/manrope';
+import {colors} from '@/lib/tokens';
+
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
+  const [loaded, error] = useFonts({PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic, Marcellus_400Regular, Manrope_500Medium});
+  useEffect(() => { if (loaded || error) void SplashScreen.hideAsync().catch(() => {}); }, [loaded, error]);
+  if (!loaded && !error) return null;
   return (
     <>
       <StatusBar style="light" />
       <Stack screenOptions={{
-        headerStyle: { backgroundColor: colors.oxblood },
+        headerStyle: {backgroundColor: colors.oxblood},
         headerTintColor: colors.brassHighlight,
-        contentStyle: { backgroundColor: colors.ink },
-        headerTitleStyle: { fontFamily: 'serif' },
+        contentStyle: {backgroundColor: colors.ink},
+        headerTitleStyle: {fontFamily: 'Marcellus_400Regular'},
       }}>
-        <Stack.Screen name="index" options={{ title: 'FINESSE · THE HOTEL' }} />
-        <Stack.Screen name="room/[id]" options={{ title: 'THE ROOMS' }} />
-        <Stack.Screen name="penthouse" options={{ title: 'THE PRIVATE LIFT' }} />
-        <Stack.Screen name="sign-in" options={{ title: 'MEMBERS ONLY', presentation: 'modal' }} />
+        <Stack.Screen name="index" options={{headerShown: false}} />
+        <Stack.Screen name="lobby" options={{title: 'FINESSE · THE HOTEL', headerBackVisible: false}} />
+        <Stack.Screen name="room/[id]" options={{title: 'THE ROOMS'}} />
+        <Stack.Screen name="penthouse" options={{title: 'THE PRIVATE LIFT'}} />
+        <Stack.Screen name="sign-in" options={{title: 'MEMBERS ONLY', presentation: 'modal'}} />
       </Stack>
     </>
   );

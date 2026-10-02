@@ -1,5 +1,5 @@
 /** Calls the production Next.js API as the signed-in member (bearer token). */
-import * as SecureStore from 'expo-secure-store';
+import {secureStorage} from './secure-storage';
 import {supabase} from './supabase';
 
 export const API_BASE = (process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://finesselife.vip').replace(/\/$/, '');
@@ -11,7 +11,7 @@ export async function api<T = Record<string, unknown>>(path: string, init: {meth
   if (data.session?.access_token) headers.Authorization = `Bearer ${data.session.access_token}`;
   if (init.json !== undefined) headers['Content-Type'] = 'application/json';
   if (init.lift) {
-    const lt = await SecureStore.getItemAsync(LIFT_KEY);
+    const lt = await secureStorage.getItem(LIFT_KEY);
     if (lt) headers['X-Finesse-Lift'] = lt;
   }
   try {
@@ -24,6 +24,6 @@ export async function api<T = Record<string, unknown>>(path: string, init: {meth
 }
 
 export const liftToken = {
-  save: (t: string) => SecureStore.setItemAsync(LIFT_KEY, t),
-  clear: () => SecureStore.deleteItemAsync(LIFT_KEY),
+  save: (t: string) => secureStorage.setItem(LIFT_KEY, t),
+  clear: () => secureStorage.removeItem(LIFT_KEY),
 };

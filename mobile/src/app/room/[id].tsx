@@ -6,7 +6,7 @@ import { colors } from '@/lib/tokens';
 export default function RoomDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const room = roomById(id ?? '');
-  if (!room) return <View style={styles.page}><Text style={styles.title}>This room is not in the directory.</Text><Link href="/" style={styles.link}>Return to the Lobby</Link></View>;
+  if (!room) return <View style={styles.page}><Text style={styles.title}>This room is not in the directory.</Text><Link href="/lobby" style={styles.link}>Return to the Lobby</Link></View>;
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -30,7 +30,7 @@ export default function RoomDetail() {
       {room.api.map((api) => <Text key={api} style={styles.code}>{api}</Text>)}
       <Text style={styles.eyebrow}>REVENUE / RETENTION INTENT</Text>
       {room.revenue.map((item) => <Text key={item} style={styles.body}>— {item}</Text>)}
-      <Link href="/" style={styles.link}>← Return to the Lobby</Link>
+      <Link href="/lobby" style={styles.link}>← Return to the Lobby</Link>
     </ScrollView>
   );
 }
