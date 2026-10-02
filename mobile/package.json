@@ -11,6 +11,9 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/cinzel": "^0.4.2",
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
     "@expo-google-fonts/manrope": "^0.4.2",
     "@expo-google-fonts/marcellus": "^0.4.1",
     "@expo-google-fonts/playfair-display": "^0.4.2",

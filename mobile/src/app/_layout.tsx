@@ -5,13 +5,16 @@ import {useEffect} from 'react';
 import {useFonts} from 'expo-font';
 import {PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic, PlayfairDisplay_800ExtraBold_Italic} from '@expo-google-fonts/playfair-display';
 import {Marcellus_400Regular} from '@expo-google-fonts/marcellus';
-import {Manrope_500Medium} from '@expo-google-fonts/manrope';
+import {Manrope_500Medium, Manrope_600SemiBold} from '@expo-google-fonts/manrope';
+import {Cinzel_600SemiBold, Cinzel_700Bold} from '@expo-google-fonts/cinzel';
+import {CormorantGaramond_400Regular_Italic} from '@expo-google-fonts/cormorant-garamond';
+import {JetBrainsMono_400Regular} from '@expo-google-fonts/jetbrains-mono';
 import {colors} from '@/lib/tokens';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic, PlayfairDisplay_800ExtraBold_Italic, Marcellus_400Regular, Manrope_500Medium});
+  const [loaded, error] = useFonts({PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic, PlayfairDisplay_800ExtraBold_Italic, Marcellus_400Regular, Manrope_500Medium, Manrope_600SemiBold, Cinzel_600SemiBold, Cinzel_700Bold, CormorantGaramond_400Regular_Italic, JetBrainsMono_400Regular});
   useEffect(() => { if (loaded || error) void SplashScreen.hideAsync().catch(() => {}); }, [loaded, error]);
   if (!loaded && !error) return null;
   return (

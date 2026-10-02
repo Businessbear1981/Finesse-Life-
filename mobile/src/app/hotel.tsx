@@ -13,6 +13,9 @@ import {ContentWidth} from '@/lib/layout';
 import {Lounge} from '@/components/rooms/Lounge';
 import {Concierge} from '@/components/rooms/Concierge';
 import {Vault} from '@/components/rooms/Vault';
+import {Wardrobe} from '@/components/rooms/Wardrobe';
+import {Gym} from '@/components/rooms/Gym';
+import {Calendar} from '@/components/rooms/Calendar';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -48,7 +51,7 @@ const D_L = [RM('vault', 'Vault', 'lock', 'ORCHESTRATOR'), RM('scale', 'Scale', 
 const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign with provenance and offers.', 'CONSIGN A PIECE'), RM('embassy', 'Embassy', 'building2', 'ARRIVAL', 'Partner offers, fully disclosed.', 'SEE THE OFFERS')];
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
-const BUILT: Record<string, () => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault};
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar};
 const RAIL = 58;
 
 export default function HotelScreen() {
@@ -85,7 +88,7 @@ export default function HotelScreen() {
               <Animated.View entering={FadeIn.duration(450)} style={{paddingHorizontal: 12, gap: 12}}>
                 <RoomOn wing={current.wing} />
                 <Text style={styles.roomTitle}>{current.label}</Text>
-                {Built ? <View style={{gap: 14}}><Built /></View> : <Interior room={current} acc={acc} />}
+                {Built ? <View style={{gap: 14}}><Built side={side} /></View> : <Interior room={current} acc={acc} />}
               </Animated.View>
             )}
           </ScrollView>

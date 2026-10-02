@@ -19,19 +19,18 @@ export const deco = {
 } as const;
 
 // Design type: Playfair Display italic (display), Cinzel (caps), Cormorant Garamond italic (script),
-// Marcellus (labels), Manrope (body), JetBrains Mono (status). Cinzel / Cormorant / JetBrains are not
-// installed yet, so caps → Marcellus, script → Playfair italic, mono → platform monospace until they are.
+// Marcellus (labels), Manrope (body), JetBrains Mono (status lines).
 export const fonts = {
   display: 'PlayfairDisplay_400Regular_Italic',
   displayBold: 'PlayfairDisplay_700Bold_Italic',
   displayHeavy: 'PlayfairDisplay_800ExtraBold_Italic',
   label: 'Marcellus_400Regular',
-  caps: 'Marcellus_400Regular',
-  capsBold: 'Marcellus_400Regular',
-  script: 'PlayfairDisplay_400Regular_Italic',
+  caps: 'Cinzel_600SemiBold',
+  capsBold: 'Cinzel_700Bold',
+  script: 'CormorantGaramond_400Regular_Italic',
   body: 'Manrope_500Medium',
-  bodyStrong: 'Manrope_500Medium',
-  mono: 'monospace',
+  bodyStrong: 'Manrope_600SemiBold',
+  mono: 'JetBrainsMono_400Regular',
 } as const;
 
 /** Track accents from the design: Finesse (her) blush, Carpe Diem (him) amber. */
