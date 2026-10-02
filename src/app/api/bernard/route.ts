@@ -7,6 +7,7 @@ export async function POST(req: Request) {
     const text = await complete(prompt, {
       system,
       model: 'anthropic/claude-sonnet-4-6',
+      feature: 'bernard',
     });
     return NextResponse.json({text});
   } catch {

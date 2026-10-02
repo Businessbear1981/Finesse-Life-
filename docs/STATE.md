@@ -77,3 +77,9 @@ private in the Closet, 19 vitest tests (`npm test`), signed-out smoke (`npm run 
 ## Active work
 
 Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. Current phase gate: Sean confirming the demand side (anchor partners + founding cohort) → then the paid-membership transact sprint. Engineering is otherwise quiet; Sean is actively building rooms (Kitchen, Gym, salon — June/July commits).
+
+## 2026-10-02 — AI token usage ledger (`sean/ai-token-usage`, on top of `sean/keylock-hotel-build`)
+
+`asserted` until deployed: every Claude call (Nova, Nova vision, Camera identify, Stylist, Bernard, Registry identify, truth checks, intelligence jobs) writes token counts + estimated cost to `ai_usage_events` (append-only, FORCE RLS, no prompt content). Admin dashboard `/settings/ai-usage`; read-only export `/api/admin/ai-usage` → `npm run usage:obsidian` writes daily notes into an Obsidian vault.
+Needs: migration `20261005_ai_usage_events.sql` + env `AI_USAGE_EXPORT_TOKEN` (optional `AI_PRICING_JSON`). ADR: `docs/decisions/0003-ai-token-usage-ledger.md`.
+`verified` 2026-10-02 via connectors: Supabase project `zcqcgqsovrjlxxiipuzg` is **paused (INACTIVE)**; Vercel `finesse-life` latest production deploy **ERROR** (type error in `embassy/page.tsx:540`, already fixed on `main`); a second Vercel project `finesselife` also lists `finesselife.vip`.

@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import {createClient} from '@/lib/supabase/server';
+import {recordAiUsage} from '@/lib/ai-usage';
 
 const client = new Anthropic({apiKey: process.env.ANTHROPIC_API_KEY});
 
@@ -49,10 +50,20 @@ Return ONLY valid JSON with these exact keys:
       },
     ];
 
+    const started = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages,
+    });
+    void recordAiUsage({
+      feature: 'stylist.analyze_photo',
+      model: response.model ?? 'claude-sonnet-4-6',
+      latencyMs: Date.now() - started,
+      inputTokens: response.usage?.input_tokens,
+      outputTokens: response.usage?.output_tokens,
+      cacheReadTokens: response.usage?.cache_read_input_tokens,
+      cacheWriteTokens: response.usage?.cache_creation_input_tokens,
     });
 
     const raw = response.content[0].type === 'text' ? response.content[0].text : '';

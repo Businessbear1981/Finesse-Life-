@@ -127,7 +127,8 @@ export async function updateSession(request: NextRequest) {
   // follow and mistake for success).
   if (!user && !isPublicRoute && pathname.startsWith('/api/')) {
     // Webhooks authenticate by signature, not session.
-    if (!pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/telegram/webhook')) {
+    // The AI-usage export authenticates by its own bearer token (route-level, timing-safe).
+    if (!pathname.startsWith('/api/webhooks/') && !pathname.startsWith('/api/telegram/webhook') && pathname !== '/api/admin/ai-usage') {
       return NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
     }
     return supabaseResponse;

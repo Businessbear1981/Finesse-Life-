@@ -11,6 +11,7 @@
 import {generateText, streamText, type LanguageModel} from 'ai';
 import {createGateway} from '@ai-sdk/gateway';
 import {createAnthropic} from '@ai-sdk/anthropic';
+import {fromSdkUsage, recordAiUsage} from '@/lib/ai-usage';
 
 // Gateway takes priority when configured; falls back to direct Anthropic for local dev.
 const hasGateway = !!process.env.AI_GATEWAY_API_KEY;
@@ -41,22 +42,60 @@ export function model(name: string = DEFAULT_MODEL): LanguageModel {
   return directAnthropic!(modelId);
 }
 
-// Convenience: one-shot text generation.
-export async function complete(prompt: string, opts: {model?: string; system?: string} = {}) {
-  const result = await generateText({
-    model: model(opts.model),
-    system: opts.system,
-    prompt,
-  });
-  return result.text;
+type CallOpts = {
+  model?: string;
+  system?: string;
+  /** Ledger label, e.g. "bernard", "intelligence.behavioral". Lowercase, [a-z0-9_.:-]. */
+  feature?: string;
+  /** Member the call is made for (null for system jobs). */
+  userId?: string | null;
+  traceId?: string | null;
+};
+
+// Convenience: one-shot text generation. Every call is recorded in the token ledger.
+export async function complete(prompt: string, opts: CallOpts = {}) {
+  const name = opts.model ?? DEFAULT_MODEL;
+  const started = Date.now();
+  try {
+    const result = await generateText({
+      model: model(name),
+      system: opts.system,
+      prompt,
+    });
+    void recordAiUsage({
+      feature: opts.feature ?? 'complete',
+      model: name,
+      userId: opts.userId,
+      traceId: opts.traceId,
+      latencyMs: Date.now() - started,
+      ...fromSdkUsage(result.totalUsage),
+    });
+    return result.text;
+  } catch (e) {
+    void recordAiUsage({feature: opts.feature ?? 'complete', model: name, userId: opts.userId, traceId: opts.traceId, latencyMs: Date.now() - started, ok: false});
+    throw e;
+  }
 }
 
 // Convenience: streaming. Pipe to a Next response, RSC stream, or fetch reader.
-export function stream(prompt: string, opts: {model?: string; system?: string} = {}) {
+// Usage is recorded when the stream finishes.
+export function stream(prompt: string, opts: CallOpts = {}) {
+  const name = opts.model ?? DEFAULT_MODEL;
+  const started = Date.now();
   return streamText({
-    model: model(opts.model),
+    model: model(name),
     system: opts.system,
     prompt,
+    onFinish: ({totalUsage}) => {
+      void recordAiUsage({
+        feature: opts.feature ?? 'stream',
+        model: name,
+        userId: opts.userId,
+        traceId: opts.traceId,
+        latencyMs: Date.now() - started,
+        ...fromSdkUsage(totalUsage),
+      });
+    },
   });
 }
 

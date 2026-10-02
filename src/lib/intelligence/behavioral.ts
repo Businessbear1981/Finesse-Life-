@@ -192,7 +192,7 @@ Respond with JSON only — no markdown, no prose:
 {"action":"string","reason":"one sentence","confidence":0.0}`;
 
   try {
-    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001' });
+    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001', feature: 'intelligence.behavioral' });
     const match = text.match(/\{[\s\S]*?\}/);
     if (match) {
       const parsed = JSON.parse(match[0]) as {
@@ -243,7 +243,7 @@ Return JSON only:
 {"recommendations":[{"title":"string","category":"string","price_range":"$X–$Y","why":"one sentence"}]}`;
 
   try {
-    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001' });
+    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001', feature: 'intelligence.behavioral' });
     const match = text.match(/\{[\s\S]*?\}/);
     if (match) {
       const parsed = JSON.parse(match[0]) as {
