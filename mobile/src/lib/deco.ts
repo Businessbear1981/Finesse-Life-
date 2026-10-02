@@ -91,3 +91,35 @@ export function trianglePath(cx: number, cy: number, w: number, h: number, deg: 
 }
 
 export const ROMAN = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+
+/**
+ * One keystone of the six-piece puzzle ring: an annular sector from a0 to a0+span with a dovetail
+ * tab on its clockwise edge and a matching socket cut into its counter-clockwise edge, so the six
+ * pieces interlock into a single brass ring when seated.
+ */
+export function keystonePath(cx: number, cy: number, rIn: number, rOut: number, a0: number, span: number, inset = 0) {
+  const a1 = a0 + span;
+  const ri = rIn + inset, ro = rOut - inset;
+  const s0 = a0 + (inset ? inset * 0.9 : 0), s1 = a1 - (inset ? inset * 0.9 : 0);
+  const P = (r: number, a: number) => { const p = polar(cx, cy, r, a); return `${p.x.toFixed(2)} ${p.y.toFixed(2)}`; };
+  const rm = (ri + ro) / 2;
+  if (inset) {
+    return `M${P(ro, s0)} A${ro} ${ro} 0 0 1 ${P(ro, s1)} L${P(ri, s1)} A${ri} ${ri} 0 0 0 ${P(ri, s0)} Z`;
+  }
+  const tab = 4.5, nIn = 5, nOut = 8; // dovetail: narrow at the root, wide at the tip
+  return [
+    `M${P(ro, a0)}`,
+    `A${ro} ${ro} 0 0 1 ${P(ro, a1)}`,
+    `L${P(rm + nIn, a1)}`, `L${P(rm + nOut, a1 + tab)}`, `L${P(rm - nOut, a1 + tab)}`, `L${P(rm - nIn, a1)}`,
+    `L${P(ri, a1)}`,
+    `A${ri} ${ri} 0 0 0 ${P(ri, a0)}`,
+    `L${P(rm - nIn, a0)}`, `L${P(rm - nOut, a0 + tab)}`, `L${P(rm + nOut, a0 + tab)}`, `L${P(rm + nIn, a0)}`,
+    'Z',
+  ].join(' ');
+}
+
+/** Short arc path (for engraved steps and glints). */
+export function arcPath(cx: number, cy: number, r: number, a0: number, a1: number) {
+  const p0 = polar(cx, cy, r, a0), p1 = polar(cx, cy, r, a1);
+  return `M${p0.x.toFixed(2)} ${p0.y.toFixed(2)} A${r} ${r} 0 0 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
+}

@@ -3,10 +3,10 @@
 import {useEffect} from 'react';
 import {View} from 'react-native';
 import Animated, {
-  useAnimatedStyle, useSharedValue, withSequence, withTiming, type SharedValue,
+  interpolate, useAnimatedStyle, useSharedValue, withSequence, withTiming, type SharedValue,
 } from 'react-native-reanimated';
 import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop, Text as SvgText} from 'react-native-svg';
-import {BEZEL_STOPS, ROMAN, conicRing, deco, easeCine, easeSlide, fonts, polar, trianglePath} from '@/lib/deco';
+import {BEZEL_STOPS, ROMAN, arcPath, conicRing, deco, easeCine, easeSlide, fonts, keystonePath, polar} from '@/lib/deco';
 
 const V = 360; // design units
 const C = V / 2;
@@ -139,10 +139,27 @@ export function VaultDial({size, setCount, lastDigit, arrive, open, reduced}: Pr
         </Svg>
       </Animated.View>
 
+      {/* Engraved sockets the keystones seat into */}
+      <Svg style={layer} width={size} height={size} viewBox={`0 0 ${V} ${V}`} pointerEvents="none">
+        <Defs>
+          <RadialGradient id="socket" cx={C} cy={C} r={R_OUT} gradientUnits="userSpaceOnUse">
+            <Stop offset={R_IN / R_OUT} stopColor="#000" />
+            <Stop offset="0.8" stopColor="#120709" />
+            <Stop offset="1" stopColor="#000" />
+          </RadialGradient>
+        </Defs>
+        {ROM6.map((_, i) => (
+          <G key={i}>
+            <Path d={keystonePath(C, C, R_IN, R_OUT, i * 60, 60)} fill="url(#socket)" stroke={deco.brass} strokeOpacity={0.22} strokeWidth={0.75} />
+            <Path d={arcPath(C, C, R_OUT - 1.5, i * 60 + 3, i * 60 + 57)} stroke="#000" strokeOpacity={0.9} strokeWidth={2} fill="none" />
+          </G>
+        ))}
+      </Svg>
+
       {/* Brackets light as each tumbler seats */}
       <Svg style={layer} width={size} height={size} viewBox={`0 0 ${V} ${V}`} pointerEvents="none">
         {ROM6.map((_, i) => {
-          const deg = i * 60 + 30; const a = polar(C, C, 83, deg - 4), b = polar(C, C, 83, deg + 4);
+          const deg = i * 60 + 30; const a = polar(C, C, 89, deg - 5), b = polar(C, C, 89, deg + 5);
           return <Path key={i} d={`M${a.x} ${a.y} L${b.x} ${b.y}`} stroke={i < setCount ? deco.brassWhite : deco.brassShadow} strokeWidth={2.5} />;
         })}
       </Svg>
@@ -213,41 +230,111 @@ export function VaultDial({size, setCount, lastDigit, arrive, open, reduced}: Pr
 
 type At = (x: number, y: number, w: number, h: number) => {position: 'absolute'; left: number; top: number; width: number; height: number};
 
-function Tumbler({index, t, k, at}: {index: number; t: SharedValue<number>; k: number; at: At}) {
-  const deg = index * 60 + 30;
-  const seat = polar(C, C, 58, deg);
-  const out = {x: 22 * Math.sin((deg * Math.PI) / 180), y: -22 * Math.cos((deg * Math.PI) / 180)};
+const R_IN = 34, R_OUT = 84;
+
+/**
+ * A keystone of the puzzle ring. Unseated it waits outside its socket, tarnished and turned off-axis;
+ * as its wheel is set it screws in (rotating about the dial centre), polishes up, and a glint runs
+ * along its outer edge when it locks.
+ */
+function Tumbler({index, t, k}: {index: number; t: SharedValue<number>; k: number; at: At}) {
+  const a0 = index * 60, mid = a0 + 30;
+  const dir = {x: Math.sin((mid * Math.PI) / 180), y: -Math.cos((mid * Math.PI) / 180)};
+  const size = V * k;
   const style = useAnimatedStyle(() => ({
-    opacity: 0.35 + 0.65 * t.value,
+    opacity: 0.55 + 0.45 * t.value,
     transform: [
-      {translateX: out.x * k * (1 - t.value)},
-      {translateY: out.y * k * (1 - t.value)},
-      {scale: 0.72 + 0.28 * t.value},
+      {translateX: dir.x * 26 * k * (1 - t.value)},
+      {translateY: dir.y * 26 * k * (1 - t.value)},
+      {rotate: `${-14 * (1 - t.value)}deg`},
     ],
   }));
-  const litStyle = useAnimatedStyle(() => ({opacity: t.value}));
-  const S = 44;
+  const polish = useAnimatedStyle(() => ({opacity: t.value}));
+  const glint = useAnimatedStyle(() => ({opacity: interpolate(t.value, [0, 0.82, 0.94, 1], [0, 0, 1, 0.3])}));
+  const body = keystonePath(C, C, R_IN, R_OUT, a0, 60);
+  const inner = keystonePath(C, C, R_IN, R_OUT, a0, 60, 6);
+  const num = polar(C, C, 51, mid);
+  const fanRoot = polar(C, C, R_OUT - 7, mid);
+  const id = `ks${index}`;
+  const layer = {position: 'absolute' as const, left: 0, top: 0, width: size, height: size};
+
+  const Engraving = ({light}: {light: boolean}) => (
+    <>
+      {/* stepped Art Deco border, inset twice */}
+      <Path d={inner} fill="none" stroke={light ? '#5A4018' : '#000'} strokeOpacity={light ? 0.9 : 0.7} strokeWidth={1.2} />
+      <Path d={inner} fill="none" stroke={light ? deco.brassWhite : deco.brassShadow} strokeOpacity={light ? 0.55 : 0.4} strokeWidth={0.5} transform="translate(0.6 0.6)" />
+      <Path d={keystonePath(C, C, R_IN, R_OUT, a0, 60, 10)} fill="none" stroke={light ? '#6B5028' : '#000'} strokeOpacity={0.6} strokeWidth={0.6} />
+      {/* sunburst fan engraved toward the outer edge */}
+      {[-14, -7, 0, 7, 14].map((d) => {
+        const tip = polar(C, C, R_OUT - 21 + Math.abs(d) * 0.35, mid + d);
+        return <Path key={d} d={`M${fanRoot.x} ${fanRoot.y} L${tip.x} ${tip.y}`} stroke={light ? '#5A4018' : '#000'} strokeOpacity={0.75} strokeWidth={0.9} />;
+      })}
+      <Path d={arcPath(C, C, R_OUT - 22, mid - 16, mid + 16)} stroke={light ? '#5A4018' : '#000'} strokeOpacity={0.6} strokeWidth={0.8} fill="none" />
+      {/* inner steps */}
+      <Path d={arcPath(C, C, R_IN + 9, mid - 18, mid + 18)} stroke={light ? deco.brassWhite : deco.brassShadow} strokeOpacity={light ? 0.5 : 0.35} strokeWidth={0.7} fill="none" />
+      <Path d={arcPath(C, C, R_IN + 12, mid - 10, mid + 10)} stroke={light ? deco.brassWhite : deco.brassShadow} strokeOpacity={light ? 0.4 : 0.3} strokeWidth={0.7} fill="none" />
+      {/* raised numeral: shadow then face */}
+      <SvgText x={num.x + 0.7} y={num.y + 3.7} fontSize={10} letterSpacing={0.6} fill="#000" fillOpacity={0.55} fontFamily={fonts.label} textAnchor="middle" transform={`rotate(${mid} ${num.x} ${num.y})`}>{ROM6[index]}</SvgText>
+      <SvgText x={num.x} y={num.y + 3} fontSize={10} letterSpacing={0.6} fill={light ? '#3A2610' : deco.brassMid} fontFamily={fonts.label} textAnchor="middle" transform={`rotate(${mid} ${num.x} ${num.y})`}>{ROM6[index]}</SvgText>
+    </>
+  );
+
   return (
-    <Animated.View style={[at(seat.x, seat.y, S, S), style]} pointerEvents="none">
-      <Svg style={{position: 'absolute'}} width={S * k} height={S * k} viewBox={`0 0 ${S} ${S}`}>
-        <Path d={trianglePath(22, 22, 32, 38, deg)} fill="#2A1A0A" stroke={deco.brassShadow} strokeOpacity={0.8} />
+    <Animated.View style={[layer, style]} pointerEvents="none">
+      {/* tarnished, unpolished state */}
+      <Svg style={{position: 'absolute'}} width={size} height={size} viewBox={`0 0 ${V} ${V}`}>
+        <Defs>
+          <RadialGradient id={`${id}d`} cx={C} cy={C} r={R_OUT} gradientUnits="userSpaceOnUse">
+            <Stop offset={R_IN / R_OUT} stopColor="#1C120A" />
+            <Stop offset="0.72" stopColor="#3A2814" />
+            <Stop offset="0.93" stopColor="#24170C" />
+            <Stop offset="1" stopColor="#4A3416" />
+          </RadialGradient>
+        </Defs>
+        <Path d={body} fill={`url(#${id}d)`} stroke="#000" strokeOpacity={0.8} strokeWidth={1} />
+        <Engraving light={false} />
       </Svg>
-      <Animated.View style={[{position: 'absolute', left: 0, top: 0}, litStyle]}>
-        <Svg width={S * k} height={S * k} viewBox={`0 0 ${S} ${S}`}>
+      {/* polished brass */}
+      <Animated.View style={[{position: 'absolute', left: 0, top: 0}, polish]}>
+        <Svg width={size} height={size} viewBox={`0 0 ${V} ${V}`}>
           <Defs>
-            <LinearGradient id={`tb${index}`} x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={deco.brassWhite} />
-              <Stop offset="0.45" stopColor={deco.brassHighlight} />
-              <Stop offset="1" stopColor={deco.brassMid} />
+            <RadialGradient id={`${id}b`} cx={C} cy={C} r={R_OUT} gradientUnits="userSpaceOnUse">
+              <Stop offset={R_IN / R_OUT} stopColor="#6B5028" />
+              <Stop offset="0.55" stopColor={deco.brass} />
+              <Stop offset="0.74" stopColor={deco.brassWhite} />
+              <Stop offset="0.86" stopColor={deco.brassHighlight} />
+              <Stop offset="0.95" stopColor={deco.brassMid} />
+              <Stop offset="1" stopColor={deco.brassLight} />
+            </RadialGradient>
+            <LinearGradient id={`${id}s`} x1="0" y1="0" x2={V} y2={V} gradientUnits="userSpaceOnUse">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.45} />
+              <Stop offset="0.45" stopColor="#FFFFFF" stopOpacity={0.05} />
+              <Stop offset="0.55" stopColor="#000000" stopOpacity={0.05} />
+              <Stop offset="1" stopColor="#000000" stopOpacity={0.45} />
             </LinearGradient>
           </Defs>
-          <Path d={trianglePath(22, 22, 32, 38, deg)} fill={`url(#tb${index})`} stroke={deco.brassWhite} strokeOpacity={0.6} />
+          <Path d={body} fill={`url(#${id}b)`} />
+          <Path d={body} fill={`url(#${id}s)`} />
+          <Path d={body} fill="none" stroke="#2A1A0A" strokeWidth={1.1} />
+          <Path d={arcPath(C, C, R_OUT - 1.2, a0 + 2, a0 + 58)} stroke={deco.brassWhite} strokeOpacity={0.85} strokeWidth={1} fill="none" />
+          <Path d={arcPath(C, C, R_IN + 1, a0 + 3, a0 + 57)} stroke="#000" strokeOpacity={0.55} strokeWidth={1.2} fill="none" />
+          <Engraving light />
         </Svg>
       </Animated.View>
-      <Svg style={{position: 'absolute'}} width={S * k} height={S * k} viewBox={`0 0 ${S} ${S}`}>
-        <Path d={trianglePath(22, 22, 20, 24, deg)} fill="none" stroke={deco.brass} strokeOpacity={0.45} />
-        <SvgText x={22} y={25} fontSize={7} fill={deco.ink} fillOpacity={0.85} fontFamily={fonts.label} textAnchor="middle">{ROM6[index]}</SvgText>
-      </Svg>
+      {/* glint when it locks */}
+      <Animated.View style={[{position: 'absolute', left: 0, top: 0}, glint]}>
+        <Svg width={size} height={size} viewBox={`0 0 ${V} ${V}`}>
+          <Defs>
+            <LinearGradient id={`${id}g`} x1="0" y1="0" x2="1" y2="0">
+              <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0} />
+              <Stop offset="0.5" stopColor="#FFFFFF" stopOpacity={1} />
+              <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0} />
+            </LinearGradient>
+          </Defs>
+          <Path d={arcPath(C, C, R_OUT - 1.5, a0 + 8, a0 + 52)} stroke="#FFF8E0" strokeWidth={2.5} strokeLinecap="round" fill="none" />
+          <Path d={arcPath(C, C, R_OUT - 1.5, a0 + 18, a0 + 42)} stroke="#FFFFFF" strokeWidth={4} strokeLinecap="round" fill="none" opacity={0.8} />
+        </Svg>
+      </Animated.View>
     </Animated.View>
   );
 }
