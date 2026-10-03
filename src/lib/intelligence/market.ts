@@ -177,7 +177,7 @@ Return JSON only:
 {"recommended_cents":integer,"low_cents":integer,"high_cents":integer,"reasoning":"one sentence","confidence":0.0}`;
 
   try {
-    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001' });
+    const text = await complete(prompt, { model: 'anthropic/claude-haiku-4-5-20251001', feature: 'intelligence.market' });
     const match = text.match(/\{[\s\S]*?\}/);
     if (match) {
       const p = JSON.parse(match[0]) as PriceRecommendation;

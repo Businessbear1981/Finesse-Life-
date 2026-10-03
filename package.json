@@ -12,7 +12,8 @@
     "rooms:validate": "node tooling/validate-project.mjs",
     "check": "node tooling/validate-project.mjs && tsc --noEmit && vitest run",
     "test": "vitest run",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "usage:obsidian": "node scripts/obsidian-sync-usage.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

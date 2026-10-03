@@ -157,7 +157,7 @@ Check for:
 Respond with JSON only:
 {"clear":boolean,"concerns":["string"],"risk":"low"|"medium"|"high","recommendation":"string","regulation_flags":["string"]}`;
 
-        const text = await complete(prompt, { model: MODEL_DEFAULT });
+        const text = await complete(prompt, { model: MODEL_DEFAULT, feature: 'intelligence.compliance' });
         const match = text.match(/\{[\s\S]*?\}/);
         const parsed = match ? (JSON.parse(match[0]) as ComplianceCheckResult) : null;
 

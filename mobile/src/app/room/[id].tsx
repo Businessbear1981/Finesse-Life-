@@ -1,47 +1,48 @@
-import { useLocalSearchParams, Link } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { roomById } from '@/lib/registry';
-import { colors } from '@/lib/tokens';
+import {useLocalSearchParams, Link} from 'expo-router';
+import {StyleSheet, Text, View} from 'react-native';
+import {roomById} from '@/lib/registry';
+import {deco, fonts} from '@/lib/deco';
+import {Panel, RoomPlate, plateText} from '@/components/plate/RoomPlate';
+import {Lounge} from '@/components/rooms/Lounge';
+import {Concierge} from '@/components/rooms/Concierge';
+import {Vault} from '@/components/rooms/Vault';
+import {useSide} from '@/lib/session';
+import type {Side} from '@/lib/deco';
+
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault};
 
 export default function RoomDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const {id} = useLocalSearchParams<{id: string}>();
   const room = roomById(id ?? '');
-  if (!room) return <View style={styles.page}><Text style={styles.title}>This room is not in the directory.</Text><Link href="/" style={styles.link}>Return to the Lobby</Link></View>;
-
+  if (!room) {
+    return (
+      <View style={styles.missing}>
+        <Text style={plateText.lead}>This room is not in the directory.</Text>
+        <Link href="/lobby" style={styles.link}>RETURN TO THE LOBBY</Link>
+      </View>
+    );
+  }
+  const Built = BUILT[room.id];
+  const side = useSide();
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <Text style={styles.eyebrow}>ROOM {String(room.number).padStart(2, '0')} · {room.plate.toUpperCase()}</Text>
-      <Text style={styles.title}>{room.name}</Text>
-      <View style={styles.rule} />
-      <Text style={styles.eyebrow}>DESIGN SCENE</Text>
-      <Text style={styles.lead}>{room.design}</Text>
-      <Text style={styles.body}>{room.sceneBlueprint.architecture}</Text>
-      <Text style={styles.eyebrow}>FOCAL OBJECT</Text>
-      <Text style={styles.body}>{room.sceneBlueprint.focalObject}</Text>
-      <Text style={styles.eyebrow}>MOTION</Text>
-      <Text style={styles.body}>{room.sceneBlueprint.motion}</Text>
-      <Text style={styles.eyebrow}>MOBILE COMPOSITION</Text>
-      <Text style={styles.body}>{room.sceneBlueprint.mobile}</Text>
-      <Text style={styles.eyebrow}>PRIMARY ACTION</Text>
-      <Text style={styles.body}>{room.primaryAction}</Text>
-      <Text style={styles.eyebrow}>CURRENT BUILD TRUTH</Text>
-      <Text style={styles.body}>{room.truthState.toUpperCase()} · Phase {room.phase}. This starter is a room map; a label does not claim a live provider connection.</Text>
-      <Text style={styles.eyebrow}>API CONTRACTS TO IMPLEMENT</Text>
-      {room.api.map((api) => <Text key={api} style={styles.code}>{api}</Text>)}
-      <Text style={styles.eyebrow}>REVENUE / RETENTION INTENT</Text>
-      {room.revenue.map((item) => <Text key={item} style={styles.body}>— {item}</Text>)}
-      <Link href="/" style={styles.link}>← Return to the Lobby</Link>
-    </ScrollView>
+    <RoomPlate room={room}>
+      {Built ? <Built side={side} /> : (
+        <>
+          <Panel title="THE SCENE">
+            <Text style={plateText.lead}>{room.sceneBlueprint.architecture}.</Text>
+            <Text style={plateText.body}>{room.sceneBlueprint.focalObject}. {room.sceneBlueprint.motion}.</Text>
+          </Panel>
+          <Panel title="WHAT YOU WILL DO HERE">
+            <Text style={plateText.body}>{room.primaryAction}.</Text>
+            <Text style={plateText.small}>This room is being prepared. Nothing here is live yet.</Text>
+          </Panel>
+        </>
+      )}
+    </RoomPlate>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { backgroundColor: colors.ink, paddingHorizontal: 28, paddingTop: 50, paddingBottom: 90, flexGrow: 1 },
-  eyebrow: { color: colors.brass, fontSize: 10, letterSpacing: 2.5, marginTop: 24 },
-  title: { color: colors.cream, fontFamily: 'serif', fontSize: 42, marginTop: 14 },
-  rule: { height: 1, backgroundColor: colors.brass, marginTop: 32, marginBottom: 15 },
-  lead: { color: colors.brassHighlight, fontFamily: 'serif', fontSize: 26, lineHeight: 33, marginTop: 15, marginBottom: 12 },
-  body: { color: colors.cream, fontSize: 15, lineHeight: 23, marginTop: 12 },
-  code: { color: colors.brassHighlight, fontFamily: 'monospace', fontSize: 13, marginTop: 12 },
-  link: { color: colors.brassHighlight, fontSize: 15, marginTop: 42 },
+  missing: {flex: 1, backgroundColor: deco.ink, padding: 28, justifyContent: 'center', gap: 20},
+  link: {fontFamily: fonts.label, fontSize: 11, letterSpacing: 4, color: deco.brassHighlight},
 });

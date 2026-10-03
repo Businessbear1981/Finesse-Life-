@@ -4,6 +4,7 @@ import {generateText} from 'ai';
 import {parseBody} from '@/lib/api/validate';
 import {dbFailure, json, requireMember} from '@/lib/api/room';
 import {model, DEFAULT_MODEL} from '@/lib/ai';
+import {fromSdkUsage, recordAiUsage} from '@/lib/ai-usage';
 import {presignGet} from '@/lib/r2';
 import {CAMERA_SELECT, identification, withViewUrl, type CameraRow} from '@/lib/camera';
 
@@ -31,12 +32,14 @@ export async function POST(req: NextRequest) {
   }
 
   let result: z.infer<typeof identification> | null = null;
+  const started = Date.now();
   try {
     const url = await presignGet((row as CameraRow).image_key, 120);
-    const {text} = await generateText({
+    const {text, totalUsage} = await generateText({
       model: model(),
       messages: [{role: 'user', content: [{type: 'image', image: new URL(url)}, {type: 'text', text: PROMPT}]}],
     });
+    void recordAiUsage({feature: 'camera.identify', model: DEFAULT_MODEL, userId: ctx.userId, traceId: ctx.traceId, latencyMs: Date.now() - started, ...fromSdkUsage(totalUsage)});
     const jsonText = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
     const ok = identification.safeParse(JSON.parse(jsonText));
     result = ok.success ? ok.data : null;

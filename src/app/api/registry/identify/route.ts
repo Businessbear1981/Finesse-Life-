@@ -24,6 +24,7 @@ export async function POST(req: Request) {
           system:
             'You are a luxury fashion identifier. Always return valid JSON only. No markdown, no explanation.',
           model: 'anthropic/claude-sonnet-4-6',
+          feature: 'registry.identify',
         },
       );
     } catch {

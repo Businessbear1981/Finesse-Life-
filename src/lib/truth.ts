@@ -153,7 +153,7 @@ const defaultHandlers: Partial<Record<Tier, TierHandler>> = {
   self_consistency: async (claim) => {
     // Ask the same model 3 times whether the claim is true; pass if 2/3 agree.
     const votes = await Promise.all(
-      [0, 1, 2].map(() => complete(`Is the following claim true? Answer "yes" or "no" only.\n\nClaim: ${claim}`, {system: 'You are a factual oracle. Answer only "yes" or "no".'})),
+      [0, 1, 2].map(() => complete(`Is the following claim true? Answer "yes" or "no" only.\n\nClaim: ${claim}`, {system: 'You are a factual oracle. Answer only "yes" or "no".', feature: 'truth.vote'})),
     );
     const yesCount = votes.filter((v) => v.trim().toLowerCase().startsWith('y')).length;
     return {
@@ -169,7 +169,7 @@ const defaultHandlers: Partial<Record<Tier, TierHandler>> = {
     // answer them, then judge the original claim.
     const result = await complete(
       `Given this claim, propose 3 verification questions, answer them, then state whether the claim is verified, contradicted, or unverifiable. End with one line: VERDICT: <verified|contradicted|unverifiable> CONFIDENCE: <0.0-1.0>\n\nCLAIM: ${claim}`,
-      {system: 'You are a careful fact-checker.'},
+      {system: 'You are a careful fact-checker.', feature: 'truth.cove'},
     );
     const match = result.match(/VERDICT:\s*(verified|contradicted|unverifiable)\s+CONFIDENCE:\s*([\d.]+)/i);
     if (!match) {

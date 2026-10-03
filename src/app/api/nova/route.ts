@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {generateText, tool, stepCountIs} from 'ai';
 import {model} from '@/lib/ai';
+import {fromSdkUsage, recordAiUsage} from '@/lib/ai-usage';
 import {createClient} from '@/lib/supabase/server';
 import {buildBehavioralProfile, predictNextAction, generatePersonalizedRecs, emit} from '@/lib/intelligence';
 import {z} from 'zod';
@@ -136,6 +137,8 @@ export async function POST(req: Request) {
     : system;
 
   const novaTools = buildNovaTools(userId);
+  const NOVA_MODEL = 'anthropic/claude-sonnet-4-6';
+  const started = Date.now();
 
   try {
     // Image path (Scout's product-photo analysis, NightVision's style-capture
@@ -145,7 +148,7 @@ export async function POST(req: Request) {
     const result = await generateText(
       allImages.length > 0
         ? {
-            model: model('anthropic/claude-sonnet-4-6'),
+            model: model(NOVA_MODEL),
             system: enrichedSystem,
             messages: [
               {
@@ -160,7 +163,7 @@ export async function POST(req: Request) {
             stopWhen: stepCountIs(3),
           }
         : {
-            model: model('anthropic/claude-sonnet-4-6'),
+            model: model(NOVA_MODEL),
             system: enrichedSystem,
             prompt,
             tools: novaTools,
@@ -168,6 +171,14 @@ export async function POST(req: Request) {
             stopWhen: stepCountIs(3),
           },
     );
+
+    void recordAiUsage({
+      feature: allImages.length > 0 ? 'nova.vision' : 'nova',
+      model: NOVA_MODEL,
+      userId,
+      latencyMs: Date.now() - started,
+      ...fromSdkUsage(result.totalUsage),
+    });
 
     // Collect all tool results across all steps
     const toolCalls: Array<{name: string; result: unknown}> = [];
@@ -188,6 +199,7 @@ export async function POST(req: Request) {
       tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
     });
   } catch {
+    void recordAiUsage({feature: 'nova', model: NOVA_MODEL, userId, latencyMs: Date.now() - started, ok: false});
     return NextResponse.json({
       text: "Consider it handled. I'll have that arranged shortly.",
     });
