@@ -28,7 +28,8 @@ import {Scale, Exchange, Embassy} from '@/components/rooms/Market';
 import {Bag, Registry, Lab, Switchboard} from '@/components/rooms/Social';
 import {NightVision, GameRoom, PerDiem} from '@/components/rooms/Lifestyle';
 import {Profile} from '@/components/rooms/Penthouse';
-import {CarpeDiem, Market, Ballroom, JazzClub} from '@/components/rooms/House';
+import {CarpeDiem, Market, Ballroom} from '@/components/rooms/House';
+import {Club} from '@/components/rooms/Club';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -66,8 +67,8 @@ const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign w
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
 // Rooms off the rails, reached from the Lobby directory.
-const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('jazzclub', 'Jazz Club', 'music', 'PUBLIC FLOOR')];
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile, 'carpe-diem': CarpeDiem, market: Market, ballroom: Ballroom, jazzclub: JazzClub};
+const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('club', 'The Club', 'briefcase', 'PUBLIC FLOOR')];
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile, 'carpe-diem': CarpeDiem, market: Market, ballroom: Ballroom, club: Club};
 const RAIL = 58;
 
 export default function HotelScreen() {
@@ -248,7 +249,7 @@ function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
       </Animated.View>
       <Text style={styles.section}>ALSO IN THE HOUSE</Text>
       <View style={{flexDirection: 'row', gap: 8, marginHorizontal: 12, marginTop: 10}}>
-        {[{id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening', icon: 'sparkles'}, {id: 'jazzclub', label: 'Jazz Club', note: 'Tonight’s room', icon: 'music'}].map((r) => (
+        {[{id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening', icon: 'sparkles'}, {id: 'club', label: 'The Club', note: 'News · money · cars · locker room', icon: 'briefcase'}].map((r) => (
           <Pressable key={r.id} onPress={() => onPick(r.id)} accessibilityRole="button" style={{flex: 1, minHeight: 74, padding: 10, gap: 4, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(20,12,10,0.7)'}}>
             <Icon name={r.icon} size={18} color={t.acc} />
             <Text style={{fontFamily: fonts.label, fontSize: 14, color: deco.cream}}>{r.label}</Text>

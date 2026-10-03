@@ -1,12 +1,10 @@
 // The remaining rooms, built from the 31-Room Design Atlas: Carpe Diem (amber study, today's brief across
 // movement, work, sport and a read-only portfolio), Market (partner market, disclosed offers, honest
-// prices), the Ballroom (compose an evening: proposal → hold → confirmed) and the Jazz Club (tonight's
-// trio, replay and tip rail). Live data where an API exists (Jazz Club programme); otherwise labelled samples.
+// prices), and the Ballroom (compose an evening: proposal → hold → confirmed). Labelled samples.
 import {useEffect, useState} from 'react';
 import {Pressable, Text, View} from 'react-native';
 import Animated, {Easing, FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
 import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
-import {api} from '@/lib/api';
 import {deco, fonts, track, type Side} from '@/lib/deco';
 import {useAvailableWidth} from '@/lib/layout';
 import {Icon} from '@/lib/icons';
@@ -152,7 +150,7 @@ const STAGES: Stage[] = ['PROPOSAL', 'HOLD REQUESTED', 'CONFIRMED'];
 const EVE: Array<[string, string, string, string]> = [
   ['7:00 PM', 'Salon touch-up', 'Partner salon · 30 min', 'sparkles'],
   ['8:30 PM', 'Dinner for two · Lucian', 'Venue hold requested', 'chefhat'],
-  ['10:30 PM', 'Jazz Club · two seats', 'Late set, reserved table', 'music'],
+  ['10:30 PM', 'Nightcap at the Club', 'Two chairs by the fire', 'martini'],
   ['12:15 AM', 'Car home', 'Finesse Black', 'car'],
 ];
 
@@ -239,82 +237,6 @@ export function Ballroom({side}: {side: Side}) {
       </GoldFrame>
       <ActionBar color={stage === 2 ? deco.brass : acc} label={stage === 0 ? 'REQUEST THE HOLDS' : stage === 1 ? 'CONFIRM THE EVENING' : 'CONFIRMED · IN YOUR DIARY'} onPress={() => setStage((x) => (x + 1) % 3)} />
       <SampleNote>{`PREVIEW · CURRENT STAGE: ${st} · HOLDS ARE REQUESTS TO VENUES · NOTHING IS PAID UNTIL YOU CONFIRM WITH EACH PARTNER`}</SampleNote>
-    </View>
-  );
-}
-
-/* ─────────────── Jazz Club ─────────────── */
-type Session = {id: string; title: string; performers?: string | null; starts_at: string; state: string};
-const SAMPLE_SETS: Array<[string, string, string]> = [['9:00 PM', 'Trio · first set', 'SCHEDULED'], ['10:15 PM', 'Trio · second set', 'SCHEDULED'], ['TUE', 'Replay · quartet', 'REPLAY']];
-
-function Stage({live}: {live: boolean}) {
-  const W = Math.min(useAvailableWidth(), 460), H = W * 0.5;
-  const lamp = useSharedValue(live ? 1 : 0.25);
-  useEffect(() => { lamp.value = live ? withRepeat(withSequence(withTiming(1, {duration: 1600}), withTiming(0.8, {duration: 1600})), -1) : withTiming(0.25, {duration: 600}); }, [live, lamp]);
-  const st = useAnimatedStyle(() => ({opacity: lamp.value}));
-  return (
-    <View style={{width: W, height: H, alignSelf: 'center', borderWidth: 2, borderColor: deco.brass, overflow: 'hidden', backgroundColor: '#06100C'}}>
-      <Svg width={W} height={H} viewBox="0 0 400 200" style={{position: 'absolute'}}>
-        <Defs><LinearGradient id="jz-w" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#081812" /><Stop offset="1" stopColor="#020604" /></LinearGradient></Defs>
-        <Rect width={400} height={200} fill="url(#jz-w)" />
-        {Array.from({length: 20}, (_, i) => <Path key={i} d={`M${i * 20 + 10} 0 L${i * 20 + 10} 140`} stroke="#000" strokeOpacity={0.35} />)}
-        <Rect x={60} y={140} width={280} height={14} fill="#140A06" stroke={deco.brass} strokeWidth={1} />
-        {/* upright bass, piano and drums in silhouette */}
-        <Path d="M120 140 Q108 116 116 96 Q112 80 120 70 L122 50 L126 50 L126 70 Q134 80 130 96 Q138 116 126 140 Z" fill="#2A1608" />
-        <Path d="M180 140 L180 108 L260 108 L270 140 Z" fill="#0E0806" stroke={deco.brass} strokeOpacity={0.4} />
-        <Rect x={186} y={112} width={70} height={4} fill="#F2E8D2" opacity={0.6} />
-        <Ellipse cx={300} cy={130} rx={18} ry={8} fill="#1A0E08" stroke={deco.brass} strokeOpacity={0.5} />
-        <Ellipse cx={320} cy={112} rx={12} ry={3} fill={deco.brass} opacity={0.6} />
-        <Path d="M60 154 L0 200 M340 154 L400 200" stroke={deco.brass} strokeOpacity={0.3} />
-      </Svg>
-      <Animated.View pointerEvents="none" style={[{position: 'absolute', inset: 0}, st]}>
-        <Svg width={W} height={H} viewBox="0 0 400 200">
-          <Defs><LinearGradient id="jz-c" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#FFE6B0" stopOpacity={0.55} /><Stop offset="1" stopColor="#FFE6B0" stopOpacity={0} /></LinearGradient></Defs>
-          <Path d="M188 0 L212 0 L300 150 L100 150 Z" fill="url(#jz-c)" />
-          <Path d="M192 0 L208 0 L204 10 L196 10 Z" fill={deco.brassHighlight} />
-        </Svg>
-      </Animated.View>
-    </View>
-  );
-}
-
-export function JazzClub({side}: {side: Side}) {
-  const acc = track[side].acc;
-  const [sessions, setSessions] = useState<Session[] | null>(null);
-  const [audio, setAudio] = useState<string>('not_connected');
-  const [joined, setJoined] = useState(false);
-  const [tip, setTip] = useState('$10');
-  const [tipped, setTipped] = useState(false);
-  useEffect(() => {
-    api<{sessions?: Session[]; audioProvider?: string}>('/api/jazz-club/program').then((r) => {
-      if (r.ok) { setSessions(r.body.sessions ?? []); setAudio(r.body.audioProvider ?? 'not_connected'); } else setSessions([]);
-    });
-  }, []);
-  const liveNow = !!sessions?.some((x) => x.state === 'live');
-  const rows: Array<[string, string, string]> = sessions && sessions.length
-    ? sessions.slice(0, 4).map((x) => [new Date(x.starts_at).toLocaleTimeString([], {hour: 'numeric', minute: '2-digit'}).toUpperCase(), x.title + (x.performers ? ` · ${x.performers}` : ''), x.state.toUpperCase()])
-    : SAMPLE_SETS;
-  return (
-    <View style={{gap: 12}}>
-      <Stage live={liveNow} />
-      <Text style={{fontFamily: fonts.script, fontSize: 19, color: deco.cream, textAlign: 'center'}}>One lamp, one trio. The stage wakes only when the room genuinely starts.</Text>
-      <SectionHead>TONIGHT’S PROGRAMME{sessions && sessions.length ? '' : ' · SAMPLE'}</SectionHead>
-      {rows.map(([t, title, state]) => (
-        <View key={t + title} style={{flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.2)'}}>
-          <Text style={{width: 70, fontFamily: fonts.mono, fontSize: 10, color: deco.brassHighlight}}>{t}</Text>
-          <Text style={[s.body, {flex: 1}]}>{title}</Text>
-          <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 1, color: state === 'LIVE' ? '#7AF5B8' : deco.brass}}>{state}</Text>
-        </View>
-      ))}
-      <ActionBar color={joined ? deco.brass : acc} disabled={audio !== 'configured' && !__DEV__}
-        label={audio !== 'configured' ? 'AUDIO PROVIDER NOT CONNECTED YET' : joined ? 'IN THE ROOM · LEAVE' : 'JOIN TONIGHT’S ROOM'} onPress={() => setJoined((j) => !j)} />
-      <View style={{padding: 12, gap: 8, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)'}}>
-        <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>THE TIP RAIL</Text>
-        <Chips options={['$5', '$10', '$20', '$50']} value={tip} onChange={(v) => { setTip(v); setTipped(false); }} />
-        <ActionBar color={tipped ? deco.brass : deco.brassHighlight} label={tipped ? `TIP PREVIEW · ${tip} · NOT CHARGED` : `TIP THE TRIO · ${tip}`} onPress={() => setTipped((x) => !x)} />
-        <Text style={s.small}>Tips go to the musicians through our payment partner, less its fee. Finesse never holds the money.</Text>
-      </View>
-      <SampleNote>LIVE AUDIO, CAPTIONS AND REPLAYS OPEN WHEN THE AUDIO PROVIDER AND MUSIC LICENSING ARE IN PLACE</SampleNote>
     </View>
   );
 }
