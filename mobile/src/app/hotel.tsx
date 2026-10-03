@@ -25,6 +25,8 @@ import {Depart} from '@/components/rooms/Depart';
 import {Entourage} from '@/components/rooms/Entourage';
 import {Scale, Exchange, Embassy} from '@/components/rooms/Market';
 import {Bag, Registry, Lab, Switchboard} from '@/components/rooms/Social';
+import {NightVision, GameRoom, PerDiem} from '@/components/rooms/Lifestyle';
+import {Profile} from '@/components/rooms/Penthouse';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -61,7 +63,7 @@ const D_L = [RM('vault', 'Vault', 'lock', 'ORCHESTRATOR'), RM('scale', 'Scale', 
 const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign with provenance and offers.', 'CONSIGN A PIECE'), RM('embassy', 'Embassy', 'building2', 'ARRIVAL', 'Partner offers, fully disclosed.', 'SEE THE OFFERS')];
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard};
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile};
 const RAIL = 58;
 
 export default function HotelScreen() {

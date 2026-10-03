@@ -5,6 +5,7 @@ import {useSharedValue, withDelay, withTiming} from 'react-native-reanimated';
 import {colors, touchTarget} from '@/lib/tokens';
 import {deco, easeCine, fonts} from '@/lib/deco';
 import {LiftScene} from '@/components/lift/LiftScene';
+import {PenthouseFloor} from '@/components/rooms/Penthouse';
 import {supabase} from '@/lib/supabase';
 import {api, liftToken} from '@/lib/api';
 
@@ -108,7 +109,8 @@ export default function PenthouseElevator() {
       </Pressable>
       {phase === 'unlocked' && (
         <View style={styles.arrived}>
-          <Text style={styles.body}>The inner room, Nova after hours and Backstage are open to you. Arriving here is access, not a purchase.</Text>
+          <PenthouseFloor />
+          <Text style={styles.body}>Arriving here is access, not a purchase.</Text>
           <Pressable onPress={close} accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>CLOSE THE LIFT</Text></Pressable>
         </View>
       )}
