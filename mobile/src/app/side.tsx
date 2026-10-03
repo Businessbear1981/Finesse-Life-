@@ -1,14 +1,15 @@
 // 02 · Choose your side of the house — Finesse (her) or Carpe Diem (him), as in the design.
-import {Image, Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, StyleSheet, Text, View} from 'react-native';
 import {useRouter} from 'expo-router';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import Animated, {FadeIn} from 'react-native-reanimated';
 import {deco, fonts, type Side} from '@/lib/deco';
 import {houseSession} from '@/lib/session';
+import {DecoLobby} from '@/components/scenes/DecoLobby';
 
-const PANELS: Record<Side, {img: number; tint: string; eyebrow: string; eyebrowColor: string; name: string; size: number; color: string; line: string; bottom: number}> = {
-  her: {img: require('../../assets/scenes/lobby-finesse.jpg'), tint: '#6B1424', eyebrow: 'HER · FEMININE ENERGY', eyebrowColor: '#FFB8C8', name: 'Finesse', size: 80, color: deco.pink, line: 'Handbags · shoes · beauty · spa', bottom: 22},
-  him: {img: require('../../assets/scenes/lobby-carpe.jpg'), tint: '#3E220C', eyebrow: 'HIM · MASCULINE ENERGY', eyebrowColor: '#FFD2B0', name: 'Carpe Diem', size: 54, color: deco.lamp, line: 'Watches · golf · suits · whiskey', bottom: 36},
+const PANELS: Record<Side, {tint: string; eyebrow: string; eyebrowColor: string; name: string; size: number; color: string; line: string; bottom: number}> = {
+  her: {tint: '#6B1424', eyebrow: 'HER · FEMININE ENERGY', eyebrowColor: '#FFB8C8', name: 'Finesse', size: 80, color: deco.pink, line: 'Handbags · shoes · beauty · spa', bottom: 22},
+  him: {tint: '#3E220C', eyebrow: 'HIM · MASCULINE ENERGY', eyebrowColor: '#FFD2B0', name: 'Carpe Diem', size: 54, color: deco.lamp, line: 'Watches · golf · suits · whiskey', bottom: 36},
 };
 
 export default function ChooseSide() {
@@ -29,7 +30,7 @@ function Panel({side, onPick}: {side: Side; onPick: (s: Side) => void}) {
   const p = PANELS[side];
   return (
     <Pressable style={styles.panel} onPress={() => onPick(side)} accessibilityRole="button" accessibilityLabel={`${p.name}. ${p.line}`}>
-      <Image source={p.img} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <DecoLobby side={side} />
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
         <Defs>
           <LinearGradient id={`t${side}`} x1="0" y1="0" x2="0" y2="1">

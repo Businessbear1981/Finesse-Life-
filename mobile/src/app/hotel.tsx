@@ -1,7 +1,7 @@
 // The hotel: top bar, two brass room rails, the dock with Nova's power button, and the room in the
 // middle — composed after the Finesse design (the "Payload shell"). Rooms without an interior yet say so.
 import {useEffect, useMemo, useState} from 'react';
-import {Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
+import {Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {useRouter} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Animated, {FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
@@ -10,6 +10,7 @@ import {BEZEL_STOPS, conicRing, deco, fonts, track, type Side} from '@/lib/deco'
 import {Icon} from '@/lib/icons';
 import {useSide} from '@/lib/session';
 import {ContentWidth} from '@/lib/layout';
+import {DecoLobby} from '@/components/scenes/DecoLobby';
 import {Lounge} from '@/components/rooms/Lounge';
 import {Concierge} from '@/components/rooms/Concierge';
 import {Vault} from '@/components/rooms/Vault';
@@ -27,6 +28,7 @@ import {Scale, Exchange, Embassy} from '@/components/rooms/Market';
 import {Bag, Registry, Lab, Switchboard} from '@/components/rooms/Social';
 import {NightVision, GameRoom, PerDiem} from '@/components/rooms/Lifestyle';
 import {Profile} from '@/components/rooms/Penthouse';
+import {CarpeDiem, Market, Ballroom, JazzClub} from '@/components/rooms/House';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -63,7 +65,9 @@ const D_L = [RM('vault', 'Vault', 'lock', 'ORCHESTRATOR'), RM('scale', 'Scale', 
 const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign with provenance and offers.', 'CONSIGN A PIECE'), RM('embassy', 'Embassy', 'building2', 'ARRIVAL', 'Partner offers, fully disclosed.', 'SEE THE OFFERS')];
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile};
+// Rooms off the rails, reached from the Lobby directory.
+const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('jazzclub', 'Jazz Club', 'music', 'PUBLIC FLOOR')];
+const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile, 'carpe-diem': CarpeDiem, market: Market, ballroom: Ballroom, jazzclub: JazzClub};
 const RAIL = 58;
 
 export default function HotelScreen() {
@@ -75,7 +79,7 @@ export default function HotelScreen() {
   const {width} = useWindowDimensions();
   const [room, setRoom] = useState('lobby');
   const left = her ? L_HER : L_HIM, right = her ? R_HER : R_HIM;
-  const all = useMemo(() => [...left, ...right, ...D_L, ...D_R, PROFILE, NOVA], [left, right]);
+  const all = useMemo(() => [...left, ...right, ...D_L, ...D_R, PROFILE, NOVA, ...HOUSE], [left, right]);
   const current = all.find((r) => r.id === room) ?? L_HER[0];
   const contentW = width - RAIL * 2 - 24;
   const novaOn = room === 'concierge';
@@ -226,7 +230,7 @@ function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
   return (
     <Animated.View entering={FadeIn.duration(600)}>
       <View style={{height: 220, overflow: 'hidden'}}>
-        <Image source={her ? require('../../assets/scenes/lobby-finesse.jpg') : require('../../assets/scenes/lobby-carpe.jpg')} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <DecoLobby side={side} />
         <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
           <Defs><LinearGradient id="lh" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#0A0406" stopOpacity={0.2} /><Stop offset="0.65" stopColor="#0A0406" stopOpacity={0.6} /><Stop offset="1" stopColor="#0A0406" stopOpacity={1} /></LinearGradient></Defs>
           <Rect width="100%" height="100%" fill="url(#lh)" />
@@ -242,6 +246,16 @@ function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
         <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: '#6B1424'}}>NOVA · TONIGHT</Text>
         <Text style={{fontFamily: fonts.script, fontSize: 15, lineHeight: 20, color: '#1A120C'}}>Ring Nova from the request line and she will draft the evening for your approval.</Text>
       </Animated.View>
+      <Text style={styles.section}>ALSO IN THE HOUSE</Text>
+      <View style={{flexDirection: 'row', gap: 8, marginHorizontal: 12, marginTop: 10}}>
+        {[{id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening', icon: 'sparkles'}, {id: 'jazzclub', label: 'Jazz Club', note: 'Tonight’s room', icon: 'music'}].map((r) => (
+          <Pressable key={r.id} onPress={() => onPick(r.id)} accessibilityRole="button" style={{flex: 1, minHeight: 74, padding: 10, gap: 4, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(20,12,10,0.7)'}}>
+            <Icon name={r.icon} size={18} color={t.acc} />
+            <Text style={{fontFamily: fonts.label, fontSize: 14, color: deco.cream}}>{r.label}</Text>
+            <Text style={{fontFamily: fonts.body, fontSize: 10.5, color: 'rgba(244,232,208,0.6)'}}>{r.note}</Text>
+          </Pressable>
+        ))}
+      </View>
       <Text style={styles.section}>PICK UP WHERE YOU LEFT</Text>
       <View style={{marginHorizontal: 12, marginBottom: 16}}>
         {recent.map((r) => (

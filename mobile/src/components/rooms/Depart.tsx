@@ -24,7 +24,7 @@ const TRIPS: Trip[] = [
 function Foil({children}: {children: React.ReactNode}) {
   return (
     <View style={{borderRadius: 10, overflow: 'hidden'}}>
-      <Svg style={{position: 'absolute', width: '100%', height: '100%'}} preserveAspectRatio="none">
+      <Svg style={{position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'}} preserveAspectRatio="none">
         <Defs><LinearGradient id="foil" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#F6E2A0" /><Stop offset="0.35" stopColor={deco.brass} /><Stop offset="0.55" stopColor="#FFF1C2" /><Stop offset="1" stopColor={deco.brassShadow} /></LinearGradient></Defs>
         <Rect width="100%" height="100%" fill="url(#foil)" />
       </Svg>

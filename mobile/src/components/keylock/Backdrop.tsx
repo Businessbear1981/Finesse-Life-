@@ -3,6 +3,7 @@ import {StyleSheet, useWindowDimensions} from 'react-native';
 import Animated, {useAnimatedStyle, type SharedValue} from 'react-native-reanimated';
 import Svg, {Defs, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {deco} from '@/lib/deco';
+import {DecoLobby} from '@/components/scenes/DecoLobby';
 
 type Props = {centerY: number; arrive: SharedValue<number>; open: SharedValue<number>; drift: SharedValue<number>};
 
@@ -21,8 +22,7 @@ export function Backdrop({centerY, arrive, open, drift}: Props) {
   return (
     <>
       {/* the entrance hall, dimmed — design: entranceBg at 0.62 with contrast lifted */}
-      <Animated.Image source={require('../../../assets/scenes/lobby-finesse.jpg')} resizeMode="cover"
-        style={[StyleSheet.absoluteFill, {width, height}, photo]} />
+      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, photo]}><DecoLobby side="her" /></Animated.View>
       <Animated.View pointerEvents="none" style={[{position: 'absolute', left: width / 2 - span / 2, top: centerY - span / 2, width: span, height: span}, sunStyle]}>
         <Svg width={span} height={span}>
           {rays.map((deg) => (
