@@ -1,7 +1,10 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {Link} from 'expo-router';
-import {AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, TextInput, View} from 'react-native';
+import {AccessibilityInfo, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions} from 'react-native';
+import {useSharedValue, withDelay, withTiming} from 'react-native-reanimated';
 import {colors, touchTarget} from '@/lib/tokens';
+import {deco, easeCine, fonts} from '@/lib/deco';
+import {LiftScene} from '@/components/lift/LiftScene';
 import {supabase} from '@/lib/supabase';
 import {api, liftToken} from '@/lib/api';
 
@@ -17,6 +20,13 @@ export default function PenthouseElevator() {
   const [first, setFirst] = useState('');
   const [msg, setMsg] = useState('A room above the room.');
   const [closedCta, setClosedCta] = useState<string | null>(null);
+  const [reduced, setReduced] = useState(false);
+  // Development builds only: rehearse the lift when the house line is unreachable.
+  const [rehearsal, setRehearsal] = useState(false);
+  const floor = useSharedValue(0);
+  const doors = useSharedValue(0);
+  const {width} = useWindowDimensions();
+  useEffect(() => { AccessibilityInfo.isReduceMotionEnabled().then(setReduced).catch(() => {}); }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({data}) => setSignedIn(Boolean(data.session)));
@@ -27,6 +37,12 @@ export default function PenthouseElevator() {
   const call = useCallback(async () => {
     setPhase('calling'); setCode(''); setFirst(''); setClosedCta(null);
     const r = await api<{state: string; challengeId?: string; mode?: 'verify' | 'enroll'}>('/api/vip-keylock/challenge', {method: 'POST', json: {}});
+    if (__DEV__ && r.status === 0) {
+      setRehearsal(true); setChallengeId(null); setMode('verify');
+      setMsg('Rehearsal — the house line is offline.'); setPhase('ready');
+      setTimeout(() => input.current?.focus(), 80);
+      return;
+    }
     if (r.body.state === 'ready' && r.body.challengeId) {
       setChallengeId(r.body.challengeId);
       setMode(r.body.mode ?? 'verify');
@@ -42,20 +58,24 @@ export default function PenthouseElevator() {
 
   const verify = useCallback(async (digits: string) => {
     setPhase('verifying');
-    const r = await api<{state: string; liftToken?: string; expiresAt?: string; attemptsRemaining?: number}>('/api/vip-keylock/verify', {
-      method: 'POST', json: {challengeId, code: digits, destination: 'penthouse'},
-    });
+    const r = rehearsal && __DEV__
+      ? {body: {state: 'unlocked'} as {state: string; liftToken?: string; attemptsRemaining?: number; message?: string}}
+      : await api<{state: string; liftToken?: string; expiresAt?: string; attemptsRemaining?: number}>('/api/vip-keylock/verify', {
+        method: 'POST', json: {challengeId, code: digits, destination: 'penthouse'},
+      });
     if (r.body.state === 'unlocked') {
       if (r.body.liftToken) await liftToken.save(r.body.liftToken);
       setMsg('The lift remembers you. Penthouse — floor 17.');
-      setPhase('unlocked');
+      floor.value = withTiming(1, {duration: reduced ? 0 : 1300, easing: easeCine});
+      doors.value = withDelay(reduced ? 0 : 1300, withTiming(1, {duration: reduced ? 0 : 1250, easing: easeCine}));
+      setTimeout(() => setPhase('unlocked'), reduced ? 0 : 2700);
       AccessibilityInfo.announceForAccessibility?.('Doors open. Penthouse, floor seventeen.');
       return;
     }
     setMsg(r.body.message ?? 'The mechanism holds.');
     setCode(''); setFirst('');
     setPhase(r.body.state === 'invalid' && (r.body.attemptsRemaining ?? 1) > 0 ? 'ready' : 'closed');
-  }, [challengeId]);
+  }, [challengeId, doors, floor, reduced, rehearsal]);
 
   const onDigits = (v: string) => {
     const clean = v.replace(/\D/g, '').slice(0, 6);
@@ -69,6 +89,8 @@ export default function PenthouseElevator() {
   const close = async () => {
     await api('/api/vip-keylock/lock', {method: 'POST', lift: true});
     await liftToken.clear();
+    doors.value = withTiming(0, {duration: reduced ? 0 : 900, easing: easeCine});
+    floor.value = withDelay(reduced ? 0 : 900, withTiming(0, {duration: reduced ? 0 : 1000, easing: easeCine}));
     setPhase('dormant'); setMsg('A room above the room.');
   };
 
@@ -80,37 +102,23 @@ export default function PenthouseElevator() {
       <Text style={styles.label}>THE PRIVATE LIFT</Text>
       <Text style={styles.title}>Penthouse</Text>
       <Text style={styles.subtitle} accessibilityLiveRegion="polite">{phase === 'verifying' ? 'The motor engages…' : msg}</Text>
-      <View style={styles.canopy}><Text style={styles.canopyText}>◈  {phase === 'unlocked' ? 'FLOOR P' : 'PRIVATE FLOOR'}  ◈</Text></View>
-
-      {phase === 'unlocked' ? (
+      <Pressable onPress={() => input.current?.focus()} accessibilityRole="button" accessibilityLabel="The lift doors. Double tap to enter the cipher." disabled={!showCipher}>
+        <LiftScene width={Math.min(width - 32, 420)} digits={code} masked={mode === 'enroll'} active={showCipher}
+          floor={floor} doors={doors} reduced={reduced} />
+      </Pressable>
+      {phase === 'unlocked' && (
         <View style={styles.arrived}>
-          <Text style={styles.arrivedTitle}>The Penthouse</Text>
           <Text style={styles.body}>The inner room, Nova after hours and Backstage are open to you. Arriving here is access, not a purchase.</Text>
           <Pressable onPress={close} accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>CLOSE THE LIFT</Text></Pressable>
         </View>
-      ) : (
-        <View style={styles.doors} accessibilityElementsHidden={!showCipher}>
-          {[0, 1].map((side) => (
-            <View key={side} style={styles.door}>
-              <Text style={styles.ornament}>◆</Text>
-              <View style={styles.digits}>
-                {digits.slice(side * 3, side * 3 + 3).map((d, i) => (
-                  <View key={i} style={[styles.well, d.trim() && styles.wellFilled]}>
-                    <Text style={styles.digit}>{showCipher ? (d.trim() ? (mode === 'enroll' ? '◆' : d) : '·') : '·'}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ))}
-        </View>
       )}
 
-      {signedIn === false && (
+      {signedIn === false && !rehearsal && (
         <Link href="/sign-in" asChild>
           <Pressable accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>SIGN IN TO CALL THE LIFT</Text></Pressable>
         </Link>
       )}
-      {signedIn && (phase === 'dormant' || phase === 'closed') && (
+      {(signedIn || __DEV__) && (phase === 'dormant' || phase === 'closed') && (
         <Pressable onPress={call} accessibilityRole="button" accessibilityLabel="Call the Penthouse elevator" style={styles.button}>
           <Text style={styles.buttonText}>{phase === 'closed' ? 'CALL AGAIN' : 'CALL PENTHOUSE'}</Text>
         </Pressable>
@@ -118,17 +126,18 @@ export default function PenthouseElevator() {
       {closedCta && <Text style={styles.notice}>{closedCta}</Text>}
       {(phase === 'ready' || phase === 'confirm') && (
         <TextInput ref={input} value={code} onChangeText={onDigits} keyboardType="number-pad" maxLength={6} secureTextEntry
-          style={styles.input} accessibilityLabel={`VIP cipher, ${code.length} of 6 digits`} placeholder="Six digits" placeholderTextColor={colors.brassShadow} />
+          style={styles.hidden} accessibilityLabel={`VIP cipher, ${code.length} of 6 digits`} />
       )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {backgroundColor: colors.ink, padding: 28, paddingTop: 44, paddingBottom: 90, flexGrow: 1},
-  label: {color: colors.brass, fontSize: 10, letterSpacing: 4, textAlign: 'center'},
-  title: {color: colors.cream, fontFamily: 'serif', fontSize: 46, textAlign: 'center', marginTop: 10},
-  subtitle: {color: colors.brassHighlight, fontSize: 15, textAlign: 'center', marginTop: 6, marginBottom: 22, fontStyle: 'italic'},
+  page: {backgroundColor: deco.ink, padding: 16, paddingTop: 28, paddingBottom: 90, flexGrow: 1},
+  label: {color: colors.brass, fontSize: 10, letterSpacing: 5, textAlign: 'center', fontFamily: fonts.label},
+  title: {color: deco.brassLight, fontFamily: fonts.display, fontSize: 44, textAlign: 'center', marginTop: 8},
+  subtitle: {color: colors.brassHighlight, fontSize: 15, textAlign: 'center', marginTop: 4, marginBottom: 18, fontFamily: fonts.display},
+  hidden: {position: 'absolute', opacity: 0, width: 1, height: 1, left: -10, top: -10},
   canopy: {borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.brass, paddingVertical: 10, marginBottom: 16},
   canopyText: {color: colors.brassHighlight, textAlign: 'center', letterSpacing: 4, fontSize: 11},
   doors: {flexDirection: 'row', minHeight: 360, borderWidth: 1, borderColor: colors.brass, backgroundColor: colors.oxblood},
@@ -138,11 +147,11 @@ const styles = StyleSheet.create({
   well: {width: 34, height: 52, borderWidth: 1, borderColor: colors.brassShadow, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ink},
   wellFilled: {borderColor: colors.brassHighlight},
   digit: {color: colors.brassHighlight, fontSize: 22, fontFamily: 'serif'},
-  arrived: {borderWidth: 1, borderColor: colors.brass, padding: 22, gap: 14, backgroundColor: colors.burgundy},
+  arrived: {marginTop: 18, gap: 4},
   arrivedTitle: {color: colors.cream, fontFamily: 'serif', fontSize: 30},
   body: {color: colors.cream, fontSize: 14, lineHeight: 21},
   button: {minHeight: touchTarget + 10, borderWidth: 1, borderColor: colors.brass, justifyContent: 'center', alignItems: 'center', marginTop: 22},
-  buttonText: {color: colors.brassHighlight, letterSpacing: 3, fontSize: 12},
+  buttonText: {color: colors.brassHighlight, letterSpacing: 4, fontSize: 12, fontFamily: fonts.label},
   input: {minHeight: touchTarget + 8, borderWidth: 1, borderColor: colors.brassShadow, color: colors.cream, paddingHorizontal: 14, marginTop: 18, fontSize: 18, letterSpacing: 8, textAlign: 'center'},
   notice: {color: colors.cream, opacity: 0.75, fontSize: 12, lineHeight: 18, marginTop: 14, textAlign: 'center'},
 });
