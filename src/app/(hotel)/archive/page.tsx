@@ -261,7 +261,6 @@ function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: userId,
           entry_type: entryType,
           title: title.trim(),
           description: description.trim() || null,
