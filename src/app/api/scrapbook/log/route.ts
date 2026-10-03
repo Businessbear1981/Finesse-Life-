@@ -1,10 +1,19 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+import {NextResponse} from 'next/server';
+import {createClient} from '@/lib/supabase/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// POST /api/scrapbook/log — add an entry to the signed-in member's own scrapbook.
+// Security: the owner is taken from the session, never from the request body. This route
+// previously accepted any user_id and wrote with the service role, so anyone could write
+// into another member's scrapbook. It now uses the RLS-scoped client.
+const body = z.object({
+  entry_type: z.string().trim().min(1).max(40),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(4000).nullish(),
+  photo_urls: z.array(z.string().url().max(2048)).max(20).optional(),
+  metadata: z.record(z.string(), z.unknown()).nullish(),
+});
 
 function getSeason(date: Date): string {
   const month = date.getMonth() + 1; // 1-12
@@ -16,37 +25,29 @@ function getSeason(date: Date): string {
 }
 
 export async function POST(req: Request) {
-  try {
-    const { user_id, entry_type, title, description, photo_urls, metadata } = await req.json();
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401});
+  const parsed = await parseBody(req, body);
+  if (parsed.error) return parsed.error;
+  const {entry_type, title, description, photo_urls, metadata} = parsed.data;
 
-    if (!user_id || !entry_type || !title) {
-      return NextResponse.json({ error: 'user_id, entry_type, and title are required' }, { status: 400 });
-    }
-
-    const season = getSeason(new Date());
-
-    const { data, error } = await supabase
-      .from('scrapbook_entries')
-      .insert({
-        user_id,
-        entry_type,
-        title,
-        description: description ?? null,
-        photo_urls: photo_urls ?? [],
-        metadata: metadata ?? null,
-        season,
-      })
-      .select('id, season')
-      .single();
-
-    if (error) {
-      console.error('scrapbook/log insert error:', error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ id: data.id, season: data.season });
-  } catch (err) {
-    console.error('scrapbook/log error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  const {data, error} = await supabase
+    .from('scrapbook_entries')
+    .insert({
+      user_id: user.id,
+      entry_type,
+      title,
+      description: description ?? null,
+      photo_urls: photo_urls ?? [],
+      metadata: metadata ?? null,
+      season: getSeason(new Date()),
+    })
+    .select('id, season')
+    .single();
+  if (error) {
+    console.error('[scrapbook/log] insert failed:', error.message);
+    return NextResponse.json({error: 'Could not save the entry.'}, {status: 500});
   }
+  return NextResponse.json({id: data.id, season: data.season}, {status: 201});
 }
