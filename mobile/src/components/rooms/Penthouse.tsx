@@ -65,8 +65,8 @@ export function PenthouseFloor() {
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(122,245,184,0.45)'}}>
             <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: '#7AF5B8'}} />
             <View style={{flex: 1}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#7AF5B8'}}>ON CALL · 24 / 7 · 3 PROS NEARBY</Text>
-              <Text style={s.small}>Fix anything, day or night. A vetted pro at your door within the hour.</Text>
+              <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#7AF5B8'}}>PREVIEW · SERVICE PARTNER NOT LIVE YET</Text>
+              <Text style={s.small}>Fix anything, day or night — once the service partner is live. The pros below are samples.</Text>
             </View>
           </View>
           <SectionHead>WHAT NEEDS FIXING?</SectionHead>
@@ -90,13 +90,13 @@ export function PenthouseFloor() {
             <Animated.View entering={FadeInDown.duration(300)} style={{flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderWidth: 1, borderColor: deco.brassHighlight}}>
               <Monogram name={P[0]} size={42} />
               <View style={{flex: 1}}>
-                <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#7AF5B8'}}>{when === 'Now' ? 'ON THE WAY' : `BOOKED · ${when.toUpperCase()}`}</Text>
+                <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: '#7AF5B8'}}>{when === 'Now' ? 'PREVIEW · NO ONE DISPATCHED' : `PREVIEW · NOT BOOKED · ${when.toUpperCase()}`}</Text>
                 <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{P[0]}</Text>
                 <Text style={s.small}>{P[1]}</Text>
               </View>
             </Animated.View>
           ) : null}
-          <ActionBar color={sent ? deco.brass : deco.lamp} label={sent ? `SENT · ${J[1].toUpperCase()} · ${when.toUpperCase()}` : `SEND A PRO · ${J[1].toUpperCase()}`} onPress={() => setSent((x) => !x)} />
+          <ActionBar color={sent ? deco.brass : deco.lamp} label={sent ? `PREVIEW · NOT SENT · ${J[1].toUpperCase()}` : `SEND A PRO · ${J[1].toUpperCase()}`} onPress={() => setSent((x) => !x)} />
           <SampleNote>PREVIEW · NO ONE IS DISPATCHED UNTIL THE SERVICE PARTNER IS LIVE · YOU APPROVE ANY QUOTE BEFORE WORK STARTS</SampleNote>
         </Animated.View>
       )}
@@ -164,7 +164,7 @@ export function Profile({side}: {side: Side}) {
         ))}
       </View>
       <Text style={s.small}>Your social score is never shown to you. Hidden fields stay private, including from partners. You can export or delete everything from here once your account is live.</Text>
-      <SampleNote>SAMPLE PORTRAIT · VISIBILITY SAVES TO YOUR PROFILE WHEN SIGNED IN</SampleNote>
+      <SampleNote>SAMPLE PORTRAIT · THESE SWITCHES ARE A PREVIEW AND ARE NOT SAVED YET</SampleNote>
     </View>
   );
 }

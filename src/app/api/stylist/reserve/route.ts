@@ -1,8 +1,12 @@
 // POST { box_id: string }
-// Returns { reserved: true, confirmation: string }
+// No stylist/fulfilment partner is connected yet, so nothing can be reserved.
+// Returns 501 { state: 'preview', message } — callers must not show "reserved".
 export async function POST() {
-  return Response.json({
-    reserved: true,
-    confirmation: "Your box is reserved. We'll notify you when it ships.",
-  });
+  return Response.json(
+    {
+      state: 'preview',
+      message: 'Reservations open when a stylist partner is connected.',
+    },
+    {status: 501},
+  );
 }

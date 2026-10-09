@@ -44,6 +44,7 @@ export async function updateSession(request: NextRequest) {
 
   // Public hotel routes — no login required
   const isPublicRoute = pathname === '/' ||
+    pathname === '/terms' ||
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/perdiem') ||
     pathname.startsWith('/lounge') ||

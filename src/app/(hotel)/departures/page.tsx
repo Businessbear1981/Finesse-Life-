@@ -9,27 +9,26 @@ interface DepartureConnector {
   label: string;
   icon: string;
   color: string;
-  connected: boolean;
   category: "deals" | "flights" | "hotels" | "dining";
   description: string;
   badge?: string;
 }
 
 const CONNECTORS: DepartureConnector[] = [
-  { key: "groupon", label: "Groupon", icon: "🏷", color: "#53A318", connected: false, category: "deals", description: "Local deals, spa packages, experiences, and dining discounts.", badge: "up to 70% off" },
-  { key: "fareharbor", label: "FareHarbor", icon: "⚓", color: "#1E88E5", connected: false, category: "deals", description: "Tours, activities, watersports, and adventure bookings." },
-  { key: "viator", label: "Viator", icon: "🧭", color: "#F35B04", connected: false, category: "deals", description: "Guided experiences and excursions worldwide." },
-  { key: "google_flights", label: "Google Flights", icon: "✈", color: "#4285F4", connected: false, category: "flights", description: "Search and compare flights across every airline.", badge: "best prices" },
-  { key: "kayak", label: "Kayak", icon: "🛶", color: "#FF690F", connected: false, category: "flights", description: "Flight + hotel bundles and price alerts." },
-  { key: "delta", label: "Delta SkyMiles", icon: "♦", color: "#003DA5", connected: false, category: "flights", description: "Book with miles or cash, manage your SkyMiles." },
-  { key: "aa", label: "American Airlines", icon: "★", color: "#C9A961", connected: false, category: "flights", description: "AAdvantage miles, upgrades, and lounge access." },
-  { key: "airbnb", label: "Airbnb", icon: "⌂", color: "#FF5A5F", connected: false, category: "hotels", description: "Unique stays, entire homes, and luxury villas.", badge: "members get 10%" },
-  { key: "marriott", label: "Marriott Bonvoy", icon: "M", color: "#C9A961", connected: false, category: "hotels", description: "Hotel bookings and Bonvoy points redemptions." },
-  { key: "hilton", label: "Hilton Honors", icon: "H", color: "#12214D", connected: false, category: "hotels", description: "Hilton properties with member-exclusive rates." },
-  { key: "opentable", label: "OpenTable", icon: "🍽", color: "#DA3743", connected: false, category: "dining", description: "Restaurant reservations at 55,000+ restaurants." },
-  { key: "resy", label: "Resy", icon: "🥂", color: "#4C84FF", connected: false, category: "dining", description: "Reservations at the hottest restaurants in any city." },
-  { key: "uber_eats", label: "Uber Eats", icon: "🚀", color: "#06C167", connected: false, category: "dining", description: "Food delivery from restaurants near you." },
-  { key: "doordash", label: "DoorDash", icon: "🛵", color: "#FF3008", connected: false, category: "dining", description: "Restaurant delivery with DashPass savings." },
+  { key: "groupon", label: "Groupon", icon: "🏷", color: "#53A318", category: "deals", description: "Local deals, spa packages, experiences, and dining discounts.", badge: "up to 70% off" },
+  { key: "fareharbor", label: "FareHarbor", icon: "⚓", color: "#1E88E5", category: "deals", description: "Tours, activities, watersports, and adventure bookings." },
+  { key: "viator", label: "Viator", icon: "🧭", color: "#F35B04", category: "deals", description: "Guided experiences and excursions worldwide." },
+  { key: "google_flights", label: "Google Flights", icon: "✈", color: "#4285F4", category: "flights", description: "Search and compare flights across every airline.", badge: "best prices" },
+  { key: "kayak", label: "Kayak", icon: "🛶", color: "#FF690F", category: "flights", description: "Flight + hotel bundles and price alerts." },
+  { key: "delta", label: "Delta SkyMiles", icon: "♦", color: "#003DA5", category: "flights", description: "Book with miles or cash, manage your SkyMiles." },
+  { key: "aa", label: "American Airlines", icon: "★", color: "#C9A961", category: "flights", description: "AAdvantage miles, upgrades, and lounge access." },
+  { key: "airbnb", label: "Airbnb", icon: "⌂", color: "#FF5A5F", category: "hotels", description: "Unique stays, entire homes, and luxury villas." },
+  { key: "marriott", label: "Marriott Bonvoy", icon: "M", color: "#C9A961", category: "hotels", description: "Hotel bookings and Bonvoy points redemptions." },
+  { key: "hilton", label: "Hilton Honors", icon: "H", color: "#12214D", category: "hotels", description: "Hilton properties with member-exclusive rates." },
+  { key: "opentable", label: "OpenTable", icon: "🍽", color: "#DA3743", category: "dining", description: "Restaurant reservations at 55,000+ restaurants." },
+  { key: "resy", label: "Resy", icon: "🥂", color: "#4C84FF", category: "dining", description: "Reservations at the hottest restaurants in any city." },
+  { key: "uber_eats", label: "Uber Eats", icon: "🚀", color: "#06C167", category: "dining", description: "Food delivery from restaurants near you." },
+  { key: "doordash", label: "DoorDash", icon: "🛵", color: "#FF3008", category: "dining", description: "Restaurant delivery with DashPass savings." },
 ];
 
 const CATEGORIES: { key: DepartureConnector["category"]; label: string; icon: string; color: string; desc: string }[] = [
@@ -46,26 +45,42 @@ const RECENT_SEARCHES = [
 ];
 
 export default function Departures() {
-  const [connectors, setConnectors] = useState(CONNECTORS);
   const [activeCategory, setActiveCategory] = useState<DepartureConnector["category"] | "all">("all");
   const [itinerary, setItinerary] = useState("");
   const [planning, setPlanning] = useState(false);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [planError, setPlanError] = useState<string | null>(null);
 
-  const toggle = (key: string) => {
-    try {
-      throw new Error("offline");
-    } catch {
-      setConnectors((prev) => prev.map((c) => c.key === key ? { ...c, connected: !c.connected } : c));
-    }
-  };
+  // No travel partner is connected yet — every connector is shown as "coming soon".
+  const filtered = activeCategory === "all" ? CONNECTORS : CONNECTORS.filter((c) => c.category === activeCategory);
 
-  const filtered = activeCategory === "all" ? connectors : connectors.filter((c) => c.category === activeCategory);
-  const connectedCount = connectors.filter((c) => c.connected).length;
-
-  const planTrip = () => {
-    if (!itinerary.trim() || planning) return;
+  // Nova drafts an itinerary. Nothing is searched or booked with any partner.
+  const planTrip = async () => {
+    const request = itinerary.trim();
+    if (!request || planning) return;
     setPlanning(true);
-    setTimeout(() => { setPlanning(false); setItinerary(""); }, 2000);
+    setPlan(null);
+    setPlanError(null);
+    try {
+      const res = await fetch("/api/nova", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `Draft a short trip plan for: ${request}`,
+          system: "You are Nova, the Finesse travel concierge. Draft a concise day-by-day trip plan with neighbourhoods, dining and experience ideas. You cannot search live fares or book anything — never claim to have booked, reserved or held anything, and say prices are rough estimates.",
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { text?: string };
+      if (!res.ok || !data.text) {
+        setPlanError(res.status === 401 ? "Sign in to have Nova draft a plan. Nothing has been booked." : "Nova couldn't be reached just now. Nothing has been booked.");
+        return;
+      }
+      setPlan(data.text);
+    } catch {
+      setPlanError("Nova couldn't be reached just now. Nothing has been booked.");
+    } finally {
+      setPlanning(false);
+    }
   };
 
   return (
@@ -98,17 +113,26 @@ export default function Departures() {
               className="px-5 py-3 font-label text-[9px] tracking-[0.2em] uppercase text-ink bg-brass hover:bg-brass-highlight transition-colors disabled:opacity-20 shrink-0"
             >{planning ? "planning..." : "plan it"}</button>
           </div>
+          {planError && (
+            <p className="font-body text-xs text-cream/50 italic mt-3">{planError}</p>
+          )}
+          {plan && (
+            <div className="mt-4 border-t border-brass/10 pt-4">
+              <p className="font-label text-[8px] tracking-[0.3em] text-brass/40 uppercase mb-2">nova&apos;s draft &middot; nothing is booked</p>
+              <p className="font-body text-sm text-cream/70 leading-relaxed whitespace-pre-line">{plan}</p>
+            </div>
+          )}
         </div>
       </div>
 
       {RECENT_SEARCHES.length > 0 && (
         <div className="max-w-3xl mx-auto px-4 mb-8 relative z-10">
-          <p className="font-label text-[8px] tracking-[0.3em] text-cream/15 uppercase mb-3">recent searches</p>
+          <p className="font-label text-[8px] tracking-[0.3em] text-cream/40 uppercase mb-3">recent searches &middot; sample</p>
           <div className="flex gap-3 flex-wrap">
             {RECENT_SEARCHES.map((s, i) => {
               const cat = CATEGORIES.find((c) => c.key === s.type);
               return (
-                <div key={i} className="flex items-center gap-3 px-3 py-2 border border-cream/6 bg-ink/30 hover:border-cream/15 cursor-pointer transition-all">
+                <div key={i} className="flex items-center gap-3 px-3 py-2 border border-cream/6 bg-ink/30">
                   <span className="text-base">{cat?.icon}</span>
                   <div>
                     <p className="font-display text-sm text-cream/70 tracking-wide">{s.route}</p>
@@ -138,7 +162,7 @@ export default function Departures() {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <span className="font-label text-[8px] tracking-[0.3em] text-cream/20 uppercase">{connectedCount} connected</span>
+          <span className="font-label text-[8px] tracking-[0.3em] text-cream/40 uppercase">sample partners &middot; not connected &mdash; coming soon</span>
           {activeCategory !== "all" && (
             <button onClick={() => setActiveCategory("all")} className="font-label text-[8px] tracking-[0.15em] text-brass/40 hover:text-brass/60 uppercase">show all</button>
           )}
@@ -152,18 +176,12 @@ export default function Departures() {
               const catInfo = CATEGORIES.find((c) => c.key === conn.category);
               return (
                 <motion.div key={conn.key} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.03 }}
-                  onClick={() => toggle(conn.key)}
-                  className={`border cursor-pointer transition-all duration-500 ${
-                    conn.connected ? "border-brass/30 bg-ink/50" : "border-cream/6 bg-ink/30 hover:border-cream/15"
-                  }`}
-                  style={{ boxShadow: conn.connected ? `0 0 20px ${conn.color}15` : "none" }}
+                  className="border border-cream/6 bg-ink/30 transition-all duration-500"
                 >
                   <div className="p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl leading-none transition-all duration-300"
-                        style={{ color: conn.connected ? conn.color : "rgba(244,232,208,0.2)", filter: conn.connected ? `drop-shadow(0 0 5px ${conn.color}60)` : "none" }}
-                      >{conn.icon}</span>
-                      <span className={`w-2 h-2 rounded-full mt-1 ${conn.connected ? "bg-green-500 animate-pulse" : "bg-cream/8"}`} />
+                      <span className="text-2xl leading-none" style={{ color: "rgba(244,232,208,0.2)" }}>{conn.icon}</span>
+                      <span className="w-2 h-2 rounded-full mt-1 bg-cream/8" />
                     </div>
 
                     <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/60">{conn.label}</p>
@@ -177,9 +195,7 @@ export default function Departures() {
                           {catInfo?.label}
                         </span>
                       )}
-                      <span className={`font-label text-[7px] uppercase ${conn.connected ? "text-green-500/50" : "text-cream/15"}`}>
-                        {conn.connected ? "active" : "connect"}
-                      </span>
+                      <span className="font-label text-[7px] uppercase text-cream/25">coming soon</span>
                     </div>
                   </div>
                 </motion.div>

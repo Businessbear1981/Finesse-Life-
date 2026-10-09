@@ -45,6 +45,7 @@ export async function apiUpload<T = Record<string, unknown>>(path: string, file:
 }
 
 export const liftToken = {
+  get: () => secureStorage.getItem(LIFT_KEY),
   save: (t: string) => secureStorage.setItem(LIFT_KEY, t),
   clear: () => secureStorage.removeItem(LIFT_KEY),
 };

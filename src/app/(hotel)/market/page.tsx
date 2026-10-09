@@ -46,21 +46,12 @@ export default function Market() {
   const [listings, setListings] = useState(DEMO_LISTINGS);
   const [category, setCategory] = useState<string>("all");
   const [tab, setTab] = useState<"browse" | "sell" | "saved">("browse");
-  const [sellTitle, setSellTitle] = useState("");
-  const [sellPrice, setSellPrice] = useState("");
-  const [sellPosted, setSellPosted] = useState(false);
 
   const filtered = category === "all" ? listings : listings.filter((l) => l.category === category);
   const savedItems = listings.filter((l) => l.saved);
 
   const toggleSave = (id: string) => {
     setListings((prev) => prev.map((l) => l.id === id ? { ...l, saved: !l.saved } : l));
-  };
-
-  const postListing = () => {
-    if (!sellTitle.trim() || !sellPrice.trim()) return;
-    setSellPosted(true);
-    setTimeout(() => { setSellPosted(false); setSellTitle(""); setSellPrice(""); setTab("browse"); }, 2000);
   };
 
   return (
@@ -91,11 +82,10 @@ export default function Market() {
             <p className="font-mono text-xl text-cream/40">{savedItems.length}</p>
             <p className="font-label text-[8px] tracking-[0.3em] text-cream/20 uppercase mt-1">saved</p>
           </div>
-          <div className="text-center">
-            <p className="font-mono text-xl text-green-500/60">15%</p>
-            <p className="font-label text-[8px] tracking-[0.3em] text-cream/20 uppercase mt-1">cashback</p>
-          </div>
         </div>
+        <p className="mt-4 text-center font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+          Sample listings · real resale lives in The Exchange
+        </p>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 mb-6 relative z-10">
@@ -161,35 +151,17 @@ export default function Market() {
           {tab === "sell" && (
             <motion.div key="sell" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <div className="max-w-lg mx-auto">
-                <div className="border border-brass/15 bg-ink/60 backdrop-blur-sm p-8">
+                <div className="border border-brass/15 bg-ink/60 backdrop-blur-sm p-8 text-center">
                   <h3 className="font-display text-2xl text-brass tracking-wide mb-2">List an Item</h3>
-                  <p className="font-body text-sm text-cream/25 italic mb-6">Sell to other Finesse members. 0% seller fees during beta.</p>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="font-label text-[9px] tracking-[0.3em] text-cream/25 uppercase block mb-2">what are you selling?</label>
-                      <input type="text" value={sellTitle} onChange={(e) => setSellTitle(e.target.value)} placeholder="Tom Ford Oud Wood 50ml"
-                        className="w-full px-4 py-3 bg-ink border border-cream/10 text-cream font-body text-sm placeholder:text-cream/12 focus:border-brass focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-label text-[9px] tracking-[0.3em] text-cream/25 uppercase block mb-2">your price</label>
-                      <input type="text" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="$160"
-                        className="w-full px-4 py-3 bg-ink border border-cream/10 text-cream font-body text-sm placeholder:text-cream/12 focus:border-brass focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-label text-[9px] tracking-[0.3em] text-cream/25 uppercase block mb-2">condition</label>
-                      <div className="flex gap-2">
-                        {["new", "like-new", "good", "fair"].map((c) => (
-                          <button key={c} className="flex-1 py-2 text-[9px] font-label tracking-[0.12em] uppercase text-cream/30 border border-cream/8 hover:border-brass/30 transition-all">{c}</button>
-                        ))}
-                      </div>
-                    </div>
-                    <button onClick={postListing} disabled={!sellTitle.trim() || !sellPrice.trim()}
-                      className="w-full py-3 mt-2 font-label text-[10px] tracking-[0.3em] uppercase text-ink bg-brass hover:bg-brass-highlight transition-colors disabled:opacity-20"
-                    >{sellPosted ? "listed ✓" : "list item"}</button>
-                  </div>
+                  <p className="font-body text-sm text-cream/40 italic mb-6">
+                    Listings are posted through The Exchange, where they&apos;re saved and shown to other members.
+                  </p>
+                  <Link
+                    href="/exchange"
+                    className="inline-block w-full py-3 mt-2 font-label text-[10px] tracking-[0.3em] uppercase text-ink bg-brass hover:bg-brass-highlight transition-colors"
+                  >
+                    list on the exchange
+                  </Link>
                 </div>
               </div>
             </motion.div>
@@ -197,6 +169,9 @@ export default function Market() {
 
           {tab === "saved" && (
             <motion.div key="saved" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <p className="mb-4 text-center font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+                Sample · saves on this page aren&apos;t kept
+              </p>
               {savedItems.length === 0 ? (
                 <p className="text-center font-body text-sm text-cream/15 italic py-12">no saved items yet. browse and tap the star.</p>
               ) : (

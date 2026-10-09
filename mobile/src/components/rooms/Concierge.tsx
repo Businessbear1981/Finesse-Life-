@@ -8,7 +8,7 @@ import {deco, fonts} from '@/lib/deco';
 import {Panel, plateText} from '@/components/plate/RoomPlate';
 import {btn, btnText} from './Lounge';
 
-type Docket = {id: number; ask: string; reply: string; at: string};
+type Docket = {id: number; ask: string; reply: string; at: string; failed: boolean};
 
 /** Walnut reception desk beneath a single pool of light, with the service bell. */
 function DeskScene() {
@@ -50,9 +50,14 @@ export function Concierge() {
     const prompt = ask.trim();
     if (!prompt || busy) return;
     setBusy(true);
-    const r = await api<{text?: string}>('/api/nova', {method: 'POST', json: {prompt, system: SYSTEM}});
-    const reply = r.ok && r.body.text ? r.body.text : r.status === 0 ? 'The house line is offline. Your request is kept here; ask again when we are connected.' : 'Nova is with another member. Please try again in a moment.';
-    setDockets((d) => [{id: Date.now(), ask: prompt, reply, at: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}, ...d]);
+    const r = await api<{text?: string; error?: string}>('/api/nova', {method: 'POST', json: {prompt, system: SYSTEM}});
+    // Only a 2xx with text is Nova's reply. A 502/503 carries {error, text} where text explains Nova is
+    // unreachable — shown as an error, never as if she had answered.
+    const failed = !(r.ok && r.body.text);
+    const reply = !failed ? r.body.text! : r.status === 0 ? 'The house line is offline. Nothing was sent; ask again when we are connected.'
+      : r.status === 401 ? 'Sign in to ring for Nova. Nothing was sent.'
+      : r.body.text ?? 'Nova could not be reached. Nothing was arranged; please try again in a moment.';
+    setDockets((d) => [{id: Date.now(), ask: prompt, reply, failed, at: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}, ...d]);
     setAsk(''); setBusy(false);
   };
   return (
@@ -68,10 +73,10 @@ export function Concierge() {
       </Panel>
       {dockets.map((d) => (
         <Animated.View key={d.id} entering={FadeInDown.duration(500)}>
-          <Panel title={`DOCKET · ${d.at}`}>
+          <Panel title={d.failed ? `NOT DELIVERED · ${d.at}` : `DOCKET · ${d.at}`}>
             <Text style={[plateText.small, {fontStyle: 'italic'}]}>“{d.ask}”</Text>
             <View style={{height: 1, backgroundColor: 'rgba(201,169,97,0.3)'}} />
-            <Text style={plateText.body}>{d.reply}</Text>
+            <Text style={[plateText.body, d.failed && {color: '#FF8FA9'}]} accessibilityLiveRegion={d.failed ? 'polite' : undefined}>{d.failed ? `⚠ ${d.reply}` : d.reply}</Text>
           </Panel>
         </Animated.View>
       ))}

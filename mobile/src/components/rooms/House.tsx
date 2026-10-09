@@ -235,7 +235,7 @@ export function Ballroom({side}: {side: Side}) {
           })}
         </View>
       </GoldFrame>
-      <ActionBar color={stage === 2 ? deco.brass : acc} label={stage === 0 ? 'REQUEST THE HOLDS' : stage === 1 ? 'CONFIRM THE EVENING' : 'CONFIRMED · IN YOUR DIARY'} onPress={() => setStage((x) => (x + 1) % 3)} />
+      <ActionBar color={stage === 2 ? deco.brass : acc} label={stage === 0 ? 'REQUEST THE HOLDS' : stage === 1 ? 'CONFIRM THE EVENING' : 'PREVIEW · NOT BOOKED OR SAVED'} onPress={() => setStage((x) => (x + 1) % 3)} />
       <SampleNote>{`PREVIEW · CURRENT STAGE: ${st} · HOLDS ARE REQUESTS TO VENUES · NOTHING IS PAID UNTIL YOU CONFIRM WITH EACH PARTNER`}</SampleNote>
     </View>
   );

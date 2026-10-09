@@ -184,6 +184,52 @@ export default function SalonPage() {
   const [isMasc, setIsMasc] = useState(false);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
+  // Booking request — POST /api/salon/bookings records a *pending request*.
+  // No salon partner confirms it yet, so the UI never says "booked".
+  const [bookOpen, setBookOpen] = useState(false);
+  const [bookService, setBookService] = useState('');
+  const [bookDate, setBookDate] = useState('');
+  const [bookTime, setBookTime] = useState('');
+  const [bookNotes, setBookNotes] = useState('');
+  const [bookSending, setBookSending] = useState(false);
+  const [bookResult, setBookResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  async function submitBooking() {
+    if (!bookService.trim() || !bookDate || !bookTime || bookSending) return;
+    setBookSending(true);
+    setBookResult(null);
+    try {
+      const res = await fetch('/api/salon/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_name: bookService.trim(),
+          requested_date: bookDate,
+          requested_time: bookTime,
+          notes: bookNotes.trim() || undefined,
+          category: isMasc ? 'grooming' : 'beauty',
+          edition: isMasc ? 'carpe_diem' : 'finesse',
+        }),
+      });
+      if (res.ok) {
+        setBookResult({ ok: true, message: 'Request saved as pending. No salon has confirmed it yet — nothing is booked until they do.' });
+        setBookService('');
+        setBookDate('');
+        setBookTime('');
+        setBookNotes('');
+      } else {
+        setBookResult({
+          ok: false,
+          message: res.status === 401 ? 'Sign in to send a booking request. Nothing was saved.' : "Your request couldn't be saved. Nothing was booked — try again.",
+        });
+      }
+    } catch {
+      setBookResult({ ok: false, message: "Your request couldn't be saved. Nothing was booked — try again." });
+    } finally {
+      setBookSending(false);
+    }
+  }
+
   useEffect(() => {
     setIsMasc(localStorage.getItem('finesse_gender') === 'masculine');
   }, []);
@@ -252,6 +298,10 @@ export default function SalonPage() {
       </div>
 
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '0 16px', position: 'relative', zIndex: 10 }}>
+
+        <p className="mt-5 text-center font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+          Below · sample appointments, products and venues
+        </p>
 
         {/* Stats row */}
         <motion.div
@@ -393,7 +443,7 @@ export default function SalonPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
                     <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
                     <span className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.4em', color: 'rgba(201,169,97,0.3)' }}>
-                      Your Products
+                      Your Products · sample
                     </span>
                     <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
                   </div>
@@ -434,7 +484,7 @@ export default function SalonPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
                     <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
                     <span className="font-label uppercase" style={{ fontSize: '0.55rem', letterSpacing: '0.4em', color: 'rgba(201,169,97,0.3)' }}>
-                      Trending in Your City
+                      Trending in Your City · sample
                     </span>
                     <div style={{ flex: 1, height: '1px', background: 'rgba(201,169,97,0.12)' }} />
                   </div>
@@ -572,12 +622,65 @@ export default function SalonPage() {
           backdropFilter: 'blur(12px)',
           zIndex: 50,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
+        {bookOpen && (
+          <div style={{ width: '100%', maxWidth: '360px', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <p className="font-label uppercase" style={{ fontSize: '0.5rem', letterSpacing: '0.3em', color: 'rgba(244,232,208,0.35)' }}>
+              Booking request · pending until a salon confirms
+            </p>
+            <input
+              type="text"
+              value={bookService}
+              onChange={e => setBookService(e.target.value)}
+              placeholder={isMasc ? 'Haircut + lineup' : 'Full colour, facial, lashes…'}
+              className="font-body"
+              style={{ padding: '10px 12px', background: '#0A0406', border: '1px solid rgba(244,232,208,0.12)', color: 'rgba(244,232,208,0.85)', fontSize: '0.8rem', outline: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="date"
+                value={bookDate}
+                onChange={e => setBookDate(e.target.value)}
+                className="font-body"
+                style={{ flex: 1, minWidth: 0, padding: '10px 12px', background: '#0A0406', border: '1px solid rgba(244,232,208,0.12)', color: 'rgba(244,232,208,0.85)', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+              />
+              <input
+                type="time"
+                value={bookTime}
+                onChange={e => setBookTime(e.target.value)}
+                className="font-body"
+                style={{ flex: 1, minWidth: 0, padding: '10px 12px', background: '#0A0406', border: '1px solid rgba(244,232,208,0.12)', color: 'rgba(244,232,208,0.85)', fontSize: '0.8rem', outline: 'none', colorScheme: 'dark' }}
+              />
+            </div>
+            <input
+              type="text"
+              value={bookNotes}
+              onChange={e => setBookNotes(e.target.value)}
+              placeholder="Notes (optional)"
+              className="font-body"
+              style={{ padding: '10px 12px', background: '#0A0406', border: '1px solid rgba(244,232,208,0.12)', color: 'rgba(244,232,208,0.85)', fontSize: '0.8rem', outline: 'none' }}
+            />
+          </div>
+        )}
+        {bookResult && (
+          <p
+            className="font-body italic"
+            style={{ width: '100%', maxWidth: '360px', fontSize: '0.72rem', lineHeight: 1.5, marginBottom: '10px', color: bookResult.ok ? 'rgba(244,232,208,0.6)' : `${accent}CC` }}
+          >
+            {bookResult.message}
+          </p>
+        )}
         <button
-          className="font-label uppercase"
+          onClick={() => {
+            if (!bookOpen) { setBookOpen(true); setBookResult(null); return; }
+            void submitBooking();
+          }}
+          disabled={bookOpen && (bookSending || !bookService.trim() || !bookDate || !bookTime)}
+          className="font-label uppercase disabled:opacity-40 disabled:cursor-not-allowed"
           style={{
             padding: '14px 40px',
             background: accent,
@@ -587,14 +690,23 @@ export default function SalonPage() {
             letterSpacing: '0.3em',
             cursor: 'pointer',
             transition: 'opacity 0.2s',
-            flex: 1,
+            width: '100%',
             maxWidth: '360px',
           }}
-          onMouseEnter={e => (e.currentTarget.style.opacity = '0.88')}
-          onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
         >
-          {isMasc ? 'Book Grooming' : 'Book Next Appointment'}
+          {bookOpen
+            ? (bookSending ? 'Sending request…' : 'Send Request')
+            : (isMasc ? 'Request Grooming' : 'Request Next Appointment')}
         </button>
+        {bookOpen && (
+          <button
+            onClick={() => { setBookOpen(false); setBookResult(null); }}
+            className="font-body"
+            style={{ marginTop: '8px', background: 'none', border: 'none', fontSize: '0.72rem', color: 'rgba(244,232,208,0.3)', cursor: 'pointer' }}
+          >
+            close
+          </button>
+        )}
       </div>
     </motion.div>
   );

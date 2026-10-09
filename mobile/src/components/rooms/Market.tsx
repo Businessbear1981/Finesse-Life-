@@ -84,7 +84,7 @@ export function Exchange() {
           </View>
         </View>
       ))}
-      <SectionHead>OFFERS · {accepted != null ? 'ACCEPTED' : `${OFFERS.length} OPEN`}</SectionHead>
+      <SectionHead>OFFERS · {accepted != null ? 'PREVIEW PICK' : `${OFFERS.length} OPEN`}</SectionHead>
       {OFFERS.map(([amt, from, exp], i) => {
         const me = accepted === i;
         return (
@@ -96,7 +96,7 @@ export function Exchange() {
             <Text style={{fontFamily: fonts.body, fontSize: 12, color: '#3A2A1A'}}>from {from}</Text>
             <Pressable onPress={() => setAccepted(me ? null : i)} accessibilityRole="button"
               style={{minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#1A120C', backgroundColor: me ? '#1A120C' : 'transparent'}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: me ? '#F2E8D2' : '#1A120C'}}>{me ? 'ACCEPTED · SHIPPING LABEL NEXT' : 'ACCEPT'}</Text>
+              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: me ? '#F2E8D2' : '#1A120C'}}>{me ? 'PREVIEW · NOT ACCEPTED YET' : 'ACCEPT'}</Text>
             </Pressable>
           </Animated.View>
         );
@@ -144,7 +144,7 @@ export function Embassy({side}: {side: Side}) {
         </GoldFrame>
       </Animated.View>
       <View style={{flexDirection: 'row', gap: 10}}>
-        <View style={{flex: 2}}><ActionBar color={state === 'yes' ? deco.brass : acc} label={state === 'yes' ? 'ACCEPTED · NOVA WILL BOOK' : state === 'no' ? 'DECLINED · RECONSIDER' : 'ACCEPT THE OFFER'} onPress={() => setSt((x) => ({...x, [ei]: state === 'yes' ? undefined : 'yes'}))} /></View>
+        <View style={{flex: 2}}><ActionBar color={state === 'yes' ? deco.brass : acc} label={state === 'yes' ? 'NOTED · PREVIEW, NOTHING BOOKED' : state === 'no' ? 'DECLINED · RECONSIDER' : 'ACCEPT THE OFFER'} onPress={() => setSt((x) => ({...x, [ei]: state === 'yes' ? undefined : 'yes'}))} /></View>
         <Pressable onPress={() => setSt((x) => ({...x, [ei]: 'no'}))} accessibilityRole="button" style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass}}>
           <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: deco.brassHighlight}}>DECLINE</Text>
         </Pressable>

@@ -45,14 +45,37 @@ function Train({side}: {side: Side}) {
   }, [running]);
   const [name, sets] = LIFTS[li % LIFTS.length];
   const mine = done[li % LIFTS.length] ?? [];
+  // Server ids of logged sets, keyed by `${lift}:${set}`. A tick POSTs once; an untick DELETEs the row,
+  // so re-ticking never duplicates. While a POST is in flight the latest wish (keep / drop) is recorded
+  // and applied when it returns.
+  const logged = useRef<Record<string, {id?: string; inFlight?: boolean; want: boolean}>>({});
+  const sync = async (key: string, payload: {exercise: string; weightKg: number; reps: number; restS: number}) => {
+    const e = logged.current[key];
+    if (!e || e.inFlight) return;
+    if (e.want && !e.id) {
+      e.inFlight = true;
+      const r = await api<{set?: {id: string}}>('/api/gym/sets', {method: 'POST', json: payload}); // stays local if signed out
+      e.inFlight = false;
+      if (r.ok && r.body.set?.id) e.id = r.body.set.id;
+      if (!e.want && e.id) void sync(key, payload);
+    } else if (!e.want && e.id) {
+      const id = e.id;
+      e.inFlight = true;
+      const r = await api(`/api/gym/sets?id=${encodeURIComponent(id)}`, {method: 'DELETE'});
+      e.inFlight = false;
+      if (r.ok || r.status === 404) e.id = undefined;
+      if (e.want && !e.id) void sync(key, payload);
+    }
+  };
   const toggle = (i: number) => {
     const on = mine.includes(i);
-    setDone((d) => ({...d, [li % LIFTS.length]: on ? mine.filter((x) => x !== i) : [...mine, i]}));
-    if (!on) {
-      setRest(90); setRunning(true);
-      const [kg, reps] = sets[i];
-      void api('/api/gym/sets', {method: 'POST', json: {exercise: name, weightKg: kg, reps, restS: 90}}); // stays local if signed out
-    }
+    const lift = li % LIFTS.length;
+    setDone((d) => ({...d, [lift]: on ? mine.filter((x) => x !== i) : [...mine, i]}));
+    if (!on) { setRest(90); setRunning(true); }
+    const key = `${lift}:${i}`;
+    const [kg, reps] = sets[i];
+    logged.current[key] = {...(logged.current[key] ?? {}), want: !on};
+    void sync(key, {exercise: name, weightKg: kg, reps, restS: 90});
   };
   const pct = rest / 90;
   return (

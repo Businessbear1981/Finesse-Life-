@@ -271,7 +271,7 @@ export function Kitchen({side}: {side: Side}) {
                 ))}
               </View>
               <ActionBar disabled={!(chef && slot)} color={chefReq ? deco.brass : chef && slot ? acc : 'rgba(201,169,97,0.35)'}
-                label={chefReq ? 'REQUEST SENT · CONFIRMS IN 1 HR' : chef && slot ? `REQUEST ${slot} · ${fmt}` : 'PICK A CHEF AND A TIME'} onPress={() => setChefReq((x) => !x)} />
+                label={chefReq ? 'PREVIEW · NOT SENT · CHEF DESK NOT LIVE' : chef && slot ? `REQUEST ${slot} · ${fmt}` : 'PICK A CHEF AND A TIME'} onPress={() => setChefReq((x) => !x)} />
             </View>
           )}
         </Animated.View>

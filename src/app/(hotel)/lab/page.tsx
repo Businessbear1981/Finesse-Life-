@@ -8,49 +8,47 @@ const TOOLS = [
   {
     id: 'voice',
     name: 'Voice Studio',
-    sub: 'ElevenLabs · text to speech',
+    sub: 'Text to speech',
     icon: '🎙',
     placeholder: 'Type what you want Nova to say...',
-    apiRoute: '/api/elevenlabs/generate',
     outputType: 'audio',
   },
   {
     id: 'video',
     name: 'Video Studio',
-    sub: 'Higgsfield · text to video',
+    sub: 'Text to video',
     icon: '▶',
     placeholder: 'Describe your cinematic shot...',
-    apiRoute: '/api/higgsfield/video',
     outputType: 'video',
   },
   {
     id: 'image',
     name: 'Image Studio',
-    sub: 'Higgsfield · text to image',
+    sub: 'Text to image',
     icon: '◈',
     placeholder: 'Describe the image you see...',
-    apiRoute: '/api/higgsfield/image',
     outputType: 'image',
   },
   {
     id: '3d',
     name: '3D Studio',
-    sub: 'Meshy · text to 3D',
+    sub: 'Text to 3D',
     icon: '△',
     placeholder: 'Describe your 3D object...',
-    apiRoute: '/api/meshy/generate',
     outputType: '3d',
   },
   {
     id: 'music',
     name: 'Music Studio',
-    sub: 'Suno · text to music',
+    sub: 'Text to music',
     icon: '♫',
     placeholder: 'Describe the vibe, genre, or lyrics...',
-    apiRoute: '/api/suno/generate',
     outputType: 'audio',
   },
 ] as const;
+
+// No media-generation provider is connected yet, so every studio is shown as
+// "opens soon" and nothing is sent anywhere.
 
 type Tool = (typeof TOOLS)[number];
 
@@ -67,8 +65,6 @@ export default function Lab() {
   const [activeTool, setActiveTool] = useState<Tool | null>(null);
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [output, setOutput] = useState<string | null>(null);
 
   useEffect(() => {
     const g = localStorage.getItem('finesse_gender');
@@ -81,37 +77,12 @@ export default function Lab() {
     setActiveTool(tool);
     setPrompt('');
     setSelectedStyle('');
-    setOutput(null);
   };
 
   const closeTool = () => {
     setActiveTool(null);
     setPrompt('');
     setSelectedStyle('');
-    setOutput(null);
-    setGenerating(false);
-  };
-
-  const generate = async () => {
-    if (!activeTool || !prompt.trim() || generating) return;
-    setGenerating(true);
-    setOutput(null);
-    try {
-      const res = await fetch(activeTool.apiRoute, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, style: selectedStyle }),
-      });
-      if (res.ok) {
-        const data = await res.json() as { url?: string; text?: string; audio_url?: string };
-        setOutput(data.url ?? data.audio_url ?? data.text ?? null);
-      } else {
-        setOutput('coming_soon');
-      }
-    } catch {
-      setOutput('coming_soon');
-    }
-    setGenerating(false);
   };
 
   const styles: string[] = activeTool ? (STYLE_OPTIONS[activeTool.id] ?? []) : [];
@@ -149,6 +120,9 @@ export default function Lab() {
             style={{ fontFamily: '"Cinzel", serif', color: 'rgba(244,232,208,0.25)' }}
           >
             create. generate. drop.
+          </p>
+          <p className="mt-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+            Studios open soon · preview only
           </p>
         </motion.div>
       </header>
@@ -204,6 +178,12 @@ export default function Lab() {
                         style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.4)' }}
                       >
                         {tool.sub}
+                      </span>
+                      <span
+                        className="text-[8px] tracking-[0.25em] uppercase"
+                        style={{ fontFamily: '"Cinzel", serif', color: 'rgba(244,232,208,0.3)' }}
+                      >
+                        opens soon
                       </span>
                     </motion.button>
                   );
@@ -292,71 +272,38 @@ export default function Lab() {
                 </div>
               )}
 
-              {/* Generate button */}
+              {/* Generate — disabled until a provider is connected */}
               <button
-                onClick={generate}
-                disabled={!prompt.trim() || generating}
+                disabled
+                aria-disabled="true"
                 className="w-full py-3 text-[11px] tracking-[0.35em] uppercase transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{
                   fontFamily: '"Cinzel", serif',
-                  background: generating ? 'transparent' : accent,
-                  color: generating ? accent : '#0A0406',
+                  background: accent,
+                  color: '#0A0406',
                   border: `1px solid ${accent}`,
                 }}
               >
-                {generating ? (
-                  <span className="animate-pulse">calibrating...</span>
-                ) : (
-                  'Generate'
-                )}
+                Studio opens soon
               </button>
 
-              {/* Output */}
-              <AnimatePresence>
-                {output && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -12 }}
-                    transition={{ duration: 0.3 }}
-                    className="mt-6"
-                  >
-                    {output === 'coming_soon' ? (
-                      <div
-                        className="text-center py-10 border"
-                        style={{ borderColor: 'rgba(201,169,97,0.15)', background: 'rgba(201,169,97,0.03)' }}
-                      >
-                        <p
-                          className="text-sm italic mb-2"
-                          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.5)' }}
-                        >
-                          Your {activeTool.name} is being calibrated.
-                        </p>
-                        <p
-                          className="text-xs"
-                          style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.25)' }}
-                        >
-                          Check back soon.
-                        </p>
-                      </div>
-                    ) : activeTool.outputType === 'image' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={output} alt="Generated" className="w-full rounded-none" />
-                    ) : activeTool.outputType === 'video' ? (
-                      <video src={output} controls className="w-full" />
-                    ) : activeTool.outputType === 'audio' ? (
-                      <audio src={output} controls className="w-full" />
-                    ) : (
-                      <p
-                        className="text-sm italic text-center"
-                        style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.5)' }}
-                      >
-                        {output}
-                      </p>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <div
+                className="mt-6 text-center py-8 border"
+                style={{ borderColor: 'rgba(201,169,97,0.15)', background: 'rgba(201,169,97,0.03)' }}
+              >
+                <p
+                  className="text-sm italic mb-2"
+                  style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.5)' }}
+                >
+                  The {activeTool.name} isn&apos;t open yet.
+                </p>
+                <p
+                  className="text-xs"
+                  style={{ fontFamily: '"Cormorant Garamond", Georgia, serif', color: 'rgba(244,232,208,0.25)' }}
+                >
+                  Nothing is generated or sent from here until a studio partner is connected.
+                </p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -4,6 +4,8 @@
 > **Method:** read-only, file-by-file audit of every web page and every mobile screen. Confidence: `verified` against source on that commit; nothing here was checked against the live site or database.
 > **Companion:** [`BACKEND_MAP.md`](BACKEND_MAP.md) covers every `/api/*` route, the schema, auth and env vars.
 
+> **Update 2026-10-09 (same day, `sean/backend-security-floor`, second commit):** most problems flagged below are now fixed — the tables describe the audited state. Fixed: fake-success fallbacks (Nova 503 instead of "Consider it handled", Stylist mock analysis + always-reserved, Vault "DEMO MEMBER"/VIP fallback, NightVision/Departures fake "connected", Switchboard un-reverted toggles, Exchange `local_` success), Lab no longer calls missing routes, Entourage uses real columns, unlabelled sample content labelled (Lobby, Salon, Clubhouse, Per Diem, Market, Embassy), Salon Book wired to `/api/salon/bookings`, unsettled "12% cashback" copy removed, `/demo` credentials moved to server env, new `/terms`, `/subscribe`, `/vip/link-telegram`, server-side VIP gates on `/vault` and `/backstage`, VIP feed insert restricted to VIPs (migration §8). Mobile: store config (bundle id `vip.finesselife.app`, `eas.json`, opaque icons, phone-only), hooks-order bug, side persisted, preview-mode entrance refused in release builds, lift 401 → sign-in, stale lift tokens cleared, honest copy on sample rooms, "ROOM ON" only for live rooms, Gym untick deletes, Nova errors shown as errors, Sign out.
+
 Truth states used below: **live** = real server data/action · **preview** = action exists but no provider, disclosed · **sample** = hard-coded content · **gated** = needs a server entitlement · **broken** = calls something that doesn't exist or fails.
 
 ---

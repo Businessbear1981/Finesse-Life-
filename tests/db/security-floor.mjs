@@ -69,6 +69,9 @@ create policy "staff_only" on public.embassy_deals for all using (auth.uid() is 
 create table public.vip_codes (id uuid primary key default gen_random_uuid(), code text unique not null, used_by uuid, used_at timestamptz,
   expires_at timestamptz, max_uses int not null default 1, use_count int not null default 0, is_active boolean not null default true);
 alter table public.vip_codes enable row level security;
+create table public.vip_posts (id uuid primary key default gen_random_uuid(), author_id uuid not null, content text);
+alter table public.vip_posts enable row level security;
+create policy "vip_posts_own_write" on public.vip_posts using (auth.uid() = author_id) with check (auth.uid() = author_id);
 `);
 
 await db.exec(fs.readFileSync(`${REPO}/supabase/migrations/20261003_scale_pledge_states.sql`, 'utf8'));
@@ -171,6 +174,14 @@ r = await as('service_role', null, () => exec(`select * from public.redeem_vip_c
 check('lifetime VIP stays lifetime', r.r?.rows[0].result_status === 'granted' && (await one(`select vip_expires_at from public.profiles where id='${C}'`)).vip_expires_at === null, r.error);
 r = await as('service_role', null, () => exec(`select * from public.redeem_vip_code('NOPE', '${B}', 12)`));
 check('unknown code is invalid', r.r?.rows[0].result_status === 'invalid', r.error);
+
+// 8 — VIP feed (A is VIP after the redemptions above; B is not)
+r = await as('authenticated', B, () => exec(`insert into public.vip_posts (author_id, content) values ('${B}', 'not vip')`));
+check('non-VIP member cannot post to the VIP feed', !!r.error, r.error);
+r = await as('authenticated', A, () => exec(`insert into public.vip_posts (author_id, content) values ('${A}', 'vip')`));
+check('active VIP can post to the VIP feed', !r.error, r.error);
+r = await as('authenticated', A, () => exec(`insert into public.vip_posts (author_id, content) values ('${B}', 'spoof')`));
+check('VIP cannot post as someone else', !!r.error, r.error);
 
 // idempotent re-apply
 try { await db.exec(fs.readFileSync(`${REPO}/supabase/migrations/20261009_security_floor.sql`, "utf8")); r = {}; } catch (e) { r = {error: e.message}; }

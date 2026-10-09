@@ -2,45 +2,64 @@
   "expo": {
     "name": "Finesse Life",
     "slug": "finesse-life",
+    "description": "Finesse Life — a members-only 1920s grand hotel: the house lock, your side of the house, and the rooms.",
     "version": "0.1.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/brand/icon.png",
     "scheme": "finesse",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A0406",
+    "primaryColor": "#C9A961",
     "ios": {
-      "supportsTablet": true
+      "bundleIdentifier": "vip.finesselife.app",
+      "supportsTablet": false,
+      "icon": "./assets/brand/icon.png",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "vip.finesselife.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#080406"
-      }
+        "foregroundImage": "./assets/brand/android-icon-foreground.png",
+        "monochromeImage": "./assets/brand/android-icon-monochrome.png",
+        "backgroundColor": "#0A0406"
+      },
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/brand/favicon.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#17090D",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 88
+          "backgroundColor": "#0A0406",
+          "image": "./assets/brand/splash-icon.png",
+          "imageWidth": 160
         }
       ],
       [
         "expo-audio",
         {
-          "microphonePermission": "Finesse uses the microphone in Starmaker to record your vocals, takes and podcasts. Recordings stay on your device unless you choose to share them."
+          "microphonePermission": "Finesse Life uses the microphone only when you tap record in Starmaker, to capture your vocals, takes and podcast episodes. Recordings stay on this device unless you choose to share them.",
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Finesse lets you choose photos to send to your stylist.",
-          "cameraPermission": "Finesse uses the camera so you can photograph outfits and pieces for your stylist."
+          "photosPermission": "Finesse Life opens your photo library only when you tap From Library in the Stylist, so you can choose outfit photos to send to your stylist. Nothing is uploaded until you consent and tap Send.",
+          "cameraPermission": "Finesse Life uses the camera only when you tap Take a Photo in the Stylist, so you can photograph an outfit or piece for your stylist. Nothing is uploaded until you consent and tap Send.",
+          "microphonePermission": "Finesse Life uses the microphone only when you tap record in Starmaker, to capture your vocals, takes and podcast episodes. Recordings stay on this device unless you choose to share them."
         }
       ],
       "expo-document-picker"

@@ -44,8 +44,8 @@ interface MemberResult {
 /* ─── Demo Data ─── */
 
 const DEMO_PLAN: DatePlan[] = [
-  {id: '1', time: '7:00 PM', activity: 'Black car pickup', venue: 'Your location', cost_cents: 4500, category: 'transport', booked: true},
-  {id: '2', time: '7:45 PM', activity: 'Dinner reservation', venue: 'Uchi — omakase bar', cost_cents: 32000, category: 'dining', booked: true},
+  {id: '1', time: '7:00 PM', activity: 'Black car pickup', venue: 'Your location', cost_cents: 4500, category: 'transport', booked: false},
+  {id: '2', time: '7:45 PM', activity: 'Dinner reservation', venue: 'Uchi — omakase bar', cost_cents: 32000, category: 'dining', booked: false},
   {id: '3', time: '9:30 PM', activity: 'Cocktails', venue: 'Roosevelt Room — speakeasy', cost_cents: 8000, category: 'drinks', booked: false},
   {id: '4', time: '11:00 PM', activity: 'Live music', venue: 'Continental Club', cost_cents: 4000, category: 'entertainment', booked: false},
   {id: '5', time: '12:30 AM', activity: 'Black car home', venue: 'Return trip', cost_cents: 4500, category: 'transport', booked: false},
@@ -119,6 +119,8 @@ export default function PerDiemPage() {
   const [vibe, setVibe] = useState('romantic');
   const [plan, setPlan] = useState<DatePlan[]>(DEMO_PLAN);
   const [generating, setGenerating] = useState(false);
+  const [planIsSample, setPlanIsSample] = useState(true);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   /* verify state */
   const [verifyQuery, setVerifyQuery] = useState('');
@@ -149,6 +151,7 @@ export default function PerDiemPage() {
   /* Bernard AI itinerary generation */
   const generateItinerary = useCallback(async () => {
     setGenerating(true);
+    setPlanError(null);
     try {
       const budgetLabel = budget >= 999999 ? 'unlimited budget' : `$${(budget / 100).toLocaleString()} budget`;
       const res = await fetch('/api/nova', {
@@ -159,26 +162,30 @@ export default function PerDiemPage() {
           system: 'You are Nova, the AI concierge at Finesse — a members-only lifestyle platform for people who live well. Return only raw JSON arrays, never markdown fences or explanations.',
         }),
       });
-      const {text} = await res.json();
-      const jsonMatch = text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed: DatePlan[] = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setPlan(
-            parsed.map((item, i) => ({
-              id: String(i + 1),
-              time: item.time ?? '',
-              activity: item.activity ?? '',
-              venue: item.venue ?? '',
-              cost_cents: typeof item.cost_cents === 'number' ? item.cost_cents : 0,
-              category: item.category ?? 'experience',
-              booked: false,
-            }))
-          );
-        }
+      if (!res.ok) throw new Error('nova unavailable');
+      const {text} = (await res.json()) as {text?: string};
+      const jsonMatch = text?.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('no itinerary');
+      const parsed: DatePlan[] = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setPlan(
+          parsed.map((item, i) => ({
+            id: String(i + 1),
+            time: item.time ?? '',
+            activity: item.activity ?? '',
+            venue: item.venue ?? '',
+            cost_cents: typeof item.cost_cents === 'number' ? item.cost_cents : 0,
+            category: item.category ?? 'experience',
+            booked: false,
+          }))
+        );
+        setPlanIsSample(false);
+      } else {
+        throw new Error('empty itinerary');
       }
     } catch {
-      /* keep demo plan on error */
+      // Keep the current plan (still labelled) and say so — nothing new was generated.
+      setPlanError("Nova couldn't draft an itinerary just now. Nothing has been booked — try again in a moment.");
     } finally {
       setGenerating(false);
     }
@@ -316,7 +323,7 @@ export default function PerDiemPage() {
 
           <div className="mt-3 pt-3 border-t border-cream/5 flex justify-between">
             <span className="font-label text-[8px] tracking-[0.2em] uppercase" style={{color: 'rgba(244,232,208,0.15)'}}>
-              15% cashback
+              est. cashback · not live yet
             </span>
             <span className="font-mono text-sm" style={{color: 'rgba(0,255,136,0.6)'}}>
               +{formatPrice(cashback)}
@@ -403,10 +410,16 @@ export default function PerDiemPage() {
               <div className="flex items-center gap-4 mb-6">
                 <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
                 <span className="font-label text-[9px] tracking-[0.4em] uppercase" style={{color: `rgba(105,201,208,0.4)`}}>
-                  tonight&apos;s itinerary
+                  {planIsSample ? <>tonight&apos;s itinerary · sample</> : <>nova&apos;s draft · nothing booked</>}
                 </span>
                 <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
               </div>
+
+              {planError && (
+                <p className="text-center font-body text-xs italic mb-6" style={{color: 'rgba(244,232,208,0.45)'}}>
+                  {planError}
+                </p>
+              )}
 
               {/* Timeline */}
               <div className="relative pl-8">
@@ -469,7 +482,7 @@ export default function PerDiemPage() {
                               className="font-label text-[7px] tracking-[0.15em] uppercase"
                               style={{color: item.booked ? 'rgba(0,255,136,0.6)' : 'rgba(244,232,208,0.15)'}}
                             >
-                              {item.booked ? 'confirmed' : item.eventbrite_id ? 'get tickets' : 'tap to confirm'}
+                              {item.booked ? 'marked ✓' : item.eventbrite_id ? 'get tickets' : 'tap to mark'}
                             </span>
                           </div>
                         </div>
@@ -499,12 +512,12 @@ export default function PerDiemPage() {
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
                 <span className="font-label text-[9px] tracking-[0.4em] uppercase" style={{color: `rgba(105,201,208,0.4)`}}>
-                  smart picks from her list
+                  smart picks from her list · sample
                 </span>
                 <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
               </div>
               <p className="text-center font-body text-xs italic mb-6" style={{color: 'rgba(244,232,208,0.25)'}}>
-                She picked it. We found the version that fits your budget.
+                Sample picks — wishlist matching isn&apos;t connected yet.
               </p>
 
               <div className="space-y-5">
@@ -862,7 +875,7 @@ export default function PerDiemPage() {
                   style={{border: '1px solid rgba(0,255,136,0.08)', background: 'rgba(0,255,136,0.04)'}}
                 >
                   <span className="font-label text-[9px] tracking-[0.25em] uppercase" style={{color: 'rgba(0,255,136,0.4)'}}>
-                    your cashback
+                    est. cashback · not live
                   </span>
                   <span className="font-mono text-base" style={{color: 'rgba(0,255,136,0.7)'}}>
                     +{formatPrice(Math.round(myShareAmount * 0.15))}
@@ -871,7 +884,7 @@ export default function PerDiemPage() {
               </div>
 
               <p className="text-center font-body text-[10px] italic mt-6" style={{color: 'rgba(244,232,208,0.15)'}}>
-                15% cashback posts to your Vault on all confirmed spends
+                Cashback isn&apos;t live yet — figures here are illustrative only.
               </p>
             </motion.div>
           )}

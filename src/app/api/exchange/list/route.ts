@@ -62,14 +62,11 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('[exchange/list] insert error:', error);
-      // Graceful fallback — compute fee locally
-      const fee = Math.floor(body.asking_price_cents * 0.08);
-      return NextResponse.json({
-        success: true,
-        id: `local_${Date.now()}`,
-        platform_fee_cents: fee,
-        seller_receives_cents: body.asking_price_cents - fee,
-      });
+      // The listing was not saved — say so rather than returning a fake local id.
+      return NextResponse.json(
+        { error: 'Your listing could not be saved. Nothing was posted — please try again.' },
+        { status: 500 },
+      );
     }
 
     // Emit behavioral signal (fire-and-forget)

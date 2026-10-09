@@ -66,6 +66,8 @@ export default function VaultPage() {
   const [edition, setEdition] = useState<Edition>('finesse');
   const [displayName, setDisplayName] = useState<string>('MEMBER');
   const [isVip, setIsVip] = useState<boolean | null>(null);
+  // Why the vault is closed when isVip is false: not signed in, or we couldn't check.
+  const [accessIssue, setAccessIssue] = useState<'signed_out' | 'error' | null>(null);
   const [showFundModal, setShowFundModal] = useState(false);
   const [cardFlipped, setCardFlipped] = useState(false);
 
@@ -87,22 +89,25 @@ export default function VaultPage() {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { setIsVip(false); return; }
-        const { data: profile } = await supabase
+        if (!user) { setAccessIssue('signed_out'); setIsVip(false); return; }
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('display_name, is_vip')
           .eq('id', user.id)
-          .single();
-        if (profile) {
+          .maybeSingle();
+        if (error && !profile) {
+          setAccessIssue('error');
+          setIsVip(false);
+        } else if (profile) {
           setDisplayName((profile.display_name as string | null)?.toUpperCase() ?? 'MEMBER');
           setIsVip(profile.is_vip as boolean ?? false);
         } else {
           setIsVip(false);
         }
       } catch {
-        // Supabase not wired yet — show demo mode
-        setIsVip(true);
-        setDisplayName('DEMO MEMBER');
+        // Couldn't verify membership — fail closed, never grant VIP on error.
+        setAccessIssue('error');
+        setIsVip(false);
       }
     }
     loadProfile();
@@ -184,6 +189,45 @@ export default function VaultPage() {
     );
   }
 
+  // Signed out, or membership couldn't be checked — fail closed with an honest message
+  if (!isVip && accessIssue) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="min-h-screen flex flex-col items-center justify-center px-6 text-center"
+      >
+        <div className="text-5xl mb-6">🔒</div>
+        <h1 className="font-display text-3xl italic text-brass mb-3">The Vault</h1>
+        <p className="font-body text-cream/50 text-lg mb-8 max-w-sm">
+          {accessIssue === 'signed_out'
+            ? 'Sign in to open your Vault.'
+            : "We couldn't confirm your membership just now. Your Vault stays closed until we can — try again in a moment."}
+        </p>
+        {accessIssue === 'signed_out' ? (
+          <Link
+            href="/login"
+            className="px-8 py-3 font-label text-[11px] tracking-[0.35em] uppercase text-ink bg-brass hover:bg-[#E8C87A] transition-colors"
+          >
+            Sign in
+          </Link>
+        ) : (
+          <button
+            onClick={() => window.location.reload()}
+            className="px-8 py-3 font-label text-[11px] tracking-[0.35em] uppercase text-ink bg-brass hover:bg-[#E8C87A] transition-colors"
+          >
+            Try again
+          </button>
+        )}
+        <div className="mt-8">
+          <Link href="/lobby" className="font-body text-sm text-cream/20 hover:text-brass transition-colors">
+            return to the lobby
+          </Link>
+        </div>
+      </motion.div>
+    );
+  }
+
   // Non-VIP locked view
   if (!isVip) {
     return (
@@ -195,7 +239,7 @@ export default function VaultPage() {
         <div className="text-5xl mb-6">🔒</div>
         <h1 className="font-display text-3xl italic text-brass mb-3">The Vault</h1>
         <p className="font-body text-cream/50 text-lg mb-8 max-w-sm">
-          Vault access is reserved for VIP members. Upgrade to unlock your prepaid Finesse card and 12% cashback.
+          Vault access is reserved for VIP members. Upgrade to unlock your Finesse card. Cashback terms are being finalised.
         </p>
         <Link
           href="/profile?upgrade=true"
@@ -431,7 +475,7 @@ export default function VaultPage() {
                     className="font-label text-[8px] tracking-[0.35em] uppercase mb-2"
                     style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.5)' : 'rgba(244,232,208,0.4)' }}
                   >
-                    12% CASHBACK ON ALL FINESSE PURCHASES
+                    CASHBACK RATE · TO BE ANNOUNCED
                   </div>
                   <div
                     className="font-mono text-[10px] tracking-widest"
@@ -496,7 +540,7 @@ export default function VaultPage() {
                 ${(cashbackCents / 100).toFixed(2)}
               </div>
               <div className="font-label text-[7px] tracking-[0.25em] text-cream/25 uppercase mt-1.5">
-                12% on purchases
+                Rate to be announced
               </div>
             </div>
           </motion.div>

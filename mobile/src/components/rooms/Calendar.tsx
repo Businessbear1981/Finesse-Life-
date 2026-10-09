@@ -138,7 +138,7 @@ export function Calendar({side}: {side: Side}) {
           ) : null}
         </>
       )}
-      <SampleNote>SAMPLE DAY · YOUR DIARY APPEARS HERE ONCE YOU ARE SIGNED IN</SampleNote>
+      <SampleNote>SAMPLE DAY · NOT YOUR DIARY · CHANGES HERE ARE NOT SAVED</SampleNote>
     </View>
   );
 }

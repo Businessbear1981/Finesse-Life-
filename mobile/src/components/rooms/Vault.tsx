@@ -22,7 +22,7 @@ const TIERS: Record<Tier, {label: string; stops: string[]; ink: string; name: st
 };
 type State = 'SETTLED' | 'PENDING' | 'HELD';
 const STATE: Record<State, [string, string]> = {SETTLED: [deco.brassHighlight, '#140E08'], PENDING: ['#3A2A1A', deco.cream], HELD: ['#5A1A26', '#FFB8C8']};
-type Drawer = [string, string, Array<[string, string, State]>];
+type Drawer = [string, string, Array<[string, string, State | null]>];
 const SAMPLE: Drawer[] = [
   ['Rebates earned', '$318.40', [['Maison Aurel · evening bag', '+$96.00', 'SETTLED'], ['Scale · cashmere wrap', '+$42.40', 'PENDING'], ['Atelier Nuit · gown', '+$180.00', 'SETTLED']]],
   ['Purchases', '$4,120.00', [['Satin slingbacks', '$890.00', 'SETTLED'], ['Pearl drop earrings', '$1,430.00', 'SETTLED'], ['Weekly grocery order', '$186.40', 'PENDING']]],
@@ -30,7 +30,7 @@ const SAMPLE: Drawer[] = [
 ];
 const money = (c: number) => `$${(c / 100).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
-function Card({tier, open, name, onPress}: {tier: Tier; open: boolean; name: string; onPress: () => void}) {
+function Card({tier, open, name, number, onPress}: {tier: Tier; open: boolean; name: string; number: string; onPress: () => void}) {
   const T = TIERS[tier];
   const W = Math.min(useAvailableWidth(), 360), H = W * 0.63;
   const tilt = useAnimatedStyle(() => ({transform: [{perspective: 800}, {rotateX: withTiming(open ? '0deg' : '8deg', {duration: 700, easing: easeCine})}, {scale: withTiming(open ? 1 : 0.97, {duration: 700})}]}));
@@ -60,7 +60,7 @@ function Card({tier, open, name, onPress}: {tier: Tier; open: boolean; name: str
             <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 2, color: T.ink, opacity: 0.8, marginTop: 6, marginRight: H * 0.12}}>{T.name}</Text>
           </View>
           <View style={{gap: 4}}>
-            <Text style={{fontFamily: fonts.mono, fontSize: W * 0.048, letterSpacing: 2, color: T.ink}}>•••• •••• •••• 0412</Text>
+            <Text style={{fontFamily: fonts.mono, fontSize: W * 0.048, letterSpacing: 2, color: T.ink}}>{number}</Text>
             <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
               <Text style={{fontFamily: fonts.caps, fontSize: 11, letterSpacing: 1.6, color: T.ink}}>{name}</Text>
               <Text style={{fontFamily: fonts.label, fontSize: 8, letterSpacing: 2, color: T.ink, opacity: 0.7}}>EST. MMXXVI</Text>
@@ -86,15 +86,16 @@ export function Vault({side}: {side: Side}) {
   }, []);
   const isLive = live.kind === 'ok';
   const drawers: Drawer[] = isLive ? [
-    ['Rebates earned', money(live.data.cashback_earned_cents), live.data.transactions.filter((t) => t.cashback_cents > 0).map((t) => [t.merchant, `+${money(t.cashback_cents)}`, 'SETTLED'])],
-    ['Ledger', money(live.data.balance_cents), live.data.transactions.map((t) => [t.merchant, `${t.direction === 'credit' ? '+' : '−'}${money(Math.abs(t.amount_cents))}`, 'SETTLED'])],
+    ['Rebates earned', money(live.data.cashback_earned_cents), live.data.transactions.filter((t) => t.cashback_cents > 0).map((t) => [t.merchant, `+${money(t.cashback_cents)}`, null])],
+    ['Ledger', money(live.data.balance_cents), live.data.transactions.map((t) => [t.merchant, `${t.direction === 'credit' ? '+' : '−'}${money(Math.abs(t.amount_cents))}`, null])],
   ] : SAMPLE;
   const balance = isLive ? money(live.data.balance_cents) : '$318.40';
 
   return (
     <View style={{gap: 12}}>
       <Segmented options={(Object.keys(TIERS) as Tier[]).map((k) => [k, TIERS[k].label] as [Tier, string])} value={tier} onChange={setTier} />
-      <Card tier={tier} open={open} name={side === 'her' ? 'AMARA' : 'JULIAN'} onPress={() => setOpen((o) => !o)} />
+      {/* Sample names/number only in the sample; a live card never shows invented details. */}
+      <Card tier={tier} open={open} name={isLive ? 'MEMBER' : side === 'her' ? 'AMARA · SAMPLE' : 'JULIAN · SAMPLE'} number={isLive ? '•••• •••• •••• ••••' : '•••• •••• •••• 0000'} onPress={() => setOpen((o) => !o)} />
       <Text style={{textAlign: 'center', fontFamily: fonts.mono, fontSize: 9.5, letterSpacing: 1.2, color: open ? '#7AF5B8' : deco.brassHighlight}}>
         {open ? 'UNLOCKED' : 'TAP THE CARD TO REVEAL'}
       </Text>
@@ -122,7 +123,7 @@ export function Vault({side}: {side: Side}) {
                   <View key={`${t}${k}`} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 9}}>
                     <View style={{flex: 1, gap: 3}}>
                       <Text style={{fontFamily: fonts.body, fontSize: 12.5, color: deco.cream}}>{t}</Text>
-                      <Text style={{alignSelf: 'flex-start', paddingHorizontal: 5, paddingVertical: 1, backgroundColor: STATE[st][0], fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: STATE[st][1]}}>{st}</Text>
+                      {st ? <Text style={{alignSelf: 'flex-start', paddingHorizontal: 5, paddingVertical: 1, backgroundColor: STATE[st][0], fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: STATE[st][1]}}>{st}</Text> : null}
                     </View>
                     <Text style={{fontFamily: fonts.mono, fontSize: 11, color: deco.cream}}>{amt}</Text>
                   </View>

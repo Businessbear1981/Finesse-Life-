@@ -233,3 +233,23 @@ end $$;
 
 revoke all on function public.redeem_vip_code(text, uuid, int) from public, anon, authenticated;
 grant execute on function public.redeem_vip_code(text, uuid, int) to service_role;
+
+-- ── 8. VIP feed: only active VIPs may post ─────────────────────────────────────────────────
+-- 20260617_finesse_v2 / master added "vip_posts_own_write" (FOR ALL, author = self). Policies
+-- are OR'd, so it let any signed-in member post into the VIP feed. Replace it with explicit
+-- per-command policies; inserts require an active VIP grant.
+drop policy if exists "vip_posts_own_write" on public.vip_posts;
+drop policy if exists "vip_posts_vip_insert" on public.vip_posts;
+create policy "vip_posts_vip_insert" on public.vip_posts for insert to authenticated
+  with check (
+    author_id = auth.uid()
+    and exists (select 1 from public.profiles p
+                where p.id = auth.uid() and p.is_vip = true
+                  and (p.vip_expires_at is null or p.vip_expires_at > now()))
+  );
+drop policy if exists "vip_posts_own_update" on public.vip_posts;
+create policy "vip_posts_own_update" on public.vip_posts for update to authenticated
+  using (author_id = auth.uid()) with check (author_id = auth.uid());
+drop policy if exists "vip_posts_own_delete" on public.vip_posts;
+create policy "vip_posts_own_delete" on public.vip_posts for delete to authenticated
+  using (author_id = auth.uid());

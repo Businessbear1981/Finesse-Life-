@@ -18,7 +18,6 @@ interface EntourageMember {
   city: string;
   avatar_url: string | null;
   backstage_unlocked: boolean;
-  connected_since: string;
 }
 
 interface SearchResult {
@@ -98,27 +97,32 @@ function MemberCard({ member, edition }: { member: EntourageMember; edition: Edi
           )}
         </div>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          <span className="font-label text-[9px] tracking-[0.15em] text-cream/30">@{member.username}</span>
-          <span className="text-cream/15 text-[8px]">·</span>
-          <span className="font-label text-[9px] tracking-[0.1em] text-cream/25">{member.city}</span>
+          {member.username && (
+            <span className="font-label text-[9px] tracking-[0.15em] text-cream/30">@{member.username}</span>
+          )}
+          {member.username && member.city && <span className="text-cream/15 text-[8px]">·</span>}
+          {member.city && (
+            <span className="font-label text-[9px] tracking-[0.1em] text-cream/25">{member.city}</span>
+          )}
         </div>
-        <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-          <span
-            className="font-label text-[7px] tracking-[0.2em] uppercase px-2 py-0.5 rounded-full border"
-            style={{
-              color: vibeColor(member.vibe, edition),
-              borderColor: `${vibeColor(member.vibe, edition)}35`,
-              background: `${vibeColor(member.vibe, edition)}10`,
-            }}
-          >
-            {member.vibe}
-          </span>
-          <span className="font-label text-[8px] tracking-[0.1em] text-cream/20">since {member.connected_since}</span>
-        </div>
+        {member.vibe && (
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span
+              className="font-label text-[7px] tracking-[0.2em] uppercase px-2 py-0.5 rounded-full border"
+              style={{
+                color: vibeColor(member.vibe, edition),
+                borderColor: `${vibeColor(member.vibe, edition)}35`,
+                background: `${vibeColor(member.vibe, edition)}10`,
+              }}
+            >
+              {member.vibe}
+            </span>
+          </div>
+        )}
       </div>
 
       <Link
-        href={`/profile?u=${member.username}`}
+        href={member.username ? `/profile?u=${encodeURIComponent(member.username)}` : '/profile'}
         className="font-label text-[8px] tracking-[0.25em] uppercase text-cream/30 hover:text-brass transition-colors whitespace-nowrap px-3 py-2 border border-cream/8 hover:border-brass/30"
       >
         View
@@ -127,44 +131,46 @@ function MemberCard({ member, edition }: { member: EntourageMember; edition: Edi
   );
 }
 
-// ── Tab: My Crew ─────────────────────────────────────────────────────────────
+// ── Tab: Members ─────────────────────────────────────────────────────────────
+// There is no connections table yet, so this lists other members of the house —
+// it is not a personal crew and must not be labelled as one.
 
 function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void }) {
   const [crew, setCrew] = useState<EntourageMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     async function fetchCrew() {
       try {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        const currentId = user?.id ?? '';
-        const { data } = await supabase
+        let q = supabase
           .from('profiles')
-          .select('id, display_name, avatar_url, city, vibe_tags')
-          .neq('id', currentId)
+          .select('id, display_name, username, avatar_url, city, vibe')
           .limit(20);
-        if (data) {
-          const mapped: EntourageMember[] = data.map((p: {
-            id: string;
-            display_name: string | null;
-            avatar_url: string | null;
-            city: string | null;
-            vibe_tags: string[] | null;
-          }) => ({
-            id: p.id,
-            display_name: p.display_name ?? 'Member',
-            username: (p.display_name ?? 'member').toLowerCase().replace(/\s+/g, ''),
-            vibe: p.vibe_tags?.[0] ?? 'luxe',
-            city: p.city ?? '',
-            avatar_url: p.avatar_url,
-            backstage_unlocked: false,
-            connected_since: '',
-          }));
-          setCrew(mapped);
-        }
+        if (user?.id) q = q.neq('id', user.id);
+        const { data, error } = await q;
+        if (error) throw error;
+        const mapped: EntourageMember[] = (data ?? []).map((p: {
+          id: string;
+          display_name: string | null;
+          username: string | null;
+          avatar_url: string | null;
+          city: string | null;
+          vibe: string | null;
+        }) => ({
+          id: p.id,
+          display_name: p.display_name || p.username || 'Member',
+          username: p.username ?? '',
+          vibe: p.vibe ?? '',
+          city: p.city ?? '',
+          avatar_url: p.avatar_url,
+          backstage_unlocked: false,
+        }));
+        setCrew(mapped);
       } catch {
-        // Supabase error — show empty state
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
@@ -196,14 +202,18 @@ function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void
     <div className="space-y-3">
       {crew.length > 0 && (
         <p className="font-label text-[9px] tracking-[0.35em] text-brass/50 uppercase mb-4">
-          {crew.length} in your entourage
+          Members of the house · personal crews coming soon
         </p>
       )}
 
       {crew.length === 0 ? (
         <div className="text-center py-12">
-          <p className="font-display text-lg text-cream/30 italic mb-3">No crew yet — invite friends to build your entourage.</p>
-          <p className="font-body text-sm text-cream/20 mb-6">Go find your people.</p>
+          <p className="font-display text-lg text-cream/30 italic mb-3">
+            {loadError ? "We couldn't load members just now." : 'No other members to show yet.'}
+          </p>
+          <p className="font-body text-sm text-cream/20 mb-6">
+            {loadError ? 'Try again in a moment, or search by username.' : 'Search by username, or invite someone in.'}
+          </p>
           <button
             onClick={goToFind}
             className="font-label text-[9px] tracking-[0.3em] uppercase text-brass border border-brass/30 px-6 py-3 hover:bg-brass/10 transition-colors"
@@ -226,11 +236,8 @@ function FindTab({ edition }: { edition: Edition }) {
   const [query, setQuery] = useState('');
   const [result, setResult] = useState<SearchResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [activeVibe, setActiveVibe] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -254,10 +261,6 @@ function FindTab({ edition }: { edition: Edition }) {
     setQuery(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => search(val), 400);
-  };
-
-  const handleConnect = (key: string) => {
-    setSentIds((prev) => new Set(prev).add(key));
   };
 
   return (
@@ -350,17 +353,13 @@ function FindTab({ edition }: { edition: Edition }) {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => handleConnect(query)}
-                  className="font-label text-[8px] tracking-[0.25em] uppercase px-4 py-2 border transition-all duration-300"
-                  style={
-                    sentIds.has(query)
-                      ? { color: '#00FF88', borderColor: '#00FF8840', background: '#00FF8812' }
-                      : { color: accent, borderColor: `${accent}40`, background: `${accent}12` }
-                  }
+                {/* No connection requests exist yet — never claim one was sent. */}
+                <span
+                  className="font-label text-[8px] tracking-[0.25em] uppercase px-4 py-2 border whitespace-nowrap"
+                  style={{ color: 'rgba(244,232,208,0.35)', borderColor: 'rgba(244,232,208,0.12)' }}
                 >
-                  {sentIds.has(query) ? 'Request Sent' : 'Connect'}
-                </button>
+                  Connect · soon
+                </span>
               </div>
             ) : (
               <div className="text-center py-6">
@@ -380,49 +379,23 @@ function FindTab({ edition }: { edition: Edition }) {
 // ── Tab: Invite ───────────────────────────────────────────────────────────────
 
 function InviteTab({ edition }: { edition: Edition }) {
-  const [username, setUsername] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [tgHandle, setTgHandle] = useState('');
-  const [tgSent, setTgSent] = useState(false);
-  const [loadingAuth, setLoadingAuth] = useState(true);
 
   const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
-  const inviteLink = `finesselife.app/join?ref=${username || 'YOU'}`;
-
-  useEffect(() => {
-    const run = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('display_name')
-            .eq('id', user.id)
-            .single();
-          if (profile?.display_name) setUsername(profile.display_name.toLowerCase().replace(/\s+/g, ''));
-        }
-      } finally {
-        setLoadingAuth(false);
-      }
-    };
-    run();
-  }, []);
+  // No referral tracking exists yet, so the link is the plain sign-up page.
+  const inviteLink = 'finesselife.vip/signup';
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(inviteLink);
+      setCopyFailed(false);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // fallback: no-op
+      setCopyFailed(true);
     }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleTgSend = () => {
-    if (!tgHandle.trim()) return;
-    setTgSent(true);
-    setTimeout(() => setTgSent(false), 2500);
   };
 
   const shareText = `Join me on Finesse — the members-only lifestyle app. ${inviteLink}`;
@@ -441,11 +414,7 @@ function InviteTab({ edition }: { edition: Edition }) {
           <div
             className="flex-1 px-4 py-3 border border-cream/10 bg-ink/50 font-mono text-xs text-cream/50 truncate"
           >
-            {loadingAuth ? (
-              <span className="text-cream/20">generating...</span>
-            ) : (
-              inviteLink
-            )}
+            {inviteLink}
           </div>
           <button
             onClick={handleCopy}
@@ -459,12 +428,15 @@ function InviteTab({ edition }: { edition: Edition }) {
             {copied ? 'Copied ✓' : 'Copy'}
           </button>
         </div>
+        {copyFailed && (
+          <p className="font-body text-xs text-cream/30 mt-2">Couldn&apos;t copy — select the link and copy it by hand.</p>
+        )}
       </div>
 
       {/* Telegram field */}
       <div>
         <p className="font-label text-[8px] tracking-[0.3em] uppercase text-brass/40 mb-1">Telegram invite</p>
-        <p className="font-body text-xs text-cream/25 mb-3">Know their @handle? We&apos;ll notify them.</p>
+        <p className="font-body text-xs text-cream/25 mb-3">Telegram invites are coming soon — for now, share your link directly.</p>
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -474,16 +446,11 @@ function InviteTab({ edition }: { edition: Edition }) {
             className="flex-1 px-4 py-3 bg-ink border border-cream/12 text-cream font-body text-sm placeholder:text-cream/20 focus:border-brass focus:outline-none transition-colors"
           />
           <button
-            onClick={handleTgSend}
-            disabled={!tgHandle.trim()}
+            disabled
             className="px-5 py-3 font-label text-[8px] tracking-[0.25em] uppercase border transition-all duration-300 disabled:opacity-30 whitespace-nowrap"
-            style={
-              tgSent
-                ? { color: '#00FF88', borderColor: '#00FF8840', background: '#00FF8812' }
-                : { color: accent, borderColor: `${accent}40`, background: `${accent}12` }
-            }
+            style={{ color: accent, borderColor: `${accent}40`, background: `${accent}12` }}
           >
-            {tgSent ? 'Sent ✓' : 'Send'}
+            Soon
           </button>
         </div>
       </div>
@@ -515,7 +482,7 @@ export default function EntouragePage() {
   const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'crew', label: 'My Crew' },
+    { key: 'crew', label: 'Members' },
     { key: 'find', label: 'Find' },
     { key: 'invite', label: 'Invite' },
   ];

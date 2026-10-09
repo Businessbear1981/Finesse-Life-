@@ -106,3 +106,7 @@ Shipped on the branch (not merged, not deployed, **migration not applied**):
 | `npm run test:db` — PGlite policy test (32 checks), added to CI | `tests/db/security-floor.mjs` | passing |
 
 Deploy additions (principal approval): apply `20261009_security_floor.sql` after 20261001–20261005; set `TELEGRAM_WEBHOOK_SECRET` + re-run Telegram `setWebhook` with `secret_token`; set `MEDIA_WEBHOOK_SECRET` and add it to vendor webhook URLs; grant the first admin from a direct DB session: `update public.profiles set role = 'owner' where id = '<founder id>';`. Rotate: Supabase DB password, Higgsfield key pair, demo account password.
+
+### 2026-10-09 (second commit) — honest frontend pass
+
+Web + mobile fixes from `docs/FRONTEND_MAP.md` (summary at the top of that file). New env vars: `DEMO_ACCOUNT_EMAIL`, `DEMO_ACCOUNT_PASSWORD`, `DEMO_ACCESS_CODES` (without them `/demo` says access is closed — the old credentials were in the client bundle; rotate the demo password). Migration `20261009_security_floor.sql` §8 restricts VIP-feed inserts to active VIPs (dropped the OR'd `vip_posts_own_write`). Cashback copy no longer promises 12% (rate is an open owner decision). Verified: web `tsc`, 32 unit tests, `test:db` 35/35, `next build`, signed-out page smoke (`/terms`, `/lab`, `/departures` 200; `/vault` → `/login`); mobile `tsc` + Android export bundle. Not verified on a device.
