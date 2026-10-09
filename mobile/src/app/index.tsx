@@ -9,6 +9,7 @@ import Animated, {Easing, useAnimatedStyle, useSharedValue, withDelay, withRepea
 
 const PROMPT = 'Roll the six tumblers to your house code, then pull.';
 import {api} from '@/lib/api';
+import {houseSession} from '@/lib/session';
 import {deco, easeCine, fonts} from '@/lib/deco';
 import {Backdrop} from '@/components/keylock/Backdrop';
 import {VaultDial, useHoldShake} from '@/components/keylock/VaultDial';
@@ -29,6 +30,8 @@ export default function Entrance() {
   const [typed, setTyped] = useState('');
   const [msg, setMsg] = useState('MEMBERS ONLY');
   const [status, setStatus] = useState(PROMPT);
+  // Server answered `mode: 'preview'` (entrance not configured, any code opens). Dev builds only.
+  const [preview, setPreview] = useState(false);
   const setCount = touched.filter(Boolean).length;
 
   const arrive = useSharedValue(0);
@@ -68,14 +71,25 @@ export default function Entrance() {
     const r = rehearsal && __DEV__
       ? {status: 200, ok: true, body: {state: 'open', message: undefined as string | undefined}}
       : await api<{state: string; mode?: string}>('/api/keylock/entrance/verify', {method: 'POST', json: {challengeId, code: digits}});
+    const isPreview = r.body.state === 'open' && 'mode' in r.body && r.body.mode === 'preview';
+    if (isPreview && !__DEV__) {
+      // An unconfigured server opens for any code. A release build never lets that through.
+      setMsg("THE FRONT DESK ISN'T OPEN YET");
+      setStatus("The front desk isn't open yet. Please come back soon.");
+      setTouched([false, false, false, false, false, false]); setTyped('');
+      setPhase('closed');
+      return;
+    }
     if (r.body.state === 'open') {
+      setPreview(isPreview);
       setPhase('open');
       setMsg('THE HOUSE IS OPEN');
       setStatus('The mechanism yields. Welcome home.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       AccessibilityInfo.announceForAccessibility?.('The house is open.');
       open.value = withDelay(reduced ? 0 : 350, withTiming(1, {duration: reduced ? 0 : 1800, easing: easeCine}));
-      setTimeout(() => router.replace('/side'), reduced ? 400 : 2800);
+      // A member who has already chosen a side on this device goes straight to the hotel.
+      setTimeout(() => { void houseSession.stored().then((s) => router.replace(s ? '/hotel' : '/side')); }, reduced ? 400 : 2800);
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
@@ -147,6 +161,11 @@ export default function Entrance() {
           <Text style={styles.typeIt}>TYPE THE CODE INSTEAD</Text>
         </Pressable>
       </View>
+      {__DEV__ && (preview || rehearsal) ? (
+        <View pointerEvents="none" style={styles.badge} accessibilityLabel="Preview mode">
+          <Text style={styles.badgeText}>{preview ? 'PREVIEW' : 'REHEARSAL'}</Text>
+        </View>
+      ) : null}
       <Flood open={open} reduced={reduced} />
       <TextInput ref={input} value={typed} onChangeText={onDigits} keyboardType="number-pad" maxLength={6}
         textContentType="oneTimeCode" autoComplete="one-time-code" secureTextEntry={false}
@@ -166,6 +185,8 @@ const styles = StyleSheet.create({
   typeIt: {fontFamily: fonts.label, fontSize: 9, letterSpacing: 3, color: 'rgba(201,169,97,0.55)', paddingVertical: 6},
   msg: {fontFamily: fonts.label, fontSize: 11, letterSpacing: 5.5, color: deco.brass, opacity: 0.8, textAlign: 'center'},
   hidden: {position: 'absolute', opacity: 0, width: 1, height: 1, left: -10, top: -10},
+  badge: {position: 'absolute', top: 18, right: 14, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: deco.pink, backgroundColor: 'rgba(10,4,6,0.7)'},
+  badgeText: {fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.6, color: deco.pink},
 });
 
 /** Warm flood of light and a brass sweep when the house opens (design: floodOpacity + fl-sweep). */

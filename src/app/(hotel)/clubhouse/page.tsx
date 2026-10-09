@@ -254,7 +254,7 @@ export default function GameRoomPage() {
               </div>
               <p className="text-center font-body text-[10px] italic mt-8" style={{color: 'rgba(244,232,208,0.15)'}}>
                 {isMasc
-                  ? 'DraftKings & Bovada open in their native apps. Yahoo Fantasy syncs your leagues.'
+                  ? 'DraftKings, Bovada and Yahoo Fantasy open on their own sites. League sync is coming soon.'
                   : 'Tapping opens the App Store. Celebrity Crush drops soon.'}
               </p>
             </motion.div>
@@ -265,7 +265,7 @@ export default function GameRoomPage() {
             <motion.div key="scores" initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}>
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-px flex-1 bg-brass/20" />
-                <span className="font-label text-[9px] tracking-[0.4em] text-brass/40 uppercase">live scores</span>
+                <span className="font-label text-[9px] tracking-[0.4em] text-brass/40 uppercase">live scores · sample</span>
                 <div className="h-px flex-1 bg-brass/20" />
               </div>
               {/* DraftKings CTA banner */}
@@ -278,6 +278,7 @@ export default function GameRoomPage() {
                 </span>
                 <span className="font-label text-[8px] tracking-[0.15em] uppercase" style={{color: 'rgba(0,212,72,0.4)'}}>open →</span>
               </a>
+              <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample scores, not a live feed</p>
               <div className="space-y-3">
                 {DEMO_EVENTS.map((ev, i) => {
                   const sc = STATUS_COLORS[ev.status];
@@ -313,7 +314,7 @@ export default function GameRoomPage() {
             <motion.div key="fantasy" initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}>
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-px flex-1 bg-brass/20" />
-                <span className="font-label text-[9px] tracking-[0.4em] text-brass/40 uppercase">my roster</span>
+                <span className="font-label text-[9px] tracking-[0.4em] text-brass/40 uppercase">my roster · sample</span>
                 <div className="h-px flex-1 bg-brass/20" />
               </div>
               {/* Yahoo Fantasy CTA */}
@@ -322,10 +323,11 @@ export default function GameRoomPage() {
                 style={{borderColor: 'rgba(123,0,153,0.3)', background: 'rgba(123,0,153,0.07)'}}
               >
                 <span className="font-label text-[9px] tracking-[0.2em] uppercase" style={{color: 'rgba(200,100,255,0.7)'}}>
-                  🏈 sync Yahoo Fantasy leagues
+                  🏈 open Yahoo Fantasy
                 </span>
-                <span className="font-label text-[8px] tracking-[0.15em] uppercase" style={{color: 'rgba(200,100,255,0.4)'}}>connect →</span>
+                <span className="font-label text-[8px] tracking-[0.15em] uppercase" style={{color: 'rgba(200,100,255,0.4)'}}>open →</span>
               </a>
+              <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample roster, no league is synced</p>
               <div className="space-y-2">
                 {DEMO_FANTASY.map((player, i) => {
                   const beating = player.points > player.projection;

@@ -19,3 +19,24 @@ npm run check         # tsc --noEmit
   `EXPO_PUBLIC_API_BASE_URL` (defaults to https://finesselife.vip).
 - After pulling, run `npx expo install expo-secure-store @supabase/supabase-js react-native-url-polyfill`
   so Expo pins versions that match SDK 57.
+- The house side (Finesse / Carpe Diem) is remembered on the device; change it or sign out from
+  **This Is You** (top-left of the hotel).
+
+## Store builds (EAS)
+
+- Bundle id / package: `vip.finesselife.app` (cannot change after the first store upload).
+  iOS is phone-only (`supportsTablet: false`) and declares no non-exempt encryption.
+- Icons: `assets/brand/icon.png` (1024², opaque RGB) for iOS; Android uses the adaptive
+  `android-icon-foreground.png` / `android-icon-monochrome.png` (artwork inside the 66% safe zone)
+  on `#0A0406`.
+- `eas.json` profiles: `development` (dev client, internal), `preview` (internal APK / ad hoc),
+  `production` (store; build numbers are managed remotely by EAS with `autoIncrement`).
+- **EAS must upload from the repo root.** `src/lib/registry.ts` imports `../FINESSE_31_ROOM_PROJECT.json`
+  from outside `mobile/`, so the build archive has to contain the whole git repository. Run
+  `npx eas-cli@latest build --profile <profile> --platform <ios|android>` from `mobile/` inside the git
+  checkout (EAS archives the git root and builds in `mobile/`). Do not set `EAS_NO_VCS`, copy `mobile/`
+  out on its own, or add an `.easignore` that drops `FINESSE_31_ROOM_PROJECT.json` — the bundle fails
+  without it. Metro already watches the repo root (`metro.config.js`).
+- Reviewers need a house code and a signed-in VIP test account in App Store Connect / Play Console notes.
+  A release build refuses an entrance that the server opens in `mode: "preview"` (unconfigured server).
+

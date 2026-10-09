@@ -21,6 +21,8 @@ export default function PenthouseElevator() {
   const [first, setFirst] = useState('');
   const [msg, setMsg] = useState('A room above the room.');
   const [closedCta, setClosedCta] = useState<string | null>(null);
+  // The server said 401 (signed out / session expired): offer sign-in rather than 'being serviced'.
+  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [reduced, setReduced] = useState(false);
   // Development builds only: rehearse the lift when the house line is unreachable.
   const [rehearsal, setRehearsal] = useState(false);
@@ -31,12 +33,31 @@ export default function PenthouseElevator() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({data}) => setSignedIn(Boolean(data.session)));
-    const {data: sub} = supabase.auth.onAuthStateChange((_e, s) => setSignedIn(Boolean(s)));
+    const {data: sub} = supabase.auth.onAuthStateChange((_e, s) => { setSignedIn(Boolean(s)); if (s) setNeedsSignIn(false); });
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // A lift token left from an earlier ride: ask the server if it is still good; forget it if not.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const t = await liftToken.get().catch(() => null);
+      if (!t) return;
+      const r = await api<{active?: boolean; destination?: string}>('/api/vip-keylock/session', {lift: true});
+      if (!live) return;
+      if (r.ok && r.body.active === true && r.body.destination === 'penthouse') {
+        floor.value = 1; doors.value = 1;
+        setMsg('The lift remembers you. Penthouse — floor 17.');
+        setPhase('unlocked');
+      } else if (r.status !== 0) {
+        await liftToken.clear(); // inactive, expired or refused — an offline check keeps it for later
+      }
+    })();
+    return () => { live = false; };
+  }, [doors, floor]);
+
   const call = useCallback(async () => {
-    setPhase('calling'); setCode(''); setFirst(''); setClosedCta(null);
+    setPhase('calling'); setCode(''); setFirst(''); setClosedCta(null); setNeedsSignIn(false);
     const r = await api<{state: string; challengeId?: string; mode?: 'verify' | 'enroll'}>('/api/vip-keylock/challenge', {method: 'POST', json: {}});
     if (__DEV__ && r.status === 0) {
       setRehearsal(true); setChallengeId(null); setMode('verify');
@@ -50,6 +71,11 @@ export default function PenthouseElevator() {
       setMsg(r.body.mode === 'enroll' ? 'First ride. Choose six brass numbers.' : 'Align the six brass numbers on the doors.');
       setPhase('ready');
       setTimeout(() => input.current?.focus(), 80);
+    } else if (r.status === 401) {
+      // Middleware answers {error:'signed_out'} with no `state` — that is a sign-in problem, not a fault.
+      setMsg('Sign in to call the lift.');
+      setNeedsSignIn(true);
+      setPhase('closed');
     } else {
       setMsg(r.body.message ?? 'The private lift is being serviced.');
       setClosedCta(r.body.state === 'not_entitled' || r.body.state === 'expired' ? 'VIP access lives in your web profile.' : null);
@@ -71,6 +97,11 @@ export default function PenthouseElevator() {
       doors.value = withDelay(reduced ? 0 : 1300, withTiming(1, {duration: reduced ? 0 : 1250, easing: easeCine}));
       setTimeout(() => setPhase('unlocked'), reduced ? 0 : 2700);
       AccessibilityInfo.announceForAccessibility?.('Doors open. Penthouse, floor seventeen.');
+      return;
+    }
+    if ('status' in r && r.status === 401) {
+      setMsg('Sign in to call the lift.'); setNeedsSignIn(true);
+      setCode(''); setFirst(''); setPhase('closed');
       return;
     }
     setMsg(r.body.message ?? 'The mechanism holds.');
@@ -115,7 +146,7 @@ export default function PenthouseElevator() {
         </View>
       )}
 
-      {signedIn === false && !rehearsal && (
+      {(signedIn === false || needsSignIn) && !rehearsal && (
         <Link href="/sign-in" asChild>
           <Pressable accessibilityRole="button" style={styles.button}><Text style={styles.buttonText}>SIGN IN TO CALL THE LIFT</Text></Pressable>
         </Link>

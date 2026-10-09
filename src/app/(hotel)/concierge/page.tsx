@@ -260,8 +260,23 @@ export default function ConciergePage() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({prompt: text, system}),
       });
-      const data = (await res.json()) as {text?: string; tool_calls?: Array<{name: string; result: unknown}>};
-      const responseText = data.text || "Consider it handled. I'll have that arranged shortly.";
+      const data = (await res.json().catch(() => ({}))) as {text?: string; error?: string; tool_calls?: Array<{name: string; result: unknown}>};
+
+      if (!res.ok || !data.text) {
+        // Honest failure: nothing was arranged, so never echo a success line.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'system',
+            text: res.status === 401
+              ? 'Sign in to speak with your concierge. Nothing has been arranged.'
+              : "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment.",
+          },
+        ]);
+        return;
+      }
+      const responseText = data.text;
 
       setMessages((prev) => [
         ...prev,
@@ -275,7 +290,7 @@ export default function ConciergePage() {
     } catch {
       setMessages((prev) => [
         ...prev,
-        {id: crypto.randomUUID(), role: 'concierge', text: "I'm having trouble connecting right now. Try again in a moment."},
+        {id: crypto.randomUUID(), role: 'system', text: "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment."},
       ]);
     } finally {
       setSending(false);

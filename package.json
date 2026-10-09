@@ -13,7 +13,8 @@
     "check": "node tooling/validate-project.mjs && tsc --noEmit && vitest run",
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
-    "usage:obsidian": "node scripts/obsidian-sync-usage.mjs"
+    "usage:obsidian": "node scripts/obsidian-sync-usage.mjs",
+    "test:db": "node tests/db/security-floor.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
@@ -46,6 +47,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

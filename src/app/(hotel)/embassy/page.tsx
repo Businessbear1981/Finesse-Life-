@@ -309,7 +309,7 @@ function DealPipeline({ deals }: { deals: Deal[] }) {
 }
 
 // ─── Tab 2: Buying Trends ─────────────────────────────────────────────────────
-function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoading: boolean }) {
+function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; trendsLoading: boolean; source: InsightSource }) {
   const [briefing, setBriefing] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -323,8 +323,12 @@ function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoadin
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt, system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle platform. Provide sharp, actionable deal sourcing recommendations based on member buying data.' }),
       });
-      const data = await res.json();
-      setBriefing(data.text || null);
+      const data = (await res.json().catch(() => ({}))) as { text?: string };
+      if (!res.ok || !data.text) {
+        setBriefing('Intelligence feed unavailable. Check back shortly.');
+        return;
+      }
+      setBriefing(data.text);
     } catch {
       setBriefing('Intelligence feed unavailable. Check back shortly.');
     } finally {
@@ -338,6 +342,7 @@ function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoadin
         <h2 className="font-display text-2xl italic text-[#C9A961] tracking-wide">Buying Trends</h2>
         <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">client intelligence · what&apos;s moving this week</p>
       </div>
+      {!trendsLoading && <InsightSourceNote source={source} />}
 
       {trendsLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -382,6 +387,7 @@ function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoadin
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden">
               <div className="h-px bg-[#69C9D0]/10 mb-4" />
+              <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova estimate, not market data</p>
               <p className="font-body text-sm text-cream/60 italic leading-relaxed whitespace-pre-wrap">{briefing}</p>
             </motion.div>
           )}
@@ -392,13 +398,14 @@ function BuyingTrends({ trends, trendsLoading }: { trends: Trend[]; trendsLoadin
 }
 
 // ─── Tab 3: Brand Radar ───────────────────────────────────────────────────────
-function BrandRadar({ brands, brandsLoading }: { brands: BrandCard[]; brandsLoading: boolean }) {
+function BrandRadar({ brands, brandsLoading, source }: { brands: BrandCard[]; brandsLoading: boolean; source: InsightSource }) {
   return (
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl italic text-[#C9A961] tracking-wide">Brand Radar</h2>
         <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">brands worth chasing right now</p>
       </div>
+      {!brandsLoading && <InsightSourceNote source={source} />}
 
       {brandsLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -421,7 +428,7 @@ function BrandRadar({ brands, brandsLoading }: { brands: BrandCard[]; brandsLoad
               </div>
               <div className="text-right">
                 <p className="font-mono text-sm text-[#C9A961]">{b.margin}</p>
-                <p className="font-label text-[7px] tracking-[0.15em] text-cream/20 uppercase">margin</p>
+                <p className="font-label text-[7px] tracking-[0.15em] text-cream/20 uppercase">est. margin</p>
               </div>
             </div>
 
@@ -491,6 +498,18 @@ function parseBrandsFromNova(text: string): BrandCard[] | null {
   }
 }
 
+// Where the trend / radar figures came from. Neither is market data:
+// 'sample' = hard-coded placeholders, 'nova' = LLM-generated estimates.
+type InsightSource = 'sample' | 'nova';
+
+function InsightSourceNote({ source }: { source: InsightSource }) {
+  return (
+    <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+      {source === 'nova' ? 'Nova estimate, not market data' : 'Sample figures, not market data'}
+    </p>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function EmbassyPage() {
   const [tab, setTab] = useState<'pipeline' | 'trends' | 'radar'>('pipeline');
@@ -501,6 +520,8 @@ export default function EmbassyPage() {
   const [brands, setBrands] = useState<BrandCard[]>(FALLBACK_BRAND_RADAR);
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [brandsLoading, setBrandsLoading] = useState(true);
+  const [trendsSource, setTrendsSource] = useState<InsightSource>('sample');
+  const [brandsSource, setBrandsSource] = useState<InsightSource>('sample');
 
   useEffect(() => {
     // ── 1. Load scale_deals from Supabase ──────────────────────────────────
@@ -560,7 +581,10 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
         system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle group-buying platform. Provide sharp, structured market intelligence. Be specific about brand names, percentages, and actionable opportunities. Always follow the exact format requested.',
       }),
     })
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error('nova unavailable');
+        return (await res.json()) as { text?: string };
+      })
       .then((data: { text?: string }) => {
         clearTimeout(timeout);
         if (!data.text) return;
@@ -573,10 +597,10 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
         const brandsSection = splitIdx > 0 ? text.slice(splitIdx) : '';
 
         const parsedTrends = parseTrendsFromNova(trendsSection);
-        if (parsedTrends) setTrends(parsedTrends);
+        if (parsedTrends) { setTrends(parsedTrends); setTrendsSource('nova'); }
 
         const parsedBrands = parseBrandsFromNova(brandsSection || text);
-        if (parsedBrands) setBrands(parsedBrands);
+        if (parsedBrands) { setBrands(parsedBrands); setBrandsSource('nova'); }
       })
       .catch(() => {
         // Nova failed — fallbacks already set as initial state
@@ -661,7 +685,7 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BuyingTrends trends={trends} trendsLoading={trendsLoading} />
+              <BuyingTrends trends={trends} trendsLoading={trendsLoading} source={trendsSource} />
             </motion.div>
           )}
           {tab === 'radar' && (
@@ -670,7 +694,7 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BrandRadar brands={brands} brandsLoading={brandsLoading} />
+              <BrandRadar brands={brands} brandsLoading={brandsLoading} source={brandsSource} />
             </motion.div>
           )}
         </AnimatePresence>

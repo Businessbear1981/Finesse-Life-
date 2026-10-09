@@ -26,7 +26,8 @@ interface MessageEntry {
   platform: string;
   text: string;
   timestamp: string;
-  status: "sent" | "draft" | "failed";
+  // Server statuses: sent | partial | queued; client-side: sending | failed.
+  status: string;
 }
 
 export default function Switchboard() {
@@ -86,21 +87,31 @@ export default function Switchboard() {
     loadAccounts();
   }, []);
 
+  const [cableError, setCableError] = useState<string | null>(null);
+
+  // "connected" here is a saved preference only — there is no platform OAuth yet.
   const toggleCable = useCallback(async (key: string) => {
     const cable = cables.find((c) => c.key === key);
     if (!cable) return;
     const newConnected = !cable.connected;
+    setCableError(null);
     // Optimistic update
     setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: newConnected } : c)));
+    const revert = (message: string) => {
+      setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: !newConnected } : c)));
+      setCableError(message);
+    };
     try {
-      await fetch('/api/switchboard/accounts', {
+      const res = await fetch('/api/switchboard/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: key, connected: newConnected }),
       });
+      if (!res.ok) {
+        revert(res.status === 401 ? 'Sign in to save your platform preferences.' : `Couldn't save your ${cable.label} preference. Nothing changed.`);
+      }
     } catch {
-      // Revert on failure
-      setCables((prev) => prev.map((c) => (c.key === key ? { ...c, connected: !newConnected } : c)));
+      revert(`Couldn't save your ${cable.label} preference. Nothing changed.`);
     }
   }, [cables]);
 
@@ -119,7 +130,7 @@ export default function Switchboard() {
       platform: platforms.join(', '),
       text,
       timestamp,
-      status: 'sent',
+      status: 'sending',
     };
     setMessages((prev) => [optimistic, ...prev]);
     setCompose('');
@@ -131,10 +142,10 @@ export default function Switchboard() {
         body: JSON.stringify({ content: text, platforms }),
       });
       if (res.ok) {
-        const { id, status } = await res.json();
-        // Replace temp entry with real one
+        const { id, status } = (await res.json()) as { id?: string; status?: string };
+        // Replace temp entry with the server's real status (e.g. queued / partial / sent)
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? { ...m, id, status } : m))
+          prev.map((m) => (m.id === tempId ? { ...m, id: id ?? tempId, status: status ?? 'queued' } : m))
         );
       } else {
         setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)));
@@ -176,6 +187,9 @@ export default function Switchboard() {
             <h2 className="font-label text-[10px] tracking-[0.4em] text-lamp/50 uppercase">patch bay</h2>
             <div className="h-px flex-1 bg-lamp/20" />
           </div>
+          <p className="mb-4 text-center font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+            Preferences only · account sign-in for each platform is coming soon
+          </p>
 
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
             {cables.map((cable, i) => (
@@ -194,10 +208,16 @@ export default function Switchboard() {
                   {cable.icon}
                 </span>
                 <span className="font-label text-[8px] tracking-[0.2em] uppercase text-cream/50">{cable.label}</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${cable.connected ? "bg-green-500 animate-pulse" : "bg-cream/15"}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${cable.connected ? "bg-lamp" : "bg-cream/15"}`} />
+                <span className="font-label text-[6px] tracking-[0.15em] uppercase text-cream/30">
+                  {cable.connected ? "preferred" : "not linked"}
+                </span>
               </motion.button>
             ))}
           </div>
+          {cableError && (
+            <p className="mt-3 text-center font-body text-xs italic text-cream/50">{cableError}</p>
+          )}
         </div>
 
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mb-10">
@@ -221,7 +241,7 @@ export default function Switchboard() {
             <textarea
               value={compose}
               onChange={(e) => setCompose(e.target.value)}
-              placeholder={hasConnected ? "write your message..." : "connect a cable above to begin..."}
+              placeholder={hasConnected ? "write your message..." : "mark a platform above to begin..."}
               disabled={!hasConnected}
               rows={3}
               className="w-full bg-transparent text-cream font-body text-sm placeholder:text-cream/15 focus:outline-none resize-none disabled:opacity-30"
@@ -264,7 +284,7 @@ export default function Switchboard() {
                       <p className="font-body text-sm text-cream/60 italic truncate">{msg.text}</p>
                     </div>
                     <span className={`font-label text-[8px] tracking-[0.2em] uppercase ${
-                      msg.status === "sent" ? "text-green-500/60" : msg.status === "draft" ? "text-brass/40" : "text-red-500/60"
+                      msg.status === "sent" ? "text-green-500/60" : msg.status === "failed" ? "text-red-500/60" : "text-brass/40"
                     }`}>{msg.status}</span>
                   </div>
                 ))}

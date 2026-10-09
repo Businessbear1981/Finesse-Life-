@@ -1,123 +1,62 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
-import {cookies} from 'next/headers';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
+import {createServiceClient} from '@/lib/supabase/service';
+
+// The only path that grants VIP from a code. The member is identified from their own session
+// (cookie or mobile bearer); the grant itself runs in public.redeem_vip_code
+// (20261009_security_floor.sql), which locks the code row and is executable by the service
+// role only — members cannot write is_vip / vip_expires_at themselves.
+
+const redeemSchema = z.object({code: z.string().trim().min(4).max(64)});
+
+const OUTCOMES: Record<string, {status: number; error: string}> = {
+  invalid: {status: 404, error: 'Invalid or expired code.'},
+  expired: {status: 410, error: 'This code has expired.'},
+  exhausted: {status: 409, error: 'This code has already been fully redeemed.'},
+  already_redeemed: {status: 409, error: 'You have already redeemed this code.'},
+  no_profile: {status: 409, error: 'Finish setting up your profile first.'},
+};
 
 export async function POST(req: Request) {
-  try {
-    const {code} = (await req.json()) as {code: string};
-
-    if (!code || typeof code !== 'string') {
-      return NextResponse.json({error: 'Code is required.'}, {status: 400});
-    }
-
-    const normalised = code.trim().toUpperCase();
-
-    // ── Service-role client (bypasses RLS on vip_codes) ──
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
-
-    // Anon client to get the current user from the session cookie
-    const anonSupabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
-
-    const {
-      data: {user},
-    } = await anonSupabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({error: 'Not authenticated.'}, {status: 401});
-    }
-
-    // ── 1. Look up code ──
-    const {data: vipCode, error: lookupErr} = await supabase
-      .from('vip_codes')
-      .select('id, use_count, max_uses, expires_at, is_active, used_by')
-      .eq('code', normalised)
-      .eq('is_active', true)
-      .single();
-
-    if (lookupErr || !vipCode) {
-      return NextResponse.json({error: 'Invalid or expired code.'}, {status: 404});
-    }
-
-    if (vipCode.use_count >= vipCode.max_uses) {
-      return NextResponse.json({error: 'This code has already been fully redeemed.'}, {status: 409});
-    }
-
-    if (vipCode.expires_at && new Date(vipCode.expires_at as string) < new Date()) {
-      return NextResponse.json({error: 'This code has expired.'}, {status: 410});
-    }
-
-    // ── 2. Increment use_count ──
-    const {error: updateCodeErr} = await supabase
-      .from('vip_codes')
-      .update({
-        use_count: vipCode.use_count + 1,
-        used_by: vipCode.used_by ?? user.id,
-        used_at: new Date().toISOString(),
-      })
-      .eq('id', vipCode.id);
-
-    if (updateCodeErr) {
-      console.error('[vip/redeem] update code error:', updateCodeErr);
-      return NextResponse.json({error: 'Redemption failed. Try again.'}, {status: 500});
-    }
-
-    // ── 3. Grant VIP on profile — 1 year from now ──
-    const vipExpiresAt = new Date();
-    vipExpiresAt.setFullYear(vipExpiresAt.getFullYear() + 1);
-
-    const {error: profileErr} = await supabase
-      .from('profiles')
-      .update({
-        is_vip: true,
-        vip_expires_at: vipExpiresAt.toISOString(),
-      })
-      .eq('id', user.id);
-
-    if (profileErr) {
-      console.error('[vip/redeem] profile update error:', profileErr);
-      return NextResponse.json({error: 'VIP grant failed. Contact support.'}, {status: 500});
-    }
-
-    // ── 4. Upsert subscription record ──
-    const {error: subErr} = await supabase.from('subscriptions').insert({
-      user_id: user.id,
-      status: 'active',
-      plan: 'vip_code',
-      provider: 'vip_code',
-      current_period_start: new Date().toISOString(),
-      current_period_end: vipExpiresAt.toISOString(),
-    });
-
-    if (subErr) {
-      // Non-fatal — log and continue
-      console.warn('[vip/redeem] subscription insert warning:', subErr);
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'VIP access granted. Welcome to the inner room.',
-    });
-  } catch (err) {
-    console.error('[vip/redeem] unexpected error:', err);
-    return NextResponse.json({error: 'Internal server error.'}, {status: 500});
+  const supabase = await createClient();
+  const {
+    data: {user},
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({error: 'Not authenticated.'}, {status: 401});
   }
+
+  const parsed = await parseBody(req, redeemSchema);
+  if (parsed.error) return parsed.error;
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json({error: 'Redemption is unavailable right now.'}, {status: 503});
+  }
+
+  const {data, error} = await createServiceClient().rpc('redeem_vip_code', {
+    p_code: parsed.data.code,
+    p_user: user.id,
+    p_months: 12,
+  });
+
+  if (error) {
+    console.error('[vip/redeem] rpc error:', error.message);
+    return NextResponse.json({error: 'Redemption failed. Try again.'}, {status: 500});
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | {result_status: string; result_expires: string | null}
+    | undefined;
+  if (!row || row.result_status !== 'granted') {
+    const outcome = OUTCOMES[row?.result_status ?? 'invalid'] ?? OUTCOMES.invalid;
+    return NextResponse.json({error: outcome.error}, {status: outcome.status});
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: 'VIP access granted. Welcome to the inner room.',
+    vip_expires_at: row.result_expires,
+  });
 }

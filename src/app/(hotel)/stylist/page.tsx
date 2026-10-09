@@ -127,13 +127,33 @@ interface AnalysisResult {
   price_range: string;
 }
 
-const MOCK_ANALYSIS: AnalysisResult = {
-  style_labels: ['Dark luxury', 'Sculptural silhouette', 'Minimalist'],
-  similar_brands: ['The Row', 'Bottega Veneta', 'Toteme', 'Lemaire'],
-  price_range: '$800–$3,200',
-};
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SampleNote({children}: {children: React.ReactNode}) {
+  return (
+    <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">{children}</p>
+  );
+}
+
+function ErrorNote({children}: {children: React.ReactNode}) {
+  return (
+    <p
+      style={{
+        fontFamily: 'var(--font-body)',
+        fontStyle: 'italic',
+        fontSize: '12px',
+        color: 'rgba(244,232,208,0.5)',
+        border: '1px solid rgba(201,169,97,0.2)',
+        background: 'rgba(201,169,97,0.04)',
+        padding: '10px 14px',
+        marginBottom: '16px',
+        lineHeight: 1.6,
+      }}
+    >
+      {children}
+    </p>
+  );
+}
 
 function TabButton({
   label,
@@ -274,18 +294,26 @@ function LookCard({look, accent, index}: {look: Look; accent: string; index: num
 function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}) {
   const [reserving, setReserving] = useState(false);
   const [reserved, setReserved] = useState(false);
+  const [reserveNote, setReserveNote] = useState<string | null>(null);
 
   async function handleReserve() {
     setReserving(true);
+    setReserveNote(null);
     try {
-      await fetch('/api/stylist/reserve', {
+      const res = await fetch('/api/stylist/reserve', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({box_id: box.id}),
       });
-      setReserved(true);
+      const data = (await res.json().catch(() => ({}))) as {reserved?: boolean; message?: string; error?: string};
+      // Only a 2xx that actually confirms a reservation counts.
+      if (res.ok && data.reserved === true) {
+        setReserved(true);
+      } else {
+        setReserveNote(data.message || data.error || 'This box could not be reserved. Nothing was charged or held.');
+      }
     } catch {
-      setReserved(true); // optimistic
+      setReserveNote('This box could not be reserved just now. Nothing was charged or held.');
     } finally {
       setReserving(false);
     }
@@ -444,6 +472,20 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
           </button>
         )}
       </div>
+      {reserveNote && (
+        <p
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontStyle: 'italic',
+            fontSize: '11px',
+            color: 'rgba(244,232,208,0.45)',
+            marginTop: '12px',
+            lineHeight: 1.5,
+          }}
+        >
+          {reserveNote}
+        </p>
+      )}
     </motion.div>
   );
 }
@@ -455,12 +497,15 @@ export default function StylistPage() {
   const [activeTab, setActiveTab] = useState<Tab>('looks');
   const [refreshing, setRefreshing] = useState(false);
   const [looks, setLooks] = useState<Look[]>([]);
+  const [looksAreSample, setLooksAreSample] = useState(true);
+  const [looksError, setLooksError] = useState<string | null>(null);
 
   // Upload / match state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // SSR-safe gender detection
   useEffect(() => {
@@ -471,6 +516,7 @@ export default function StylistPage() {
   // Set initial looks based on edition
   useEffect(() => {
     setLooks(edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
+    setLooksAreSample(true);
   }, [edition]);
 
   const isMasc = edition === 'carpe_diem';
@@ -479,6 +525,7 @@ export default function StylistPage() {
   // ── Refresh Looks ──
   async function handleRefreshLooks() {
     setRefreshing(true);
+    setLooksError(null);
     try {
       const res = await fetch('/api/nova', {
         method: 'POST',
@@ -488,15 +535,15 @@ export default function StylistPage() {
           system: 'You are Nova, a luxury personal stylist AI. Always respond with valid JSON only, no markdown.',
         }),
       });
+      if (!res.ok) throw new Error('nova unavailable');
       const data = await res.json() as {text: string};
       const parsed = JSON.parse(data.text) as Look[];
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setLooks(parsed);
-      }
+      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('no looks');
+      setLooks(parsed);
+      setLooksAreSample(false);
     } catch {
-      // On error, shuffle the default looks
-      const defaults = isMasc ? MASCULINE_LOOKS : FEMININE_LOOKS;
-      setLooks([...defaults].sort(() => Math.random() - 0.5));
+      // Keep whatever is showing (still labelled) and say so — never pass off a shuffle as new looks.
+      setLooksError("Nova couldn't put new looks together just now. Try again in a moment.");
     } finally {
       setRefreshing(false);
     }
@@ -510,6 +557,7 @@ export default function StylistPage() {
     reader.onload = (ev) => {
       setUploadPreview(ev.target?.result as string);
       setAnalysisResult(null);
+      setAnalysisError(null);
     };
     reader.readAsDataURL(file);
   }
@@ -518,6 +566,7 @@ export default function StylistPage() {
     if (!fileInputRef.current?.files?.[0]) return;
     setAnalyzing(true);
     setAnalysisResult(null);
+    setAnalysisError(null);
 
     try {
       // Get userId
@@ -533,7 +582,7 @@ export default function StylistPage() {
       const result = await res.json() as AnalysisResult;
       setAnalysisResult(result);
     } catch {
-      setAnalysisResult(MOCK_ANALYSIS);
+      setAnalysisError("Nova couldn't read this photo just now. No analysis was produced — try again in a moment.");
     } finally {
       setAnalyzing(false);
     }
@@ -679,6 +728,8 @@ export default function StylistPage() {
               exit={{opacity: 0, y: -10}}
               transition={{duration: 0.35}}
             >
+              {looksAreSample && <SampleNote>Sample looks · refresh for Nova&apos;s picks</SampleNote>}
+              {looksError && <ErrorNote>{looksError}</ErrorNote>}
               <div style={{display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px'}}>
                 {looks.map((look, i) => (
                   <LookCard key={look.name + i} look={look} accent={accent} index={i} />
@@ -734,6 +785,7 @@ export default function StylistPage() {
               >
                 Curated drops, sourced for you. New boxes open weekly.
               </p>
+              <SampleNote>Sample boxes · reservations open when a stylist partner is connected</SampleNote>
 
               <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
                 {BOXES.map((box, i) => (
@@ -894,6 +946,7 @@ export default function StylistPage() {
                     onClick={() => {
                       setUploadPreview(null);
                       setAnalysisResult(null);
+                      setAnalysisError(null);
                       if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
                     style={{
@@ -910,6 +963,8 @@ export default function StylistPage() {
                   </button>
                 </div>
               )}
+
+              {analysisError && <ErrorNote>{analysisError}</ErrorNote>}
 
               {/* Analysis result */}
               <AnimatePresence>

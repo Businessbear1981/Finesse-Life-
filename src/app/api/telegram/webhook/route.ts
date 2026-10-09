@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
 import {createServiceClient} from '@/lib/supabase/service';
+import {verifyLinkToken, webhookAuthorised} from '@/lib/telegram-link';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
@@ -22,6 +23,9 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
   });
 }
 
+// Never claim an action was taken when Nova did not answer.
+const NOVA_UNAVAILABLE = "Nova couldn't be reached just now. Nothing has been arranged — please try again shortly.";
+
 async function callNova(prompt: string, system?: string): Promise<string> {
   try {
     const res = await fetch(NOVA_URL, {
@@ -30,13 +34,22 @@ async function callNova(prompt: string, system?: string): Promise<string> {
       body: JSON.stringify({prompt, system}),
     });
     const data = (await res.json()) as {text?: string};
-    return data.text ?? "Consider it handled.";
+    return data.text ?? NOVA_UNAVAILABLE;
   } catch {
-    return "Consider it handled.";
+    return NOVA_UNAVAILABLE;
   }
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  // Only Telegram knows the secret_token registered with setWebhook. Without it anyone could
+  // post fake updates and drive the service-role lookups below.
+  if (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_WEBHOOK_SECRET) {
+    return NextResponse.json({ok: false, error: 'telegram not configured'}, {status: 503});
+  }
+  if (!webhookAuthorised(req.headers.get('x-telegram-bot-api-secret-token'))) {
+    return NextResponse.json({ok: false}, {status: 401});
+  }
+
   let update: TelegramUpdate;
   try {
     update = (await req.json()) as TelegramUpdate;
@@ -59,10 +72,14 @@ export async function POST(req: Request): Promise<NextResponse> {
     .eq('telegram_chat_id', String(chatId))
     .maybeSingle();
 
-  // Handle /link {user_id} — auto-link flow
+  // Handle /link <signed token> issued by /api/telegram/link (never a bare user id)
   if (text.startsWith('/link ')) {
-    const userId = text.slice(6).trim();
-    if (userId && telegramUserId) {
+    const userId = verifyLinkToken(TOKEN, text.slice(6));
+    if (!userId) {
+      await sendMessage(chatId, "That link code is invalid or has expired. Get a fresh one from *finesselife.vip/vip*.");
+      return NextResponse.json({ok: true});
+    }
+    if (telegramUserId) {
       const {error} = await supabase
         .from('profiles')
         .update({
@@ -72,7 +89,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         .eq('id', userId);
 
       if (error) {
-        await sendMessage(chatId, "Linking failed. Make sure your user ID is correct.");
+        await sendMessage(chatId, "Linking failed. Get a fresh link code from *finesselife.vip/vip* and try again.");
       } else {
         await sendMessage(
           chatId,
@@ -80,7 +97,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         );
       }
     } else {
-      await sendMessage(chatId, "Usage: `/link your-user-id`");
+      await sendMessage(chatId, "Usage: `/link <code from finesselife.vip/vip>`");
     }
     return NextResponse.json({ok: true});
   }
@@ -90,7 +107,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (text === '/start') {
       await sendMessage(
         chatId,
-        `*Welcome to Finesse VIP.*\n\nTo use this bot, link your account:\n\n1. Open *finesselife.vip/vip*\n2. Tap *Connect Telegram*\n3. Come back and send: /link {your-user-id}`,
+        `*Welcome to Finesse VIP.*\n\nTo use this bot, link your account:\n\n1. Open *finesselife.vip/vip*\n2. Tap *Connect Telegram*\n3. Come back and send the /link code it shows you`,
       );
     } else {
       await sendMessage(
@@ -133,11 +150,11 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (text === '/vault') {
     const {data: vault} = await supabase
       .from('vault_accounts')
-      .select('balance')
+      .select('balance_cents')
       .eq('user_id', profile.id)
       .maybeSingle();
 
-    const balance = vault?.balance != null ? `$${Number(vault.balance).toFixed(2)}` : '$0.00';
+    const balance = vault?.balance_cents != null ? `$${(Number(vault.balance_cents) / 100).toFixed(2)}` : '$0.00';
     await sendMessage(chatId, `*Your Vault Balance*\n${balance}`);
     return NextResponse.json({ok: true});
   }

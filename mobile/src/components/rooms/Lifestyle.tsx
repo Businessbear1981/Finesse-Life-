@@ -243,7 +243,7 @@ export function PerDiem() {
         </View>
         <View style={{height: 5, backgroundColor: 'rgba(255,169,107,0.15)'}}><Animated.View layout={LinearTransition} style={{height: 5, width: `${Math.min(100, Math.round((total / budget) * 100))}%`, backgroundColor: over ? '#FF8FA9' : '#7AF5B8'}} /></View>
       </View>
-      <ActionBar color={booked ? deco.brass : amber} label={booked ? 'HELD IN YOUR DIARY' : `HOLD THE NIGHT · $${total.toLocaleString()}`} onPress={() => setBooked((b) => !b)} />
+      <ActionBar color={booked ? deco.brass : amber} label={booked ? 'PREVIEW · NOT HELD OR SAVED' : `HOLD THE NIGHT · $${total.toLocaleString()}`} onPress={() => setBooked((b) => !b)} />
       <SampleNote>SAMPLE VENUES · HOLDING ADDS IT TO YOUR DIARY · NOVA ASKS BEFORE BOOKING OR PAYING ANYTHING</SampleNote>
     </View>
   );

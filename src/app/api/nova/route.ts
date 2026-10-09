@@ -27,10 +27,10 @@ function buildNovaTools(userId: string | null) {
           const supabase = await createClient();
           const {data} = await supabase
             .from('vault_accounts')
-            .select('balance')
+            .select('balance_cents')
             .eq('user_id', userId)
             .maybeSingle();
-          const cents = data?.balance ?? 0;
+          const cents = data?.balance_cents ?? 0;
           return {
             balance_cents: cents,
             balance_display: `$${(Number(cents) / 100).toFixed(2)}`,
@@ -95,6 +95,8 @@ function buildNovaTools(userId: string | null) {
     }),
   };
 }
+
+const NOVA_UNAVAILABLE_TEXT = "Nova couldn't be reached just now. Nothing has been arranged.";
 
 // ─── Route handler ─────────────────────────────────────────────────────────────
 
@@ -192,7 +194,14 @@ export async function POST(req: Request) {
       }
     }
 
-    const text = result.text || "Consider it handled. I'll have that arranged shortly.";
+    // Never imply something was arranged when the model produced no reply.
+    if (!result.text) {
+      return NextResponse.json(
+        {error: 'empty_response', text: NOVA_UNAVAILABLE_TEXT, tool_calls: toolCalls.length > 0 ? toolCalls : undefined},
+        {status: 502},
+      );
+    }
+    const text = result.text;
 
     return NextResponse.json({
       text,
@@ -200,8 +209,9 @@ export async function POST(req: Request) {
     });
   } catch {
     void recordAiUsage({feature: 'nova', model: NOVA_MODEL, userId, latencyMs: Date.now() - started, ok: false});
-    return NextResponse.json({
-      text: "Consider it handled. I'll have that arranged shortly.",
-    });
+    return NextResponse.json(
+      {error: 'nova_unavailable', text: NOVA_UNAVAILABLE_TEXT},
+      {status: 503},
+    );
   }
 }

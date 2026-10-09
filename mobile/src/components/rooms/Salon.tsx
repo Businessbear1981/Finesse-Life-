@@ -34,7 +34,7 @@ export function Salon({side}: {side: Side}) {
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, backgroundColor: on ? '#1C1210' : '#120C0A'}}>
                 <Monogram name={who} size={46} ring={on ? acc : deco.brass} />
                 <View style={{flex: 1, gap: 2}}>
-                  <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.2, color: deco.brass}}>{when}{ok[i] ? ' · CONFIRMED' : ''}</Text>
+                  <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.2, color: deco.brass}}>{when}{ok[i] ? ' · NOTED (PREVIEW)' : ''}</Text>
                   <Text style={{fontFamily: fonts.displayBold, fontSize: 17, lineHeight: 22, color: deco.cream}}>{what}</Text>
                   <Text style={{fontFamily: fonts.script, fontSize: 15, color: 'rgba(244,232,208,0.75)'}}>with {who}</Text>
                 </View>
@@ -62,7 +62,7 @@ export function Salon({side}: {side: Side}) {
       <SectionHead>MOVE IT TO</SectionHead>
       <Chips options={SLOTS} value={slot ?? ''} onChange={(v) => { setSlot(v === slot ? null : v); setOk((o) => ({...o, [ai]: false})); }} />
       <ActionBar color={confirmed ? deco.brass : acc}
-        label={confirmed ? `CONFIRMED · ${slot ?? A[0]}` : slot ? `MOVE TO ${slot}` : 'CONFIRM APPOINTMENT'}
+        label={confirmed ? `NOTED · ${slot ?? A[0]} · PREVIEW` : slot ? `MOVE TO ${slot}` : 'CONFIRM APPOINTMENT'}
         onPress={() => setOk((o) => ({...o, [ai]: !confirmed}))} />
       <SampleNote>SAMPLE BOOKINGS · CONFIRMATIONS REACH THE SALON ONCE YOUR SALON PARTNER IS CONNECTED</SampleNote>
     </View>

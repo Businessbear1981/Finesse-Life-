@@ -182,7 +182,7 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
               color: '#00FF88',
             }}
           >
-            12% back to Vault
+            Vault cashback · rate TBA
           </span>
         </div>
 
@@ -754,7 +754,7 @@ export default function Scale() {
             padding: '0 16px',
           }}
         >
-          Payment collected only when the group reaches its goal. Every transaction earns 12% back to your Vault.
+          Payment collected only when the group reaches its goal. Vault cashback on group buys is coming; the rate is not set yet.
         </p>
         <Link
           href="/lobby"

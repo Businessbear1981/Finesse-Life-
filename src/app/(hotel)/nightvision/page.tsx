@@ -37,6 +37,11 @@ interface Sources {
   spotify: boolean;
 }
 
+// None of the external sources has a real connector yet (no Instagram /
+// Snapchat / Spotify OAuth, no Plaid Link route). They are shown as
+// "Not available yet" and are never marked connected or sent as connected.
+const NO_SOURCES: Sources = {instagram: false, snapchat: false, plaid: false, spotify: false};
+
 interface StylePhoto {
   url: string;
   category: string;
@@ -514,7 +519,8 @@ interface ConnectCardProps {
   subtitle: string;
   detail: string;
   connected: boolean;
-  onConnect: () => void;
+  /** Omit when the source has no working connector — the card then reads "Not available yet". */
+  onConnect?: () => void;
 }
 
 function ConnectCard({title, subtitle, detail, connected, onConnect}: ConnectCardProps) {
@@ -579,6 +585,18 @@ function ConnectCard({title, subtitle, detail, connected, onConnect}: ConnectCar
           }}
         >
           CONNECTED
+        </span>
+      ) : !onConnect ? (
+        <span
+          style={{
+            fontFamily: 'var(--font-label)',
+            fontSize: '8px',
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: 'rgba(244,232,208,0.35)',
+          }}
+        >
+          NOT AVAILABLE YET
         </span>
       ) : (
         <button
@@ -778,12 +796,7 @@ export default function NightvisionPage() {
   const [profileLoaded, setProfileLoaded] = useState(false);
 
   // ── sources ──
-  const [sources, setSources] = useState<Sources>({
-    instagram: false,
-    snapchat: false,
-    plaid: false,
-    spotify: false,
-  });
+  const sources = NO_SOURCES;
 
   // ── questionnaire ──
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
@@ -866,42 +879,6 @@ export default function NightvisionPage() {
     setTimeout(() => setToast(null), 3000);
   };
 
-  // ── connect handlers ──
-  const handleConnectInstagram = () => {
-    const hasEnv = !!process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
-    if (!hasEnv) {
-      showToast('Instagram OAuth · wiring in progress');
-      // Optimistically mark connected for demo flow
-      setSources((p) => ({...p, instagram: true}));
-      return;
-    }
-    window.location.href = '/api/auth/instagram';
-  };
-
-  const handleConnectSnapchat = () => {
-    showToast('Snapchat OAuth · wiring in progress');
-    setSources((p) => ({...p, snapchat: true}));
-  };
-
-  const handleConnectPlaid = async () => {
-    try {
-      const res = await fetch('/api/plaid/link', {method: 'POST'});
-      if (!res.ok) throw new Error('not configured');
-      const data = (await res.json()) as {link_token?: string};
-      if (data.link_token) {
-        showToast('Plaid Link initializing...');
-        setSources((p) => ({...p, plaid: true}));
-      }
-    } catch {
-      showToast('Plaid · wiring in progress');
-      setSources((p) => ({...p, plaid: true}));
-    }
-  };
-
-  const handleConnectSpotify = () => {
-    window.location.href = '/api/auth/spotify';
-  };
-
   // ── questionnaire handlers ──
   function handleSingleSelect(qId: keyof Answers, value: string) {
     setAnswers((prev) => ({...prev, [qId]: value}));
@@ -949,6 +926,7 @@ export default function NightvisionPage() {
         body: JSON.stringify({answers, sources, photos}),
       });
 
+      if (!res.ok) throw new Error('analyze failed');
       const data = (await res.json()) as AnalyzeResponse;
 
       const profile: NightvisionProfile = {
@@ -1182,13 +1160,23 @@ export default function NightvisionPage() {
               {/* Connect cards */}
               <div style={{display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '40px'}}>
                 <SectionLabel>DATA SOURCES</SectionLabel>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontStyle: 'italic',
+                    fontSize: '11px',
+                    color: 'rgba(244,232,208,0.35)',
+                    margin: '0 0 4px',
+                  }}
+                >
+                  Source connections aren&apos;t open yet. Your Style DNA is built from the questionnaire and your photos.
+                </p>
 
                 <ConnectCard
                   title="INSTAGRAM"
                   subtitle="Visual identity layer"
                   detail="We read your posts, brand tags, aesthetic, visual identity. Style signals extracted from your feed."
                   connected={sources.instagram}
-                  onConnect={handleConnectInstagram}
                 />
 
                 <ConnectCard
@@ -1196,7 +1184,6 @@ export default function NightvisionPage() {
                   subtitle="Social graph layer"
                   detail="Story patterns, social graph, location signals. How you move, who you move with."
                   connected={sources.snapchat}
-                  onConnect={handleConnectSnapchat}
                 />
 
                 <ConnectCard
@@ -1204,7 +1191,6 @@ export default function NightvisionPage() {
                   subtitle="Transaction layer"
                   detail="Real transaction data. We see what brands you actually pay for — not just follow."
                   connected={sources.plaid}
-                  onConnect={handleConnectPlaid}
                 />
 
                 <ConnectCard
@@ -1212,7 +1198,6 @@ export default function NightvisionPage() {
                   subtitle="Taste signal layer"
                   detail="Top artists, genres, recently played. Music is the fastest read on who you really are."
                   connected={sources.spotify}
-                  onConnect={handleConnectSpotify}
                 />
               </div>
 
@@ -1759,7 +1744,7 @@ export default function NightvisionPage() {
                             color: 'rgba(244,232,208,0.25)',
                           }}
                         >
-                          {connected ? detail : 'not connected'}
+                          {connected ? detail : 'not available yet'}
                         </span>
                       </div>
                     );

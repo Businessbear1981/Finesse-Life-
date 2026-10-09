@@ -203,7 +203,7 @@ export default function LobbyPage() {
               className="font-body italic mt-4"
               style={{ fontSize: '13px', color: 'rgba(244,232,208,0.35)', letterSpacing: '0.04em' }}
             >
-              847 members checked in tonight.
+              The house is open tonight.
             </p>
           )}
         </motion.div>

@@ -2,13 +2,15 @@
 // middle — composed after the Finesse design (the "Payload shell"). Rooms without an interior yet say so.
 import {useEffect, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
-import {useRouter} from 'expo-router';
+import {Link, useRouter} from 'expo-router';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import Animated, {FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
 import Svg, {Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {BEZEL_STOPS, conicRing, deco, fonts, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
-import {useSide} from '@/lib/session';
+import {houseSession, useSide} from '@/lib/session';
+import {supabase} from '@/lib/supabase';
+import {liftToken} from '@/lib/api';
 import {ContentWidth} from '@/lib/layout';
 import {DecoLobby} from '@/components/scenes/DecoLobby';
 import {Lounge} from '@/components/rooms/Lounge';
@@ -69,6 +71,9 @@ const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
 // Rooms off the rails, reached from the Lobby directory.
 const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('club', 'The Club', 'briefcase', 'PUBLIC FLOOR')];
 const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile, 'carpe-diem': CarpeDiem, market: Market, ballroom: Ballroom, club: Club};
+// Rooms whose interiors make real server calls today. Only these get the green "ROOM ON" lamp;
+// every other interior is sample or local-only and says so.
+const LIVE_ROOMS = new Set(['lounge', 'concierge', 'vault', 'gym', 'stylist', 'starmaker']); // Kitchen calls order-intent but can't create the plan it needs (422), so it stays sample.
 const RAIL = 58;
 
 export default function HotelScreen() {
@@ -103,9 +108,10 @@ export default function HotelScreen() {
           <ScrollView key={room} style={{flex: 1}} contentContainerStyle={{paddingTop: room === 'lobby' ? 0 : 22, paddingBottom: 70}}>
             {room === 'lobby' ? <Lobby side={side} onPick={setRoom} /> : (
               <Animated.View entering={FadeIn.duration(450)} style={{paddingHorizontal: 12, gap: 12}}>
-                <RoomOn wing={current.wing} />
+                <RoomOn wing={current.wing} live={LIVE_ROOMS.has(current.id)} />
                 <Text style={styles.roomTitle}>{current.label}</Text>
                 {Built ? <View style={{gap: 14}}><Built side={side} /></View> : <Interior room={current} acc={acc} />}
+                {room === 'profile' ? <AccountDesk /> : null}
               </Animated.View>
             )}
           </ScrollView>
@@ -187,11 +193,49 @@ function NovaButton({on, onPress}: {on: boolean; onPress: () => void}) {
   );
 }
 
-function RoomOn({wing}: {wing: string}) {
+function RoomOn({wing, live}: {wing: string; live: boolean}) {
+  const lamp = live ? '#00FF88' : 'rgba(201,169,97,0.55)';
   return (
     <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-      <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: '#00FF88', shadowColor: '#00FF88', shadowOpacity: 0.8, shadowRadius: 8}} />
-      <Text style={{fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, color: '#7AF5B8'}}>ROOM ON · {wing}</Text>
+      <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: lamp, shadowColor: lamp, shadowOpacity: live ? 0.8 : 0, shadowRadius: 8}} />
+      <Text style={{fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, color: live ? '#7AF5B8' : 'rgba(232,200,122,0.7)'}}>{live ? 'ROOM ON' : 'SAMPLE ROOM'} · {wing}</Text>
+    </View>
+  );
+}
+
+/** Account controls under This Is You: who is signed in, change side of the house, sign out. */
+function AccountDesk() {
+  const router = useRouter();
+  const [email, setEmail] = useState<string | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({data}) => setEmail(data.session?.user.email ?? null)).catch(() => setEmail(null));
+    const {data: sub} = supabase.auth.onAuthStateChange((_e, s) => setEmail(s?.user.email ?? null));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  const signOut = async () => {
+    setBusy(true);
+    await liftToken.clear().catch(() => {});
+    await supabase.auth.signOut().catch(() => {});
+    setBusy(false);
+  };
+  const other = houseSession.getSide() === 'her' ? 'Carpe Diem' : 'Finesse';
+  return (
+    <View style={{marginTop: 6, padding: 12, gap: 10, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)'}}>
+      <Text style={styles.deskHead}>YOUR KEY</Text>
+      <Text style={styles.roomLine}>{email === undefined ? 'Checking…' : email ? `Signed in as ${email}` : 'You are not signed in on this device.'}</Text>
+      {email ? (
+        <Pressable onPress={signOut} disabled={busy} accessibilityRole="button" accessibilityLabel="Sign out" style={[styles.deskBtn, busy && {opacity: 0.5}]}>
+          <Text style={styles.deskBtnText}>{busy ? 'ONE MOMENT…' : 'SIGN OUT'}</Text>
+        </Pressable>
+      ) : email === null ? (
+        <Link href="/sign-in" asChild>
+          <Pressable accessibilityRole="button" style={styles.deskBtn}><Text style={styles.deskBtnText}>SIGN IN</Text></Pressable>
+        </Link>
+      ) : null}
+      <Pressable onPress={() => router.replace('/side')} accessibilityRole="button" accessibilityLabel={`Change side of the house to ${other}`} style={styles.deskBtn}>
+        <Text style={styles.deskBtnText}>CHANGE SIDE OF THE HOUSE</Text>
+      </Pressable>
     </View>
   );
 }
@@ -296,5 +340,8 @@ const styles = StyleSheet.create({
   ctaText: {fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2.2, color: '#140508'},
   novaCard: {marginTop: 10, marginHorizontal: 12, padding: 12, gap: 4, overflow: 'hidden'},
   section: {marginTop: 16, marginHorizontal: 12, paddingBottom: 6, borderBottomWidth: 2, borderColor: deco.brass, fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2.4, color: deco.brassHighlight},
+  deskHead: {fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2.4, color: deco.brassHighlight},
+  deskBtn: {minHeight: 44, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center'},
+  deskBtnText: {fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.cream},
   recent: {flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.25)'},
 });

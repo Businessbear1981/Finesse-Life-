@@ -1,56 +1,30 @@
 'use client';
 
-import {useState, useRef} from 'react';
-import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
+import {useActionState, useRef, useState} from 'react';
+import {enterDemo} from './actions';
 
-const DEMO_CODES: Record<string, {email: string; password: string}> = {
-  FINESSE2026: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  INVESTOR: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  ARDENEDGE: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  PREVIEW: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-};
+const initialState = {error: null as string | null};
 
 export default function DemoPage() {
-  const router = useRouter();
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = code.trim().toUpperCase();
-    const creds = DEMO_CODES[trimmed];
-
-    if (!creds) {
-      setError('Invalid access code.');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      inputRef.current?.focus();
-      return;
-    }
-
-    setError('');
-    setLoading(true);
-
-    const supabase = createClient();
-    const {error: authError} = await supabase.auth.signInWithPassword({
-      email: creds.email,
-      password: creds.password,
-    });
-
-    if (authError) {
-      setError('Invalid access code.');
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      setLoading(false);
-      return;
-    }
-
-    router.push('/lobby');
-  }
+  // Sign-in happens server-side; the demo account never reaches this bundle.
+  const [, formAction, loading] = useActionState(
+    async (prev: {error: string | null}, formData: FormData) => {
+      const result = await enterDemo(prev, formData);
+      if (result.error) {
+        setError(result.error);
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+        inputRef.current?.focus();
+      }
+      return result;
+    },
+    initialState,
+  );
 
   return (
     <div
@@ -145,7 +119,7 @@ export default function DemoPage() {
             boxShadow: '0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
           }}
         >
-          <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <form action={formAction} className="flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <label
                 htmlFor="accessCode"
@@ -157,6 +131,7 @@ export default function DemoPage() {
               <input
                 ref={inputRef}
                 id="accessCode"
+                name="code"
                 type="text"
                 autoComplete="off"
                 autoCorrect="off"

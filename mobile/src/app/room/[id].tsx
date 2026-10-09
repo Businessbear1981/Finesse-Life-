@@ -14,6 +14,7 @@ const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: L
 export default function RoomDetail() {
   const {id} = useLocalSearchParams<{id: string}>();
   const room = roomById(id ?? '');
+  const side = useSide(); // hooks run before any early return
   if (!room) {
     return (
       <View style={styles.missing}>
@@ -23,7 +24,6 @@ export default function RoomDetail() {
     );
   }
   const Built = BUILT[room.id];
-  const side = useSide();
   return (
     <RoomPlate room={room}>
       {Built ? <Built side={side} /> : (

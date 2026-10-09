@@ -269,9 +269,9 @@ export function Lounge({side}: {side: Side}) {
       <View style={{alignItems: 'center', gap: 4, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.5)'}}>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
           <View style={{width: 7, height: 7, borderRadius: 4, backgroundColor: '#00FF88', shadowColor: '#00FF88', shadowOpacity: 0.9, shadowRadius: 6}} />
-          <Text style={{fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.4, color: '#7AF5B8'}}>LIVE · {geo}</Text>
+          <Text style={{fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.4, color: '#7AF5B8'}}>SAMPLE · {geo}</Text>
         </View>
-        <Text style={{fontFamily: fonts.displayHeavy, fontSize: 26, color: deco.brassWhite}}>42 <Text style={{fontFamily: fonts.script, fontSize: 18, color: deco.cream}}>in the room tonight</Text></Text>
+        <Text style={{fontFamily: fonts.displayHeavy, fontSize: 26, color: deco.brassWhite}}>42 <Text style={{fontFamily: fonts.script, fontSize: 18, color: deco.cream}}>in the room tonight · sample</Text></Text>
       </View>
 
       {/* deco tabs */}

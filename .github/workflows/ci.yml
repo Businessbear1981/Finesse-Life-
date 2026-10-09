@@ -28,8 +28,10 @@ jobs:
         run: npx tsc --noEmit
       - name: Unit + contract tests
         run: npm test
+      - name: Database policy tests (PGlite, no network)
+        run: npm run test:db
       - name: Lint (new hotel-build code; legacy pages have known findings)
-        run: npx eslint src/lib src/components/hotel src/app/api/keylock src/app/api/vip-keylock src/app/api/rooms src/app/api/diary src/app/api/ballroom src/app/api/closet src/app/api/identity src/app/api/camera src/app/api/jazz-club src/app/api/gym src/app/api/kitchen src/app/api/scale
+        run: npx eslint src/lib src/components/hotel src/app/api/keylock src/app/api/vip-keylock src/app/api/rooms src/app/api/diary src/app/api/ballroom src/app/api/closet src/app/api/identity src/app/api/camera src/app/api/jazz-club src/app/api/gym src/app/api/kitchen src/app/api/scale src/app/api/vip src/app/api/procurement src/app/api/telegram src/app/api/webhooks/media src/app/api/scrapbook/video-status
       - name: Build
         run: npx next build
       - name: Smoke (signed-out)
