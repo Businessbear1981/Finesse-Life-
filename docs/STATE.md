@@ -1,7 +1,7 @@
 # Finesse Life — State
 
 > **Status:** PRE-LAUNCH (demand-gated — build weight stays low until the founding-cohort / anchor-partner side is confirmed)
-> **Last updated:** 2026-10-01 (Keylock hotel build branch — see `docs/KEYLOCK_HOTEL_BUILD.md`) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
+> **Last updated:** 2026-10-09 (backend security floor + full frontend/backend maps — see `docs/FRONTEND_MAP.md`, `docs/BACKEND_MAP.md`) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
 > **One-liner:** Luxury hotel-styled social/lifestyle PWA with AI concierge, curated commerce, and a member rebate card program — live at finesselife.vip, membership not yet transacting.
 > **Current state:** UI + concierge are real; **no payment path exists** (no checkout, no subscriptions). The gate to the transact sprint is demand confirmation, not engineering.
 > **Links:** `AGENTS.md` (charter/SOP) · `docs/decisions/` (ADRs) · `CONTEXT.md` (glossary) · `OPS.md` (runbook) · GitHub Issues (work tracking)
@@ -36,7 +36,7 @@ From the 2026-06-23 line-by-line audit — `asserted` (predates the June/July ro
 |---|---|
 | Hotel UX / dual-brand experience, room navigation | **Real** |
 | Nova / Stylist concierge | **Real** (Anthropic Claude via AI Gateway) |
-| Supabase auth + VIP-code redemption (grants 1-yr VIP) | **Real** |
+| Supabase auth + VIP-code redemption (grants 1-yr VIP) | Auth **real**. Redemption was **broken** (cookie-bound "service" client ran under member RLS → every code 404) — rebuilt on `sean/backend-security-floor` as an atomic service-role RPC (2026-10-09 audit, `asserted` from source) |
 | Inbound Stripe webhook (`api/webhooks`) | **Real** endpoint, but nothing upstream creates payments |
 | Checkout / PaymentIntent / subscriptions | **Missing entirely** — no `/subscribe`, no billing migrations |
 | Scout & Price-Hunter | **Broken** — query columns/statuses that don't exist; return nothing |
@@ -83,3 +83,26 @@ Tracked in GitHub Issues + PRs on `Businessbear1981/Finesse-Life-`. Current phas
 `asserted` until deployed: every Claude call (Nova, Nova vision, Camera identify, Stylist, Bernard, Registry identify, truth checks, intelligence jobs) writes token counts + estimated cost to `ai_usage_events` (append-only, FORCE RLS, no prompt content). Admin dashboard `/settings/ai-usage`; read-only export `/api/admin/ai-usage` → `npm run usage:obsidian` writes daily notes into an Obsidian vault.
 Needs: migration `20261005_ai_usage_events.sql` + env `AI_USAGE_EXPORT_TOKEN` (optional `AI_PRICING_JSON`). ADR: `docs/decisions/0003-ai-token-usage-ledger.md`.
 `verified` 2026-10-02 via connectors: Supabase project `zcqcgqsovrjlxxiipuzg` is **paused (INACTIVE)**; Vercel `finesse-life` latest production deploy **ERROR** (type error in `embassy/page.tsx:540`, already fixed on `main`); a second Vercel project `finesselife` also lists `finesselife.vip`.
+
+## 2026-10-09 — Backend security floor + maps (`sean/backend-security-floor`, on top of `sean/mobile-keylock`)
+
+Full read-only audit of the web app, the Expo app and all 106 API routes → `docs/FRONTEND_MAP.md`, `docs/BACKEND_MAP.md` (ranked backlog in §6). `asserted` from source; nothing re-checked against the live DB.
+
+Shipped on the branch (not merged, not deployed, **migration not applied**):
+
+| Change | Where | Truth |
+|---|---|---|
+| Entitlement columns server-managed: members can't set `is_vip`, `vip_expires_at`, new `profiles.role` | `20261009_security_floor.sql` (trigger) | wired (PGlite-tested) |
+| Anonymous profile reads closed (members still read members) | same | wired |
+| Vault balances/credits writable only by the server (closes the freeze bypass) | same | wired |
+| Scale: members pledge + cancel only; no self-advance to `paid`, no delete; one count trigger (was double-counting) | same | wired |
+| RLS on `stripe_events`, `truth_checks`; procurement tokens server-minted; embassy deals not editable by members | same | wired |
+| VIP redemption = atomic `redeem_vip_code` RPC (service role only) + `vip_code_redemptions` | migration + `api/vip/redeem` | wired |
+| One admin rule: `profiles.role` admin/owner or `ADMIN_EMAIL` (old `username==='admin'` was claimable) | `src/lib/admin.ts`, `api/vip/codes`, `vip/codes` page | wired |
+| Telegram: webhook secret required; `/link` takes a signed 15-min code, not a user id; notify self-only | `src/lib/telegram-link.ts`, `api/telegram/*` | wired (needs env + setWebhook) |
+| Media webhook requires `MEDIA_WEBHOOK_SECRET`; committed Higgsfield credentials removed | `api/webhooks/media`, `api/scrapbook/video-status` | wired — **rotate the Higgsfield key** |
+| Procurement token redeem is single-use (conditional update); CSPRNG for VIP codes and tokens | `api/procurement/redeem`, `lib/agents/procurement.ts` | wired |
+| Scrapbook log IDOR + stylist sign-in (cherry-picked `sean/api-security-fixes`) | `api/scrapbook/log`, `api/stylist/analyze-photo` | wired |
+| `npm run test:db` — PGlite policy test (32 checks), added to CI | `tests/db/security-floor.mjs` | passing |
+
+Deploy additions (principal approval): apply `20261009_security_floor.sql` after 20261001–20261005; set `TELEGRAM_WEBHOOK_SECRET` + re-run Telegram `setWebhook` with `secret_token`; set `MEDIA_WEBHOOK_SECRET` and add it to vendor webhook URLs; grant the first admin from a direct DB session: `update public.profiles set role = 'owner' where id = '<founder id>';`. Rotate: Supabase DB password, Higgsfield key pair, demo account password.

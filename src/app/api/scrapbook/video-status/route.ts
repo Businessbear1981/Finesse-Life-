@@ -3,9 +3,11 @@ import { createClient } from '@supabase/supabase-js';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
-const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai/v1';
-const HIGGSFIELD_KEY_ID = '1388eeb1-9dfc-465a-b52a-dd117280e845';
-const HIGGSFIELD_SECRET = '892fa0dc7fea9d01e452296801a1355b759f6d25d06161ef472258e5d083eb81';
+// Credentials come from the environment only. (A key pair was previously committed here —
+// it is in git history and must be rotated in the Higgsfield dashboard.)
+const HIGGSFIELD_BASE = process.env.HIGGSFIELD_API_BASE ?? 'https://platform.higgsfield.ai/v1';
+const HIGGSFIELD_KEY_ID = process.env.HIGGSFIELD_API_KEY_ID;
+const HIGGSFIELD_SECRET = process.env.HIGGSFIELD_API_SECRET;
 
 const serviceClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,6 +54,10 @@ export async function GET(req: Request) {
     // If already ready or no job, return current state
     if (entry.video_status === 'ready' || entry.video_status === 'none' || !entry.video_job_id) {
       return NextResponse.json({ status: entry.video_status, video_url: entry.video_url ?? null });
+    }
+
+    if (!HIGGSFIELD_KEY_ID || !HIGGSFIELD_SECRET) {
+      return NextResponse.json({ status: entry.video_status, video_url: null, reason: 'provider_not_configured' });
     }
 
     // Poll Higgsfield

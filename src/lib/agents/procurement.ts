@@ -1,3 +1,5 @@
+import {randomInt} from 'crypto';
+
 // Procurement: when a registry item is funded, finds the best purchase path
 // Knows about partner programs (Carvana for cars, Airbnb for trips, etc.)
 
@@ -44,7 +46,7 @@ export function generateToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return (
     'FSS-VIP-' +
-    Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+    Array.from({length: 8}, () => chars[randomInt(chars.length)]).join('')
   );
 }
 

@@ -1,7 +1,9 @@
 import {NextResponse} from 'next/server';
+import {isAdmin} from '@/lib/admin';
+import {createClient} from '@/lib/supabase/server';
 import {createServiceClient} from '@/lib/supabase/service';
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
 
 type NotifyType = 'registry_funded' | 'scale_goal_reached' | 'vip_message' | 'nova_briefing';
@@ -40,6 +42,15 @@ function buildMessage(type: NotifyType, data?: Record<string, string>): string |
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  // Members may notify only themselves; staff (profiles.role admin/owner) may notify anyone.
+  // Free-text `vip_message` is staff-only — it used to let any member message any member.
+  const session = await createClient();
+  const {
+    data: {user},
+  } = await session.auth.getUser();
+  if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
+  const staff = await isAdmin(session, user);
+
   let body: NotifyBody;
   try {
     body = (await req.json()) as NotifyBody;
@@ -50,6 +61,12 @@ export async function POST(req: Request): Promise<NextResponse> {
   const {user_id, type, data} = body;
   if (!user_id || !type) {
     return NextResponse.json({error: 'user_id and type required'}, {status: 400});
+  }
+  if (!staff && (user_id !== user.id || type === 'vip_message')) {
+    return NextResponse.json({error: 'Forbidden'}, {status: 403});
+  }
+  if (!TOKEN) {
+    return NextResponse.json({ok: false, sent: false, reason: 'telegram_not_configured'}, {status: 503});
   }
 
   // Look up telegram_chat_id

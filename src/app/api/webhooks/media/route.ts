@@ -1,5 +1,6 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
+import {constantTimeEqual} from '@/lib/keylock-server';
 
 // Generic media-vendor webhook receiver.
 //
@@ -7,18 +8,36 @@ import {createClient} from '@supabase/supabase-js';
 // finishes. Pass ?vendor=higgsfield (or suno|meshy) on the URL when configuring
 // the webhook in the vendor dashboard. The handler updates the media_assets
 // row keyed by the vendor's job id (stored as `metadata.vendor_job_id`).
+//
+// Every call must carry the shared secret MEDIA_WEBHOOK_SECRET, either as the
+// `X-Finesse-Webhook-Secret` header or `?secret=` on the configured URL (for vendors that
+// cannot send custom headers). Without the env var the endpoint refuses everything.
 
 export const runtime = 'nodejs';
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {auth: {persistSession: false}},
-);
+function admin() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: {persistSession: false},
+  });
+}
+
+function authorised(req: NextRequest): boolean {
+  const expected = process.env.MEDIA_WEBHOOK_SECRET;
+  if (!expected || expected.length < 32) return false;
+  const given = req.headers.get('x-finesse-webhook-secret') ?? req.nextUrl.searchParams.get('secret') ?? '';
+  return constantTimeEqual(given, expected);
+}
 
 type Vendor = 'higgsfield' | 'suno' | 'meshy';
 
 export async function POST(req: NextRequest) {
+  if (!process.env.MEDIA_WEBHOOK_SECRET) {
+    return NextResponse.json({error: 'media webhook not configured'}, {status: 503});
+  }
+  if (!authorised(req)) {
+    return NextResponse.json({error: 'unauthorised'}, {status: 401});
+  }
+
   const vendor = (req.nextUrl.searchParams.get('vendor') ?? '') as Vendor;
   if (!['higgsfield', 'suno', 'meshy'].includes(vendor)) {
     return NextResponse.json({error: 'unknown vendor'}, {status: 400});
@@ -49,7 +68,7 @@ export async function POST(req: NextRequest) {
   const isDone = ['complete', 'succeeded', 'finished'].includes(status);
   const isFailed = ['failed', 'error'].includes(status);
 
-  const {error} = await admin
+  const {error} = await admin()
     .from('media_assets')
     .update({
       status: isDone ? 'uploaded' : isFailed ? 'failed' : 'uploading',

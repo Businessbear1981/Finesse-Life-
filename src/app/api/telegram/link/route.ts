@@ -1,6 +1,7 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
 import {createServiceClient} from '@/lib/supabase/service';
+import {LINK_TTL_MS, createLinkToken} from '@/lib/telegram-link';
 
 const BOT_USERNAME =
   process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? 'FinesseVIPBot';
@@ -24,6 +25,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     // body optional
   }
 
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) {
+    return NextResponse.json({error: 'Telegram is not connected yet.'}, {status: 503});
+  }
+  const linkCode = createLinkToken(botToken, user.id);
+
   // Store the handle if provided
   const service = createServiceClient();
   if (telegram_username) {
@@ -37,10 +44,11 @@ export async function POST(req: Request): Promise<NextResponse> {
     ok: true,
     instructions: [
       `1. Open Telegram and search @${BOT_USERNAME}`,
-      `2. Start a chat and send: /link ${user.id}`,
-      `3. You'll receive a confirmation message when linked.`,
+      `2. Start a chat and send: /link ${linkCode}`,
+      `3. You'll receive a confirmation message when linked. The code expires in ${LINK_TTL_MS / 60_000} minutes.`,
     ].join('\n'),
     bot_username: BOT_USERNAME,
-    user_id: user.id,
+    link_code: linkCode,
+    expires_in_s: LINK_TTL_MS / 1000,
   });
 }

@@ -1,60 +1,28 @@
+import {randomInt} from 'crypto';
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
-import {cookies} from 'next/headers';
+import {isAdmin} from '@/lib/admin';
+import {createClient} from '@/lib/supabase/server';
+import {createServiceClient} from '@/lib/supabase/service';
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/I/1 confusion
 
+// VIP codes are bearer credentials for a paid entitlement: use a CSPRNG, not Math.random.
 function generateCode(): string {
-  const segment = (len: number) =>
-    Array.from({length: len}, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+  const segment = (len: number) => Array.from({length: len}, () => CHARS[randomInt(CHARS.length)]).join('');
   return `FNS-${segment(4)}${segment(4)}`;
 }
 
 async function getClients() {
-  const cookieStore = await cookies();
-
-  const serviceSupabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    },
-  );
-
-  const anonSupabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    },
-  );
-
-  return {serviceSupabase, anonSupabase};
+  // The member is read from their own session (cookie or mobile bearer); code rows are
+  // read/written with the real service-role client, never a cookie-bound one.
+  return {serviceSupabase: createServiceClient(), anonSupabase: await createClient()};
 }
 
-async function checkAdmin(anonSupabase: ReturnType<typeof createServerClient>) {
+async function checkAdmin(anonSupabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: {user},
   } = await anonSupabase.auth.getUser();
-  if (!user) return {user: null, isAdmin: false};
-
-  const {data: profile} = await anonSupabase
-    .from('profiles')
-    .select('username')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin =
-    profile?.username === 'admin' ||
-    user.email === process.env.ADMIN_EMAIL;
-
-  return {user, isAdmin};
+  return {user, isAdmin: await isAdmin(anonSupabase, user)};
 }
 
 // ── GET — list all codes ──────────────────────────────────────────────────

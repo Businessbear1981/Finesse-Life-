@@ -1,4 +1,5 @@
 import {redirect} from 'next/navigation';
+import {isAdmin} from '@/lib/admin';
 import {createClient} from '@/lib/supabase/server';
 import {VipCodesAdmin} from './vip-codes-admin';
 
@@ -10,18 +11,7 @@ export default async function VipCodesPage() {
 
   if (!user) redirect('/login');
 
-  // Server-side admin check
-  const {data: profile} = await supabase
-    .from('profiles')
-    .select('username')
-    .eq('id', user.id)
-    .single();
-
-  const isAdmin =
-    profile?.username === 'admin' ||
-    user.email === process.env.ADMIN_EMAIL;
-
-  if (!isAdmin) redirect('/lobby');
+  if (!(await isAdmin(supabase, user))) redirect('/lobby');
 
   return (
     <div

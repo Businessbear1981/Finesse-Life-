@@ -27,10 +27,10 @@ function buildNovaTools(userId: string | null) {
           const supabase = await createClient();
           const {data} = await supabase
             .from('vault_accounts')
-            .select('balance')
+            .select('balance_cents')
             .eq('user_id', userId)
             .maybeSingle();
-          const cents = data?.balance ?? 0;
+          const cents = data?.balance_cents ?? 0;
           return {
             balance_cents: cents,
             balance_display: `$${(Number(cents) / 100).toFixed(2)}`,
