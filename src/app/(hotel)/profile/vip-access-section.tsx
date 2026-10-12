@@ -1,6 +1,6 @@
 'use client';
 
-import {useState, useRef, useCallback} from 'react';
+import {useState, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 import {motion, AnimatePresence, useAnimation} from 'framer-motion';
@@ -188,7 +188,8 @@ function VipGate({showUpgrade}: {showUpgrade: boolean}) {
                 style={{border: '1px solid rgba(201,169,97,0.18)', color: 'rgba(201,169,97,0.55)'}}>
                 I Have a Code
               </button>
-              <Link href="/subscribe"
+              {/* Real membership flow: /subscribe asks /api/billing/status and opens Stripe Checkout when on sale. */}
+              <Link href="/subscribe" aria-label="Become a member — $24.99 / month"
                 className="flex-1 py-3 text-center font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
                 style={{
                   background: 'linear-gradient(135deg, rgba(201,169,97,0.12), rgba(232,200,122,0.08))',
@@ -304,6 +305,7 @@ function VipCard({vipExpiresAt, memberSince}: {vipExpiresAt: string | null; memb
             )}
           </div>
 
+          <div className="flex flex-col items-end gap-2">
           <Link href="/vip"
             className="flex items-center gap-2 px-5 py-2.5 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300"
             style={{
@@ -313,6 +315,12 @@ function VipCard({vipExpiresAt, memberSince}: {vipExpiresAt: string | null; memb
             }}>
             Inner Room →
           </Link>
+          <Link href="/account"
+            className="font-label text-[7px] tracking-[0.3em] uppercase"
+            style={{color: 'rgba(201,169,97,0.4)'}}>
+            Membership &amp; billing
+          </Link>
+          </div>
         </div>
       </div>
 

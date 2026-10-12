@@ -31,7 +31,7 @@ jobs:
       - name: Database policy tests (PGlite, no network)
         run: npm run test:db
       - name: Lint (new hotel-build code; legacy pages have known findings)
-        run: npx eslint src/lib src/components/hotel src/app/api/keylock src/app/api/vip-keylock src/app/api/rooms src/app/api/diary src/app/api/ballroom src/app/api/closet src/app/api/identity src/app/api/camera src/app/api/jazz-club src/app/api/gym src/app/api/kitchen src/app/api/scale src/app/api/vip src/app/api/procurement src/app/api/telegram src/app/api/webhooks/media src/app/api/scrapbook/video-status src/app/api/nova src/app/api/bernard src/app/api/agents src/app/api/account src/app/api/upload src/app/api/integrations/alpaca src/app/api/integrations/yahoo-fantasy src/app/api/intelligence/market src/app/api/nightvision/analyze src/app/api/stylist src/app/account tests
+        run: npx eslint src/lib src/components/hotel src/app/api/keylock src/app/api/vip-keylock src/app/api/rooms src/app/api/diary src/app/api/ballroom src/app/api/closet src/app/api/identity src/app/api/camera src/app/api/jazz-club src/app/api/gym src/app/api/kitchen src/app/api/scale src/app/api/vip src/app/api/procurement src/app/api/telegram src/app/api/webhooks/media src/app/api/scrapbook/video-status src/app/api/nova src/app/api/bernard src/app/api/agents src/app/api/account src/app/api/upload src/app/api/integrations/alpaca src/app/api/integrations/yahoo-fantasy src/app/api/intelligence/market src/app/api/nightvision/analyze src/app/api/stylist src/app/account src/app/api/billing src/app/api/webhooks/stripe src/components/billing tests
       - name: Build
         run: npx next build
       - name: Smoke (signed-out)

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { ScalePledges } from '@/components/billing/scale-pledges';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
 
 // ─── DealCard ────────────────────────────────────────────────────────────────
 
-function DealCard({ deal, index }: { deal: Deal; index: number }) {
+function DealCard({ deal, index, onJoined }: { deal: Deal; index: number; onJoined?: () => void }) {
   const [localJoined, setLocalJoined] = useState(deal.joined);
   const [joinState, setJoinState] = useState<'idle' | 'loading' | 'done'>('idle');
   const [toast, setToast] = useState<string | null>(null);
@@ -83,6 +84,7 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
       if (res.ok) {
         setLocalJoined((prev) => prev + 1);
         setJoinState('done');
+        onJoined?.();
       } else {
         setJoinState('idle');
       }
@@ -473,16 +475,20 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function Scale() {
-  const [edition, setEdition]       = useState<'finesse' | 'carpe_diem'>('finesse');
+export default function Scale({ searchParams }: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> }) {
+  // Stripe returns here with ?paid=<joinId> or ?paid=cancelled (docs/PAYMENTS.md).
+  const paidParam = use(searchParams).paid;
+  const paid = typeof paidParam === 'string' && paidParam ? paidParam : null;
+  const [pledgesKey, setPledgesKey] = useState(0);
+  // Not rendered yet (reserved for gender-aware copy), so reading localStorage lazily can't cause a hydration mismatch.
+  const [edition] = useState<'finesse' | 'carpe_diem'>(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('finesse_gender') === 'masculine' ? 'carpe_diem' : 'finesse',
+  );
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [deals, setDeals]           = useState<Deal[]>([]);
   const [dealsLoaded, setDealsLoaded] = useState(false);
 
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-
     // Load real deals from Supabase — no mock fallback
     import('@/lib/supabase/client').then(async ({ createClient }) => {
       try {
@@ -656,6 +662,9 @@ export default function Scale() {
         )}
       </header>
 
+      {/* ── Your pledges (signed-in members only; renders nothing for visitors) ── */}
+      <ScalePledges key={pledgesKey} paid={pledgesKey === 0 ? paid : null} />
+
       {/* ── Filter tabs ── */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -728,7 +737,7 @@ export default function Scale() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               {filtered.map((deal, i) => (
-                <DealCard key={deal.id} deal={deal} index={i} />
+                <DealCard key={deal.id} deal={deal} index={i} onJoined={() => setPledgesKey((k) => k + 1)} />
               ))}
             </div>
           )}

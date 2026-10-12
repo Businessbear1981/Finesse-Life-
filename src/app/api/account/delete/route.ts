@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   if (!outcome.ok) {
     console.error(`[account] delete failed at ${outcome.stage}`, outcome.message, traceId);
-    await auditEvent({lock: 'account', eventType: 'account.delete', outcome: `failed_${outcome.stage}`, subjectHash: subject, userId: outcome.stage === 'data' ? user.id : null, traceId});
+    await auditEvent({lock: 'account', eventType: 'account.delete', outcome: `failed_${outcome.stage}`, subjectHash: subject, userId: outcome.stage === 'auth' ? null : user.id, traceId});
     return reply({error: 'deletion_incomplete', message: 'Your account could not be fully deleted. Try again, or contact the front desk.'}, 500);
   }
 

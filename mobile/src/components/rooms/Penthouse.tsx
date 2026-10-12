@@ -2,11 +2,14 @@
 // out) and HANDYMAN (a vetted pro at your door), from the design. Also "This Is You", the portrait room:
 // exactly what other members can see. Signed in it is live — GET /api/identity/context (the public view is
 // computed by the server from the allowlist), PATCH /api/identity/projections and /visibility, and the
-// GET /api/identity/export download. Samples are labelled; nothing is dispatched or paid.
+// GET /api/identity/export download, plus a read-only membership line (GET /api/billing/status). Per App
+// Store 3.1.1 the app never sells or links to buying the membership. Samples are labelled; nothing is
+// dispatched or paid.
 import {useState} from 'react';
 import {Image, Pressable, Share, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, useAnimatedStyle, withTiming} from 'react-native-reanimated';
 import {api} from '@/lib/api';
+import {BILLING_STATUS_PATH, VIP_SOURCE_LABEL, formatDate, type BillingStatus} from '@/lib/billing';
 import {deco, fonts, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
@@ -239,10 +242,55 @@ function ProfileLive({data, side, reload, msg, setMsg}: {data: IdentityData; sid
           <Icon name="lock" size={16} />
         </View>
       </View>
+      <Membership />
+
       <Status msg={msg} />
       <RowBtn label={busy ? 'ONE MOMENT…' : 'EXPORT MY DATA'} onPress={exportData} disabled={busy} />
       <Text style={s.small}>Never shown to anyone: {data.neverProjected.map((f) => f.replace(/_/g, ' ')).join(', ')}. Your social score is never shown to you.</Text>
       <SampleNote>LIVE · SAVED ONLY WHEN THE HOUSE CONFIRMS · DELETE YOUR ACCOUNT FROM YOUR KEY BELOW</SampleNote>
+    </View>
+  );
+}
+
+/** Read-only membership status. No purchase button and no link that steers to buying (App Store 3.1.1). */
+function Membership() {
+  const {live, reload} = useLive<BillingStatus>(BILLING_STATUS_PATH);
+  if (live.state === 'signed_out' || live.state === 'checking') return null;
+  let body;
+  if (live.state === 'loading') body = <Text style={s.small}>Checking with the front desk…</Text>;
+  else if (live.state !== 'ready') body = (
+    <View style={{gap: 6}}>
+      <Text style={[s.small, {color: '#FF8FA9'}]}>{live.message}</Text>
+      <RowBtn label="TRY AGAIN" onPress={() => void reload()} />
+    </View>
+  );
+  else {
+    const {vip, subscription: sub} = live.data;
+    const periodEnd = formatDate(sub?.currentPeriodEnd);
+    const until = formatDate(vip.expiresAt);
+    const hasSub = Boolean(sub && sub.status !== 'canceled');
+    const rows: Array<[string, string]> = [['STATUS', vip.active ? '◆ VIP' : 'Not a member']];
+    if (vip.active && vip.source) rows.push(['THROUGH', VIP_SOURCE_LABEL[vip.source] ?? vip.source]);
+    if (hasSub && periodEnd) rows.push([sub?.cancelAtPeriodEnd ? 'ENDS' : sub?.status === 'past_due' ? 'PAYMENT DUE' : 'RENEWS', periodEnd]);
+    if (vip.active && vip.source !== 'subscription') rows.push(['VALID UNTIL', until ?? 'No end date']);
+    body = (
+      <View style={{gap: 6}}>
+        {rows.map(([k, v]) => (
+          <View key={k} style={{flexDirection: 'row', justifyContent: 'space-between', gap: 10}}>
+            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: deco.brass}}>{k}</Text>
+            <Text style={{fontFamily: fonts.label, fontSize: 13, color: k === 'STATUS' && vip.active ? deco.brassWhite : deco.cream}}>{v}</Text>
+          </View>
+        ))}
+        {sub?.status === 'past_due' ? <Text style={[s.small, {color: '#FFA96B'}]}>Your last membership payment didn’t go through. VIP stays open for a short grace period.</Text> : null}
+        {sub?.cancelAtPeriodEnd && periodEnd ? <Text style={s.small}>Cancelled — it won’t renew. VIP stays open until {periodEnd}.</Text> : null}
+        {hasSub || vip.source === 'subscription' ? <Text style={s.small}>Manage membership at finesselife.vip</Text> : null}
+      </View>
+    );
+  }
+  return (
+    <View style={{padding: 12, gap: 8, borderWidth: 1, borderColor: 'rgba(201,169,97,0.4)'}}>
+      <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>MEMBERSHIP</Text>
+      {body}
     </View>
   );
 }
