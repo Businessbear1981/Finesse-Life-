@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { Database } from './db';
 import type { Claims } from './env';
-import { EngineRegistry, LEGACY_INTENTS } from './engines';
+import { EngineRegistry, LEGACY_INTENTS, type ModelProvider } from './engines';
 import { breakerAllows, recordResult } from './breaker';
 import { verifyArtifact, type TruthOutcome } from './truth';
 
@@ -32,10 +32,10 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  * Envelope handler: envelope → intent → play → tier_run → artifact → truth checks → commitments → events/outbox.
  * Idempotent per (user, idempotency_key): a replay returns the stored outcome without re-running the engine.
  */
-export async function handleEnvelope(db: Database, registry: EngineRegistry, claims: Claims, env: Envelope): Promise<EnvelopeResult> {
+export async function handleEnvelope(db: Database, registry: EngineRegistry, claims: Claims, env: Envelope, model?: ModelProvider): Promise<EnvelopeResult> {
   const engine = registry.forIntent(env.intent);
   if (!engine) {
-    if ((LEGACY_INTENTS as readonly string[]).includes(env.intent)) throw new EnvelopeError(501, `intent ${env.intent} is not ported to an engine yet`);
+    if (LEGACY_INTENTS.includes(env.intent)) throw new EnvelopeError(501, `intent ${env.intent} is not ported to an engine yet`);
     throw new EnvelopeError(400, `unknown intent ${env.intent}`);
   }
   const uid = claims.uid;
@@ -77,8 +77,8 @@ export async function handleEnvelope(db: Database, registry: EngineRegistry, cla
   const started = Date.now();
   if (!error) {
     try {
-      output = await db.tx('app_user', claims, (read) =>
-        withTimeout(engine.handle({ intent: env.intent, payload: env.payload, userId: uid, read }), engine.timeoutMs));
+      output = await db.tx('app_user', claims, (read) => db.tx('app_service', claims, (agg) =>
+        withTimeout(engine.handle({ intent: env.intent, payload: env.payload, userId: uid, read, agg, model }), engine.timeoutMs)));
     } catch (e) {
       error = (e as Error).message;
     }

@@ -4,11 +4,12 @@ import type { Claims, Env } from './env';
 import type { Database } from './db';
 import { pgDatabase } from './db';
 import { requireAuth, workosVerifier, type Verifier } from './auth';
-import { defaultRegistry, type EngineRegistry } from './engines';
+import { defaultRegistry, type EngineRegistry, type ModelProvider } from './engines';
+import { gatewayModel, nullModel } from './model';
 import { EnvelopeError, EnvelopeSchema, handleEnvelope } from './envelope';
 import { mobile } from './routes/mobile';
 
-export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry }
+export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider }
 export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims } };
 export type DepsFactory = (env: Env) => Deps;
 
@@ -16,6 +17,7 @@ export const defaultDeps: DepsFactory = (env) => ({
   db: pgDatabase(env.HYPERDRIVE.connectionString),
   verifier: workosVerifier(env.WORKOS_CLIENT_ID),
   registry: defaultRegistry(),
+  model: env.AI_GATEWAY_API_KEY ? gatewayModel(env.AI_GATEWAY_API_KEY) : nullModel,
 });
 
 export function createApp(makeDeps: DepsFactory = defaultDeps) {
@@ -36,7 +38,7 @@ export function createApp(makeDeps: DepsFactory = defaultDeps) {
     const parsed = EnvelopeSchema.safeParse({ ...(body ?? {}), idempotency_key: body?.idempotency_key ?? c.req.header('idempotency-key') });
     if (!parsed.success) return c.json({ error: 'invalid_envelope', issues: parsed.error.issues }, 400);
     try {
-      const r = await handleEnvelope(c.var.deps.db, c.var.deps.registry, c.var.claims, parsed.data);
+      const r = await handleEnvelope(c.var.deps.db, c.var.deps.registry, c.var.claims, parsed.data, c.var.deps.model);
       return c.json(r, r.status === 'failed' ? 502 : r.status === 'gated' ? 422 : 200);
     } catch (e) {
       if (e instanceof EnvelopeError) return c.json({ error: e.message }, e.code as 400);

@@ -28,8 +28,5 @@ export class EngineRegistry {
   }
 }
 
-/** Intents the old switch in src/lib/intelligence/engine.ts answered; not yet ported to engines. */
-export const LEGACY_INTENTS = [
-  'next_best_action', 'personalized_recs', 'price_intelligence', 'demand_forecast',
-  'logistics_optimize', 'market_analysis',
-] as const;
+/** Intents from the old switch not yet ported (all ported as of Wave 1). */
+export const LEGACY_INTENTS: readonly string[] = [];

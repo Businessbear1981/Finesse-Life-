@@ -81,6 +81,6 @@ describe('HTTP surface without a database', () => {
   });
   it('lists engines', async () => {
     const r = await (await app.request('/v1/engines', {}, testEnv())).json() as any;
-    expect(r.engines.map((e: any) => e.id)).toEqual(['profile', 'compliance']);
+    expect(r.engines.map((e: any) => e.id)).toEqual(expect.arrayContaining(['profile', 'compliance', 'next_best_action', 'personalized_recs', 'price_intelligence', 'demand_forecast', 'market_analysis', 'logistics']));
   });
 });

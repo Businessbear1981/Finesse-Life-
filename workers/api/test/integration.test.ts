@@ -59,10 +59,9 @@ run('Worker against Postgres', () => {
     expect(r3.status).toBe(409);
   });
 
-  it('unknown and not-yet-ported intents are rejected clearly', async () => {
+  it('unknown intents are rejected clearly', async () => {
     const a = await sign({ sub: 'user_alice' });
     expect((await call('/v1/envelope', a, { method: 'POST', body: JSON.stringify({ intent: 'nope', idempotency_key: 'idem-0002' }) })).status).toBe(400);
-    expect((await call('/v1/envelope', a, { method: 'POST', body: JSON.stringify({ intent: 'price_intelligence', idempotency_key: 'idem-0003' }) })).status).toBe(501);
   });
 
   it('money commitments need a passkey step-up to confirm', async () => {
@@ -93,6 +92,21 @@ run('Worker against Postgres', () => {
     expect(r.status).toBe(502);
     expect(r.body.error).toMatch(/breaker open/);
     await db.tx('app_service', null, (tx) => tx.query("delete from orch.breakers where provider = 'internal'"));
+  });
+
+  it('ported intelligence intents run through the envelope against real tables', async () => {
+    await db.tx('app_service', null, async (tx) => {
+      const u = (await tx.query<{ id: string }>("select id from app.users limit 1")).rows[0]!.id;
+      for (let i = 0; i < 4; i++) await tx.query("insert into public.exchange_listings(seller_id, title, asking_price_cents, category, condition, status) values ($1, 'Rolex Daytona', 2500000, 'Watches', 'excellent', $2)", [u, i < 3 ? 'sold' : 'active']).catch(() => {});
+    });
+    const a = await sign({ sub: 'user_alice' });
+    for (const [intent, payload] of [
+      ['market_analysis', {}], ['demand_forecast', { category: 'Watches' }], ['price_intelligence', { mode: 'anomalies' }],
+      ['logistics_optimize', { value_cents: 30000, category: 'Bags' }], ['next_best_action', { page: 'lobby' }], ['personalized_recs', { count: 2 }],
+    ] as const) {
+      const r = await call('/v1/envelope', a, { method: 'POST', body: JSON.stringify({ intent, payload, idempotency_key: `intel-${intent}` }) });
+      expect(r.status, `${intent}: ${JSON.stringify(r.body)}`).toBe(200);
+    }
   });
 
   it('vip redeem works once', async () => {

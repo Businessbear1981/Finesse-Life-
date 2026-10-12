@@ -9,6 +9,7 @@ export interface Env {
   R2_ACCOUNT_ID: string;
   R2_MEDIA_BUCKET_NAME: string;
   HOUSE_CODE_SHA256?: string;
+  AI_GATEWAY_API_KEY?: string;
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
 }

@@ -7,6 +7,16 @@ export interface EngineInput {
   userId: string;
   /** Member-scoped transaction: engines only see what RLS lets the member see. */
   read: Tx;
+  /** Service transaction for aggregate, cross-member reads (never return another member's rows). */
+  agg?: Tx;
+  /** Language model behind an interface; tests and offline runs use the fake adapter. */
+  model?: ModelProvider;
+}
+
+export interface ModelProvider {
+  id: string;
+  /** Returns raw text; callers parse JSON and must have a deterministic fallback. */
+  complete(prompt: string, opts?: { fast?: boolean }): Promise<string>;
 }
 
 export interface ProposedCommitment {
