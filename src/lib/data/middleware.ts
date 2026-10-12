@@ -1,6 +1,12 @@
 import {authkit} from '@workos-inc/authkit-nextjs';
 import {NextResponse, type NextRequest} from 'next/server';
 
+const PUBLIC_API_PREFIXES = [
+  '/api/agents', '/api/nova', '/api/intelligence', '/api/stylist', '/api/nightvision',
+  '/api/webhooks', '/api/telegram/webhook', '/api/keylock', '/api/callback', '/api/auth',
+  '/api/integrations/yahoo-fantasy/callback', '/api/health',
+];
+
 export async function updateSession(request: NextRequest) {
   // WorkOS AuthKit: reads/refreshes the encrypted session cookie and returns headers to forward.
   const {session, headers: authkitHeaders} = await authkit(request);
@@ -47,13 +53,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/nightvision') ||
     pathname.startsWith('/stylist') ||
     pathname.startsWith('/carpe-diem') ||
-    // Agent dispatch API — callable from authenticated or public contexts
-    pathname.startsWith('/api/agents') ||
-    // AI APIs — auth is optional; routes handle no-session gracefully
-    pathname.startsWith('/api/nova') ||
-    pathname.startsWith('/api/intelligence') ||
-    pathname.startsWith('/api/stylist') ||
-    pathname.startsWith('/api/nightvision');
+    // API routes that authenticate themselves (signature, secret, house code, OAuth state, or in-route guard)
+    PUBLIC_API_PREFIXES.some((p) => pathname.startsWith(p));
 
   // ── VIP gate ─────────────────────────────────────────────────────────
   // /vip routes require is_vip=true with a valid (non-expired) grant.
@@ -61,10 +62,14 @@ export async function updateSession(request: NextRequest) {
   const isVipRoute = pathname.startsWith('/vip');
 
   if (isVipRoute && user && session.accessToken) {
-    const profileRes = await fetch(`${process.env.FINESSE_API_URL ?? 'https://api.finesselife.vip'}/v1/data`, {
+    const apiBase = process.env.FINESSE_API_URL ?? 'https://api.finesselife.vip';
+    const auth = {Authorization: `Bearer ${session.accessToken}`};
+    const meRes = await fetch(`${apiBase}/v1/me`, {headers: auth, cache: 'no-store'}).catch(() => null);
+    const meId = meRes?.ok ? ((await meRes.json()) as {user?: {id?: string}}).user?.id : undefined;
+    const profileRes = !meId ? null : await fetch(`${apiBase}/v1/data`, {
       method: 'POST',
-      headers: {Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json'},
-      body: JSON.stringify({table: 'profiles', op: 'select', columns: 'is_vip,vip_expires_at', filters: [], limit: 1}),
+      headers: {...auth, 'Content-Type': 'application/json'},
+      body: JSON.stringify({table: 'profiles', op: 'select', columns: 'is_vip,vip_expires_at', filters: [{col: 'id', op: 'eq', value: meId}], limit: 1}),
       cache: 'no-store',
     }).catch(() => null);
 
@@ -90,6 +95,10 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
+  }
+
+  if (!user && pathname.startsWith('/api/') && !isPublicRoute) {
+    return NextResponse.json({error: 'unauthorized'}, {status: 401});
   }
 
   if (!user && !isAuthRoute && !isPublicRoute) {

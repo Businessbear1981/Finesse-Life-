@@ -1,3 +1,5 @@
+import {NextResponse} from 'next/server';
+import {guardExpensive} from '@/lib/api-guard';
 // Unified Agent Dispatch API
 // POST { agent: 'scout'|'stylist'|'outing-planner'|'procurement'|'price-hunter', payload: {...} }
 
@@ -20,6 +22,9 @@ interface AgentRequest {
 }
 
 export async function POST(req: Request) {
+  // Agents relay to Nova with the internal secret, so callers must pass the member guard here.
+  const me = await guardExpensive('agents', 30);
+  if (me instanceof NextResponse) return me;
   let body: AgentRequest;
   try {
     body = (await req.json()) as AgentRequest;
