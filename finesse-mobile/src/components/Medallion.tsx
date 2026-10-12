@@ -77,7 +77,7 @@ export function Medallion(p: Props) {
 }
 
 const s = StyleSheet.create({
-  abs: { ...StyleSheet.absoluteFillObject },
+  abs: { ...StyleSheet.absoluteFill },
   tick: { position: 'absolute', width: 2, backgroundColor: C.brass },
   seg: { position: 'absolute', width: 18, height: 18, borderWidth: 2, borderColor: C.gold, shadowColor: C.gold, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   dialMark: { position: 'absolute', left: '50%', top: 6, width: 3, height: 14, marginLeft: -1.5, backgroundColor: C.brassShadow },
