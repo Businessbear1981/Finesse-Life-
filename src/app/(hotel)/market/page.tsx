@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+
 
 interface Listing {
   id: string;
@@ -18,16 +19,6 @@ interface Listing {
   saved: boolean;
 }
 
-const DEMO_LISTINGS: Listing[] = [
-  { id: "1", title: "Tom Ford Oud Wood 50ml", seller: "Julian R.", seller_initials: "JR", price_cents: 16000, original_price_cents: 28000, condition: "new", category: "fragrance", image: "https://images.unsplash.com/photo-1594035910387-fbd1a485b12e?w=300&h=300&fit=crop&q=80", posted: "2h ago", saved: false },
-  { id: "2", title: "Vintage Rolex Datejust Band", seller: "Dante W.", seller_initials: "DW", price_cents: 85000, original_price_cents: 145000, condition: "good", category: "watches", image: "https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=300&h=300&fit=crop&q=80", posted: "5h ago", saved: true },
-  { id: "3", title: "Rick Owens Geobaskets sz11", seller: "Kira M.", seller_initials: "KM", price_cents: 42000, original_price_cents: 120000, condition: "like-new", category: "sneakers", image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop&q=80", posted: "1d ago", saved: false },
-  { id: "4", title: "Chanel Classic Flap — Black Caviar", seller: "Ava C.", seller_initials: "AC", price_cents: 680000, original_price_cents: 1050000, condition: "like-new", category: "bags", image: "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=300&h=300&fit=crop&q=80", posted: "3h ago", saved: false },
-  { id: "5", title: "Bang & Olufsen Beoplay H95", seller: "Sienna B.", seller_initials: "SB", price_cents: 55000, original_price_cents: 80000, condition: "like-new", category: "tech", image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop&q=80", posted: "8h ago", saved: false },
-  { id: "6", title: "Aesop Resurrection Hand Balm Set", seller: "Jordan E.", seller_initials: "JE", price_cents: 4500, original_price_cents: 7500, condition: "new", category: "skincare", image: "https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=300&h=300&fit=crop&q=80", posted: "12h ago", saved: false },
-  { id: "7", title: "Navy Double-Breasted Blazer", seller: "Marcus W.", seller_initials: "MW", price_cents: 28000, original_price_cents: 65000, condition: "like-new", category: "clothing", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop&q=80", posted: "1d ago", saved: true },
-  { id: "8", title: "Le Labo Santal 33 — 100ml", seller: "Nia O.", seller_initials: "NO", price_cents: 22000, original_price_cents: 31000, condition: "new", category: "fragrance", image: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=300&h=300&fit=crop&q=80", posted: "6h ago", saved: false },
-];
 
 const CATEGORIES = ["all", "fragrance", "watches", "sneakers", "bags", "tech", "skincare", "clothing", "jewelry", "art"] as const;
 
@@ -43,7 +34,25 @@ function formatPrice(cents: number): string {
 }
 
 export default function Market() {
-  const [listings, setListings] = useState(DEMO_LISTINGS);
+  // Live listings from the Exchange (no demo rows).
+  const [listings, setListings] = useState<Listing[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch('/api/exchange/listings?page=1')
+      .then((r) => (r.ok ? r.json() : {listings: []}))
+      .then((j: {listings?: Record<string, unknown>[]}) => {
+        if (!live) return;
+        setListings((j.listings ?? []).map((l) => ({
+          id: String(l.id), title: String(l.title ?? ''), seller: String(l.seller_name ?? 'Member'),
+          seller_initials: String(l.seller_name ?? 'M').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase(),
+          price_cents: Number(l.price_cents ?? l.ask_cents ?? 0), original_price_cents: Number(l.original_price_cents ?? l.retail_cents ?? l.price_cents ?? 0),
+          condition: (l.condition as Listing['condition']) ?? 'good', category: String(l.category ?? 'other'),
+          image: String((l.photo_urls as string[] | undefined)?.[0] ?? l.image_url ?? ''), posted: String(l.created_at ?? ''), saved: false,
+        })));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, []);
   const [category, setCategory] = useState<string>("all");
   const [tab, setTab] = useState<"browse" | "sell" | "saved">("browse");
   const [sellTitle, setSellTitle] = useState("");
@@ -57,8 +66,12 @@ export default function Market() {
     setListings((prev) => prev.map((l) => l.id === id ? { ...l, saved: !l.saved } : l));
   };
 
-  const postListing = () => {
+  const postListing = async () => {
     if (!sellTitle.trim() || !sellPrice.trim()) return;
+    const cents = Math.round(Number(sellPrice.replace(/[^0-9.]/g, '')) * 100);
+    const r = await fetch('/api/exchange/list', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({title: sellTitle.trim(), asking_price_cents: cents, category: category === 'all' ? undefined : category})}).catch(() => null);
+    if (!r?.ok) return;
     setSellPosted(true);
     setTimeout(() => { setSellPosted(false); setSellTitle(""); setSellPrice(""); setTab("browse"); }, 2000);
   };

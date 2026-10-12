@@ -25,7 +25,9 @@ export async function POST(req: NextRequest) {
   // Entry timestamp = the cipher seed
   const entryTs = Date.now();
   const nonce = randomBytes(16).toString('hex');
-  const secret = process.env.INTEGRATIONS_ENCRYPTION_KEY ?? 'finesse-keylock-secret';
+  const secret = process.env.KEYLOCK_SECRET ?? process.env.INTEGRATIONS_ENCRYPTION_KEY;
+  // Fail closed: never sign with a guessable default.
+  if (!secret) return NextResponse.json({error: 'KeyLock not configured'}, {status: 503});
 
   // Key = HMAC-SHA256(secret, userId:entryTimestamp:nonce)
   const keyMaterial = `${user.id}:${entryTs}:${nonce}`;

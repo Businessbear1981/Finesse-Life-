@@ -34,25 +34,7 @@ interface BrandCard {
 }
 
 // ─── Fallback data (shown only if Nova call fails) ────────────────────────────
-const FALLBACK_TRENDS: Trend[] = [
-  { category: 'Bags', trend: '+34%', period: 'this week', top_brand: 'Bottega Veneta', insight: 'Members upgrading from mid-tier. Premium bag sourcing opportunity.' },
-  { category: 'Fragrance', trend: '+28%', period: 'this week', top_brand: 'Le Labo', insight: 'Dark woody scents dominating. Members spending +$200 on fragrance.' },
-  { category: 'Shoes', trend: '+19%', period: 'this week', top_brand: 'Amina Muaddi', insight: 'Heel moment. Mule and kitten heel demand spiking among 25-34 segment.' },
-  { category: 'Streetwear', trend: '+41%', period: 'this week', top_brand: 'Off-White', insight: 'Male members 18-24 driving streetwear volume. Budget→premium crossover.' },
-  { category: 'Watches', trend: '+22%', period: 'this week', top_brand: 'AP Royal Oak', insight: "Men's luxury watch demand up. AP and Rolex are the targets." },
-  { category: 'Golf Gear', trend: '+67%', period: 'this week', top_brand: 'Titleist', insight: 'New Carpe Diem members indexing high on golf. Source premium clubs + apparel.' },
-];
 
-const FALLBACK_BRAND_RADAR: BrandCard[] = [
-  { name: 'Jacquemus', tier: 'Premium', margin: '35%', opportunity: 'Limited drops, high demand. Direct contact: partnerships@jacquemus.com', status: 'active' },
-  { name: 'Toteme', tier: 'Premium', margin: '42%', opportunity: 'Quiet luxury moment. Underserved in group buys. Stockholm + Paris drops.', status: 'prospect' },
-  { name: 'Fashion Nova', tier: 'Mid', margin: '28%', opportunity: 'Highest volume. API available. Budget tier but massive scale.', status: 'active' },
-  { name: 'Alibaba Verified Suppliers', tier: 'Factory', margin: '65%', opportunity: 'Factory direct = highest margins. White-label potential for Finesse house brand.', status: 'prospect' },
-  { name: 'Amina Muaddi', tier: 'Premium', margin: '32%', opportunity: 'Shoe moment. Size-inclusive. Strong demographic alignment.', status: 'active' },
-  { name: 'Cult Gaia', tier: 'Contemporary', margin: '38%', opportunity: 'Instagram-native. Member demographics aligned. LA-based = reachable.', status: 'prospect' },
-  { name: 'Titleist / Callaway', tier: 'Sports', margin: '25%', opportunity: 'Carpe Diem golf segment growing 67% WoW. Source premium clubs.', status: 'prospect' },
-  { name: 'Rolex Gray Market', tier: 'Luxury', margin: '8-15%', opportunity: "Men's watch demand high. Gray market arbitrage on AP/Rolex/IWC.", status: 'prospect' },
-];
 
 const SOURCES = ['Direct', 'Fashion Nova API', 'Shein API', 'Temu API', 'Alibaba', 'Factory Direct', 'Other'];
 const CATEGORIES = ['Bags', 'Clothes', 'Shoes', 'Accessories', 'Outerwear', 'Fragrance', 'Jewelry', 'Other'];
@@ -497,8 +479,8 @@ export default function EmbassyPage() {
 
   // Real data state
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [trends, setTrends] = useState<Trend[]>(FALLBACK_TRENDS);
-  const [brands, setBrands] = useState<BrandCard[]>(FALLBACK_BRAND_RADAR);
+  const [trends, setTrends] = useState<Trend[]>([]);
+  const [brands, setBrands] = useState<BrandCard[]>([]);
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [brandsLoading, setBrandsLoading] = useState(true);
 

@@ -5,6 +5,11 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { Shirt, ShoppingBag, Scissors, Plane, DollarSign, TrendingUp, Sun, Compass } from 'lucide-react';
+import {useRoomData} from '@/lib/rooms';
+
+type MascBriefItem = { label: string; value: string; positive: boolean };
+type FemininePicksItem = { brand: string; name: string; price: string; img: string; tag: string };
+
 
 /* ─── Gender detection ─── */
 const useGender = () => {
@@ -33,29 +38,6 @@ const useClock = () => {
 };
 
 /* ─── Data ─── */
-const FEMININE_PICKS = [
-  {
-    brand: 'Chanel',
-    name: '22 Mini Bag — Black Lambskin',
-    price: '$3,800',
-    img: '1558618666-fcd25c85cd64',
-    tag: 'New Season',
-  },
-  {
-    brand: 'Valentino',
-    name: 'Rockstud Slide — Nude Patent',
-    price: '$995',
-    img: '1594938298603-c8148c4b4e59',
-    tag: 'Low Stock',
-  },
-  {
-    brand: 'Bottega Veneta',
-    name: 'Andiamo Clutch — Intrecciato',
-    price: '$2,450',
-    img: '1483985988355-763728e1935b',
-    tag: 'Curated',
-  },
-];
 
 const FEMININE_GRID = [
   { label: 'Wardrobe', href: '/wardrobe', icon: Shirt },
@@ -71,15 +53,11 @@ const MASC_GRID = [
   { label: 'Departures', href: '/departures', icon: Plane },
 ];
 
-const MASC_BRIEF = [
-  { label: 'S&P 500', value: '+1.2%', positive: true },
-  { label: 'Portfolio', value: '+$4,840', positive: true },
-  { label: 'Unread Deals', value: '1', positive: false },
-  { label: 'Dinner Res.', value: '8:00 PM', positive: false },
-];
 
 /* ─── Main ─── */
 export default function LobbyPage() {
+  // Editorial content from room_catalog, the member's own items from room_member_items (no hardcoded data).
+  const {FEMININE_PICKS, MASC_BRIEF} = useRoomData('lobby', {FEMININE_PICKS: [] as FemininePicksItem[], MASC_BRIEF: [] as MascBriefItem[]}, []);
   const isMasc = useGender();
   const time = useClock();
 

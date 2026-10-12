@@ -1,4 +1,5 @@
 'use client';
+import {useRoomData} from '@/lib/rooms';
 import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useCallback} from 'react';
@@ -42,21 +43,8 @@ interface MemberResult {
   city?: string;
 }
 
-/* ─── Demo Data ─── */
 
-const DEMO_PLAN: DatePlan[] = [
-  {id: '1', time: '7:00 PM', activity: 'Black car pickup', venue: 'Your location', cost_cents: 4500, category: 'transport', booked: true},
-  {id: '2', time: '7:45 PM', activity: 'Dinner reservation', venue: 'Uchi — omakase bar', cost_cents: 32000, category: 'dining', booked: true},
-  {id: '3', time: '9:30 PM', activity: 'Cocktails', venue: 'Roosevelt Room — speakeasy', cost_cents: 8000, category: 'drinks', booked: false},
-  {id: '4', time: '11:00 PM', activity: 'Live music', venue: 'Continental Club', cost_cents: 4000, category: 'entertainment', booked: false},
-  {id: '5', time: '12:30 AM', activity: 'Black car home', venue: 'Return trip', cost_cents: 4500, category: 'transport', booked: false},
-];
 
-const DEMO_WISHLIST: WishlistSuggestion[] = [
-  {id: 'w1', original_name: 'Cashmere Throw Wrap', original_brand: 'Loro Piana', original_price: 89500, alt_name: 'Cashmere Travel Wrap', alt_brand: 'Jenni Kayne', alt_price: 28500, match_reason: 'Same weight cashmere, similar drape, neutral palette', image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=200&h=200&fit=crop&q=80'},
-  {id: 'w2', original_name: 'Le Labo Santal 33', original_brand: 'Le Labo', original_price: 31000, alt_name: 'Santal Royale', alt_brand: 'Commodity', alt_price: 10500, match_reason: 'Sandalwood-forward, similar dry-down, less sweet', image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=200&h=200&fit=crop&q=80'},
-  {id: 'w3', original_name: 'Pearl Drop Earrings', original_brand: 'Sophie Buhai', original_price: 39500, alt_name: 'Baroque Pearl Drops', alt_brand: 'Faris', alt_price: 14800, match_reason: 'Same baroque freshwater pearl, sterling silver, minimal setting', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=200&h=200&fit=crop&q=80'},
-];
 
 const BUDGET_PRESETS = [
   {label: '$100', cents: 10000},
@@ -114,12 +102,14 @@ function GenderLock() {
 /* ─── Main Component ─── */
 
 export default function PerDiemPage() {
+  // Partner wishlist picks are the member's own rows (room_member_items, kind wishlist_picks).
+  const {WISHLIST_PICKS} = useRoomData('perdiem', {WISHLIST_PICKS: [] as WishlistSuggestion[]}, ['WISHLIST_PICKS']);
   const gender_ = useStoredGender();
   const gender: Gender | null = gender_ === 'feminine' ? 'feminine' : 'masculine';
   const [tab, setTab] = useState<Tab>('planner');
   const [budget, setBudget] = useState(50000);
   const [vibe, setVibe] = useState('romantic');
-  const [plan, setPlan] = useState<DatePlan[]>(DEMO_PLAN);
+  const [plan, setPlan] = useState<DatePlan[]>([]);
   const [generating, setGenerating] = useState(false);
 
   /* verify state */
@@ -506,7 +496,7 @@ export default function PerDiemPage() {
               </p>
 
               <div className="space-y-5">
-                {DEMO_WISHLIST.map((item, i) => {
+                {WISHLIST_PICKS.map((item, i) => {
                   const savings = Math.round(((item.original_price - item.alt_price) / item.original_price) * 100);
                   return (
                     <motion.div

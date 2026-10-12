@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import {useRoomData} from '@/lib/rooms';
+
+type RecentSearchesItem = { route: string; date: string; price: string; type: DepartureConnector['category'] };
+
 
 interface DepartureConnector {
   key: string;
@@ -15,37 +19,12 @@ interface DepartureConnector {
   badge?: string;
 }
 
-const CONNECTORS: DepartureConnector[] = [
-  { key: "groupon", label: "Groupon", icon: "🏷", color: "#53A318", connected: false, category: "deals", description: "Local deals, spa packages, experiences, and dining discounts.", badge: "up to 70% off" },
-  { key: "fareharbor", label: "FareHarbor", icon: "⚓", color: "#1E88E5", connected: false, category: "deals", description: "Tours, activities, watersports, and adventure bookings." },
-  { key: "viator", label: "Viator", icon: "🧭", color: "#F35B04", connected: false, category: "deals", description: "Guided experiences and excursions worldwide." },
-  { key: "google_flights", label: "Google Flights", icon: "✈", color: "#4285F4", connected: false, category: "flights", description: "Search and compare flights across every airline.", badge: "best prices" },
-  { key: "kayak", label: "Kayak", icon: "🛶", color: "#FF690F", connected: false, category: "flights", description: "Flight + hotel bundles and price alerts." },
-  { key: "delta", label: "Delta SkyMiles", icon: "♦", color: "#003DA5", connected: false, category: "flights", description: "Book with miles or cash, manage your SkyMiles." },
-  { key: "aa", label: "American Airlines", icon: "★", color: "#C9A961", connected: false, category: "flights", description: "AAdvantage miles, upgrades, and lounge access." },
-  { key: "airbnb", label: "Airbnb", icon: "⌂", color: "#FF5A5F", connected: false, category: "hotels", description: "Unique stays, entire homes, and luxury villas.", badge: "members get 10%" },
-  { key: "marriott", label: "Marriott Bonvoy", icon: "M", color: "#C9A961", connected: false, category: "hotels", description: "Hotel bookings and Bonvoy points redemptions." },
-  { key: "hilton", label: "Hilton Honors", icon: "H", color: "#12214D", connected: false, category: "hotels", description: "Hilton properties with member-exclusive rates." },
-  { key: "opentable", label: "OpenTable", icon: "🍽", color: "#DA3743", connected: false, category: "dining", description: "Restaurant reservations at 55,000+ restaurants." },
-  { key: "resy", label: "Resy", icon: "🥂", color: "#4C84FF", connected: false, category: "dining", description: "Reservations at the hottest restaurants in any city." },
-  { key: "uber_eats", label: "Uber Eats", icon: "🚀", color: "#06C167", connected: false, category: "dining", description: "Food delivery from restaurants near you." },
-  { key: "doordash", label: "DoorDash", icon: "🛵", color: "#FF3008", connected: false, category: "dining", description: "Restaurant delivery with DashPass savings." },
-];
 
-const CATEGORIES: { key: DepartureConnector["category"]; label: string; icon: string; color: string; desc: string }[] = [
-  { key: "deals", label: "Deals", icon: "🏷", color: "#53A318", desc: "Local experiences & packages" },
-  { key: "flights", label: "Flights", icon: "✈", color: "#4285F4", desc: "Airfare & miles" },
-  { key: "hotels", label: "Hotels", icon: "🏨", color: "#FF5A5F", desc: "Stays & rewards" },
-  { key: "dining", label: "Dining", icon: "🍽", color: "#DA3743", desc: "Reservations & delivery" },
-];
 
-const RECENT_SEARCHES = [
-  { route: "ATX → MIA", date: "Jun 14–18", price: "$189 rt", type: "flights" as const },
-  { route: "Hotel ZaZa Austin", date: "Jun 21–22", price: "$189/nt", type: "hotels" as const },
-  { route: "Uchi Restaurant", date: "Fri 9:00 PM", price: "2 guests", type: "dining" as const },
-];
 
 export default function Departures() {
+  // Editorial content from room_catalog, the member's own items from room_member_items (no hardcoded data).
+  const {CONNECTORS, CATEGORIES, RECENT_SEARCHES} = useRoomData('departures', {CONNECTORS: [] as DepartureConnector[], CATEGORIES: [] as { key: DepartureConnector["category"]; label: string; icon: string; color: string; desc: string }[], RECENT_SEARCHES: [] as RecentSearchesItem[]}, ['RECENT_SEARCHES']);
   const [connectors, setConnectors] = useState(CONNECTORS);
   const [activeCategory, setActiveCategory] = useState<DepartureConnector["category"] | "all">("all");
   const [itinerary, setItinerary] = useState("");

@@ -4,6 +4,8 @@ import {useStoredGender} from '@/lib/use-gender';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { UtensilsCrossed, Wine, ChefHat, Calendar, ShoppingBag, MapPin, Clock, Users } from 'lucide-react';
+import {useRoomData} from '@/lib/rooms';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,34 +61,7 @@ interface Recipe {
 
 // ─── Demo Data ────────────────────────────────────────────────────────────────
 
-const NOVAS_TABLE: Restaurant[] = [
-  {
-    name: 'Nobu Downtown',
-    cuisine: 'Japanese Omakase',
-    neighborhood: 'TriBeCa',
-    price: '$$$$',
-    nova: 'Where the fish speaks first. Reservation for two, 8pm Friday — I already checked availability.',
-  },
-  {
-    name: 'Carbone',
-    cuisine: 'Italian-American',
-    neighborhood: 'Greenwich Village',
-    price: '$$$',
-    nova: 'The sauce remembers everyone who ever sat there.',
-  },
-  {
-    name: 'Tatiana by Kwame Onwuachi',
-    cuisine: 'Contemporary American',
-    neighborhood: 'Lincoln Center',
-    price: '$$$',
-    nova: 'The room where culture comes to eat.',
-  },
-];
 
-const RESERVATIONS: Reservation[] = [
-  { restaurant: 'Nobu Downtown', datetime: 'Fri Jun 20 · 8:00 PM', party: 2, confirmation: 'NB-884721' },
-  { restaurant: 'Carbone', datetime: 'Sat Jun 28 · 7:30 PM', party: 4, confirmation: 'CB-203948' },
-];
 
 const WINE: WinePairing = {
   label: 'Domaine Leflaive Puligny-Montrachet',
@@ -94,78 +69,13 @@ const WINE: WinePairing = {
   notes: 'Crisp minerality, white peach, subtle oak. Nova says: pair this with the sashimi course. Trust.',
 };
 
-const COOKING_CLASSES: CookingClass[] = [
-  { title: 'Knife Skills & French Technique', chef: 'Chef Marie Laurent', date: 'Sun Jun 22 · 11:00 AM', price: '$185' },
-  { title: 'Omakase at Home: Sushi Fundamentals', chef: 'Chef Kenji Mori', date: 'Sat Jun 28 · 2:00 PM', price: '$240' },
-];
 
-const THE_SPOTS: Spot[] = [
-  { name: 'STK Steakhouse', category: 'Modern Steakhouse · Midtown', nova: 'Where the deal gets closed over a tomahawk.' },
-  { name: 'Le Bernardin', category: 'French Seafood · Midtown West', nova: 'The move when she needs to know you\'re serious.' },
-  { name: 'The Smith', category: 'American Brasserie · Midtown East', nova: 'Post-game brunch. Always the right call.' },
-];
 
 const DINNER_INTEL =
   'Omakase is still the power move. Book 3 weeks out. My top pick right now: Shoji at 69 Leonard.';
 
-const FEM_RECIPES: Recipe[] = [
-  {
-    name: 'Citrus Salmon with Mango Slaw',
-    time: '25 min',
-    difficulty: 'Easy',
-    tags: ['High Protein', 'Gluten-Free', 'Date Night'],
-    nova: 'Impressive without the effort. He will absolutely think you cooked all day.',
-    img: '1519708227418-2af883f8b9d4',
-  },
-  {
-    name: 'Truffle Pasta — Cacio e Pepe Elevated',
-    time: '20 min',
-    difficulty: 'Medium',
-    tags: ['Vegetarian', 'Comfort', 'Impress'],
-    nova: 'Four ingredients. Restaurant results. This is the one.',
-    img: '1551183053-bf91798d792c',
-  },
-  {
-    name: 'Matcha Chia Pudding Parfait',
-    time: '10 min + overnight',
-    difficulty: 'Easy',
-    tags: ['Meal Prep', 'Anti-Inflammatory', 'Breakfast'],
-    nova: 'Make Sunday. Eat all week. Your skin will thank you.',
-    img: '1490645935967-10de6ba17061',
-  },
-];
 
-const MASC_RECIPES: Recipe[] = [
-  {
-    name: 'Cast Iron Ribeye — Steakhouse Method',
-    time: '15 min',
-    difficulty: 'Easy',
-    tags: ['High Protein', 'Carnivore', 'Power Meal'],
-    nova: 'Reverse sear. Butter baste. Salt 24 hours before. You will never order steak out again.',
-    img: '1546833999-2fe44ca9b41b',
-  },
-  {
-    name: 'Chicken & Rice — Macro-Optimized',
-    time: '35 min',
-    difficulty: 'Easy',
-    tags: ['Meal Prep', '4 Servings', '45g Protein'],
-    nova: 'Meal prep this on Sunday and you solve lunch for the week. 45g protein per serving.',
-    img: '1604908176997-a9b8e9ab3bb2',
-  },
-  {
-    name: 'Spicy Tuna Poke Bowl',
-    time: '15 min',
-    difficulty: 'Easy',
-    tags: ['Sushi-Grade', 'Clean', 'Recovery'],
-    nova: 'Post-gym, anti-inflammatory, and looks expensive. Order the tuna from my sourcing link.',
-    img: '1546833999-2fe44ca9b41b',
-  },
-];
 
-const RECENT_ORDERS: Order[] = [
-  { restaurant: 'STK Steakhouse', items: 'Tomahawk (2 lb) · Truffle Fries · Lobster Bisque', total: '$348', date: 'Jun 14' },
-  { restaurant: 'Nobu Delivery', items: 'Black Cod Miso · Yellowtail Jalapeño · Edamame', total: '$187', date: 'Jun 10' },
-];
 
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
@@ -202,6 +112,8 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function KitchenPage() {
+  // Editorial content from room_catalog, the member's own items from room_member_items (no hardcoded data).
+  const {NOVAS_TABLE, RESERVATIONS, COOKING_CLASSES, THE_SPOTS, FEM_RECIPES, MASC_RECIPES, RECENT_ORDERS} = useRoomData('kitchen', {NOVAS_TABLE: [] as Restaurant[], RESERVATIONS: [] as Reservation[], COOKING_CLASSES: [] as CookingClass[], THE_SPOTS: [] as Spot[], FEM_RECIPES: [] as Recipe[], MASC_RECIPES: [] as Recipe[], RECENT_ORDERS: [] as Order[]}, ['RESERVATIONS', 'RECENT_ORDERS']);
   const gender_ = useStoredGender();
   const gender: string | null = gender_;
 

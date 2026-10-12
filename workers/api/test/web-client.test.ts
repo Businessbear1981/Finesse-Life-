@@ -42,4 +42,21 @@ run('web query builder -> Worker -> Postgres', () => {
     const { count } = await client({ 'X-Service-Key': 'svc-secret-123' }).from('member_staff').select('*', { count: 'exact', head: true });
     expect(count).toBe(1);
   });
+
+  it('room content: catalog readable by members, member items private', async () => {
+    const ha = { Authorization: `Bearer ${await sign({ sub: 'user_w1' })}` };
+    const hb = { Authorization: `Bearer ${await sign({ sub: 'user_w2' })}` };
+    const me = ((await (await app.request('/v1/me', { headers: ha }, env)).json()) as any).user.id;
+    const a = client(ha), b = client(hb);
+    const cat = await a.from('room_catalog').select('kind, data').eq('room', 'gym').order('position');
+    expect(cat.error).toBeNull();
+    expect((cat.data as any[]).some((r) => r.kind === 'fem_classes')).toBe(true);
+    expect((await a.from('room_catalog').insert({ room: 'gym', kind: 'x', data: {} })).error).not.toBeNull();
+    const ins = await a.from('room_member_items').insert({ user_id: me, room: 'kitchen', kind: 'reservations', data: { name: 'Uchi' } }).select('id').single();
+    expect(ins.error).toBeNull();
+    expect((await b.from('room_member_items').select('*')).data).toEqual([]);
+    expect((await a.from('room_member_items').select('kind')).data).toEqual([{ kind: 'reservations' }]);
+    // nothing member-specific is seeded
+    expect((await client({ 'X-Service-Key': 'svc-secret-123' }).from('room_catalog').select('*', { count: 'exact', head: true }).in('kind', ['reservations', 'recent_orders', 'demo_listings', 'masc_brief'])).count).toBe(0);
+  });
 });

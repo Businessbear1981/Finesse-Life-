@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
   // this transaction to the moment it was initiated. vault_transactions has no
   // `cipher` column, so this is returned to the caller for verification but not
   // persisted; a schema migration would be needed to store it.
-  const secret = process.env.INTEGRATIONS_ENCRYPTION_KEY ?? 'finesse-keylock-default';
+  const secret = process.env.KEYLOCK_SECRET ?? process.env.INTEGRATIONS_ENCRYPTION_KEY;
+  // Fail closed: never sign with a guessable default.
+  if (!secret) return NextResponse.json({error: 'KeyLock not configured'}, {status: 503});
   const ts = Date.now();
   const cipherInput = `${user.id}:${amount_cents}:${ts}:${session_key ?? 'public'}`;
   const cipher = createHmac('sha256', secret).update(cipherInput).digest('hex');
