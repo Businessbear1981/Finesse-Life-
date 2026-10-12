@@ -126,3 +126,19 @@ Web + mobile fixes from `docs/FRONTEND_MAP.md` (summary at the top of that file)
 | Mobile: live Closet, Diary (+Calendar), Camera, Jazz Club, This Is You, Kitchen plan; delete account; id aliases | `mobile/src/components/rooms/*` | wired, not run on a device |
 
 Deploy order addition: `20261012_ai_rate_limit.sql`, `20261012_account_lifecycle.sql` (after 20261009). Verified: web tsc, 70 unit tests, `test:db` 35/35 + 40/40, eslint on new code, `next build`; mobile tsc + Android export.
+
+## 2026-10-12 — Stripe payments (`sean/stripe-payments`, stacked on `sean/build-pass-3`)
+
+Processor decided: **Stripe** (founder; account application in progress). Built against test mode — see `docs/PAYMENTS.md`.
+
+| Change | Truth |
+|---|---|
+| VIP membership $24.99/month via Stripe Checkout + Customer Portal; `GET /api/billing/status`, `POST /api/billing/checkout`, `POST /api/billing/portal` | wired — needs Stripe keys, price id, webhook secret |
+| VIP now computed from `vip_grants` (code / subscription / staff) by `recompute_vip`; existing VIPs backfilled as staff grants; `redeem_vip_code` writes a code grant | wired (`20261013_stripe_billing.sql`, not applied) |
+| Webhook rebuilt: idempotent `stripe_events`, subscription sync, past_due 3-day grace, revenue_events for paid invoices / Scale payments, refund reversals | wired |
+| Scale: staff opens payment (`request-payment`), member pays via Checkout (`/api/scale/pledges/[id]/pay`), webhook marks paid / refunded | wired |
+| Account deletion cancels the Stripe customer first | wired |
+| Web `/subscribe`, `/account` Membership, Scale "Pay now"; mobile membership status (no in-app purchase, App Store 3.1.1) + Scale pay | wired |
+| Vault funding via Stripe | **not built** — Finesse never holds member funds; Vault stays frozen until the card partner signs |
+
+Verified: web tsc, 109 unit tests, `test:db` 35 + 40 + 67, eslint, `next build`; mobile tsc. Not run against real Stripe test keys yet.

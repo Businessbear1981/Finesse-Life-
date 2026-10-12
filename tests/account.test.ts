@@ -86,3 +86,30 @@ describe('deleteAccount orchestration', () => {
     expect(await deleteAccount(UID, d)).toEqual({ok: false, stage: 'auth', message: 'gotrue'});
   });
 });
+
+describe('deleteAccount billing step', () => {
+  const base = () => ({
+    collectStorageKeys: vi.fn(async () => []),
+    deleteMemberData: vi.fn(async () => ({})),
+    deleteStorageKeys: vi.fn(async () => ({deleted: 0, failed: 0})),
+    deleteAuthUser: vi.fn(async () => undefined),
+  });
+  it('closes billing before deleting anything', async () => {
+    const order: string[] = [];
+    const deps = {
+      ...base(),
+      closeBilling: vi.fn(async () => order.push('billing')),
+      deleteMemberData: vi.fn(async () => order.push('data')),
+    };
+    const out = await deleteAccount('6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b', deps);
+    expect(out.ok).toBe(true);
+    expect(order).toEqual(['billing', 'data']);
+  });
+  it('stops if the subscription could not be cancelled (member must never be charged after deletion)', async () => {
+    const deps = {...base(), closeBilling: vi.fn(async () => { throw new Error('stripe down'); })};
+    const out = await deleteAccount('6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b', deps);
+    expect(out).toMatchObject({ok: false, stage: 'billing'});
+    expect(deps.deleteMemberData).not.toHaveBeenCalled();
+    expect(deps.deleteAuthUser).not.toHaveBeenCalled();
+  });
+});

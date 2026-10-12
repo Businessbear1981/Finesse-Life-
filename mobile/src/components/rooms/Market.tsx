@@ -1,16 +1,119 @@
 // Scale (group buys: the price falls as members pledge), The Exchange (consign with provenance and offers)
 // and Embassy (partner offers, fully disclosed) — from the design. Pledging never charges; accepting an
 // offer or a partner deal here is a preview until the commerce partners are live.
-import {useState} from 'react';
-import {Pressable, Text, View} from 'react-native';
+// Scale is live when signed in: GET /api/scale/pledges lists the member's pledges with their honest state;
+// a pledge in `payment_requested` can be paid through Stripe Checkout in the browser (physical goods —
+// allowed in-app). The app never marks anything paid: it re-reads the pledge when you come back.
+import {useEffect, useRef, useState} from 'react';
+import {AppState, Pressable, Text, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
+import {PLEDGES_PATH, PLEDGE_LABEL, formatCents, formatDate, payPledge, pledgeCopy, type Pledge} from '@/lib/billing';
 import {deco, fonts, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
+import {useLive} from '@/lib/live';
 import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, s} from './shared';
+import {ERR_PINK, LiveGate, OK_GREEN, RowBtn, Status} from './live';
 
 const LADDER: Array<[number, number]> = [[50, 520], [100, 460], [150, 412], [250, 360]];
 
 export function Scale({side}: {side: Side}) {
+  const {live, reload} = useLive<{pledges: Pledge[]}>(PLEDGES_PATH);
+  return (
+    <LiveGate live={live} reload={() => void reload()} what="your pledges" signedOut={<ScaleSample side={side} />}>
+      {(data) => <ScaleLive pledges={Array.isArray(data.pledges) ? data.pledges : []} side={side} reload={() => reload(true)} />}
+    </LiveGate>
+  );
+}
+
+const STATE_TONE: Record<Pledge['state'], string> = {
+  pledged: deco.brass, waitlisted: 'rgba(244,232,208,0.55)', goal_met: OK_GREEN, payment_requested: '#FFA96B',
+  paid: OK_GREEN, fulfilled: OK_GREEN, refunded: deco.brassHighlight, cancelled: 'rgba(244,232,208,0.45)',
+};
+
+function ScaleLive({pledges, side, reload}: {pledges: Pledge[]; side: Side; reload: () => Promise<void>}) {
+  const acc = track[side].acc;
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{id: string; ok: boolean; text: string} | null>(null);
+  // The pledge whose checkout we opened; when the app comes back to the front we re-read until the server says paid.
+  const [awaiting, setAwaiting] = useState<string | null>(null);
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+  const awaited = awaiting ? pledges.find((p) => p.id === awaiting) : undefined;
+  const confirmed = awaited && (awaited.state === 'paid' || awaited.state === 'fulfilled');
+
+  useEffect(() => {
+    if (!awaiting || confirmed) return;
+    let tries = 0;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const poll = () => {
+      if (timer) clearInterval(timer);
+      tries = 0;
+      timer = setInterval(() => {
+        tries += 1;
+        void reloadRef.current();
+        if (tries >= 6 && timer) clearInterval(timer);
+      }, 4000);
+      void reloadRef.current();
+    };
+    const sub = AppState.addEventListener('change', (st) => { if (st === 'active') poll(); });
+    return () => { sub.remove(); if (timer) clearInterval(timer); };
+  }, [awaiting, confirmed]);
+
+  const pay = async (id: string) => {
+    setBusy(id); setMsg(null);
+    const r = await payPledge(id);
+    setBusy(null);
+    if (r.kind === 'opened') { setAwaiting(id); return; }
+    setMsg({id, ok: false, text: r.text});
+    if (r.kind === 'not_payable') void reload();
+  };
+
+  return (
+    <View style={{gap: 12}}>
+      <SectionHead>YOUR PLEDGES · {pledges.length}</SectionHead>
+      {pledges.length === 0 ? (
+        <Text style={s.body}>You haven’t pledged to a group buy yet. A pledge never charges — payment is only requested if the group reaches its goal.</Text>
+      ) : pledges.map((p) => {
+        const price = formatCents(p.deal?.group_price_cents);
+        const tone = STATE_TONE[p.state] ?? deco.brass;
+        const mine = awaiting === p.id;
+        const closes = formatDate(p.deal?.deadline);
+        return (
+          <Animated.View key={p.id} layout={LinearTransition} style={{padding: 12, gap: 6, borderWidth: 1, borderColor: p.state === 'payment_requested' ? '#FFA96B' : 'rgba(201,169,97,0.4)'}}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10}}>
+              <View style={{flex: 1, gap: 2}}>
+                {p.deal?.brand ? <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.2, color: deco.brass}}>{p.deal.brand.toUpperCase()}</Text> : null}
+                <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{p.deal?.title ?? 'Group buy'}</Text>
+              </View>
+              {price ? <Text style={{fontFamily: fonts.mono, fontSize: 13, color: deco.brassWhite}}>{price}</Text> : null}
+            </View>
+            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: tone}}>{PLEDGE_LABEL[p.state] ?? String(p.state).toUpperCase()}</Text>
+            <Text style={s.small}>
+              {pledgeCopy(p)}
+              {p.state === 'pledged' && typeof p.deal?.current_count === 'number' && typeof p.deal?.goal_count === 'number' ? ` ${p.deal.current_count}/${p.deal.goal_count} so far${closes ? ` · closes ${closes}` : ''}.` : ''}
+            </Text>
+            {p.state === 'payment_requested' ? (
+              mine ? (
+                <View style={{gap: 6}}>
+                  <Text style={[s.small, {color: '#FFA96B'}]} accessibilityLiveRegion="polite">PROCESSING · Finish checkout in your browser. This shows Paid once the house confirms it — nothing is marked paid before then.</Text>
+                  <RowBtn label="CHECK AGAIN" onPress={() => void reload()} />
+                  <RowBtn label={busy === p.id ? 'ONE MOMENT…' : 'REOPEN CHECKOUT'} onPress={() => void pay(p.id)} disabled={busy !== null} />
+                </View>
+              ) : (
+                <ActionBar color={acc} label={busy === p.id ? 'OPENING SECURE CHECKOUT…' : `PAY NOW${price ? ` · ${price}` : ''}`} onPress={() => void pay(p.id)} disabled={busy !== null} />
+              )
+            ) : null}
+            {mine && (p.state === 'paid' || p.state === 'fulfilled') ? <Status msg={{ok: true, text: 'Payment confirmed by the house. Thank you.'}} /> : null}
+            {msg?.id === p.id ? <Text style={[s.small, {color: msg.ok ? OK_GREEN : ERR_PINK}]} accessibilityLiveRegion="polite">{msg.text}</Text> : null}
+          </Animated.View>
+        );
+      })}
+      <SampleNote>LIVE · A PLEDGE NEVER CHARGES · PAYMENT IS ONLY REQUESTED IF THE BUY CLOSES · PAID SHOWS ONLY WHEN THE HOUSE CONFIRMS IT</SampleNote>
+    </View>
+  );
+}
+
+function ScaleSample({side}: {side: Side}) {
   const acc = track[side].acc;
   const [pledged, setPledged] = useState(false);
   const pledges = 163 + (pledged ? 1 : 0);
@@ -19,6 +122,7 @@ export function Scale({side}: {side: Side}) {
   const pct = next ? Math.round(((pledges - cur[0]) / (next[0] - cur[0])) * 100) : 100;
   return (
     <View style={{gap: 12}}>
+      <SectionHead>SAMPLE GROUP BUY</SectionHead>
       <View style={{flexDirection: 'row', gap: 12, alignItems: 'center'}}>
         <GoldFrame pad={2}><View style={{width: 76, height: 92, backgroundColor: '#140E0B', alignItems: 'center', justifyContent: 'center'}}><Icon name="shirt" size={28} color={deco.brass} strokeWidth={1.2} /></View></GoldFrame>
         <View style={{flex: 1, gap: 3}}>
@@ -49,7 +153,7 @@ export function Scale({side}: {side: Side}) {
         <View style={{height: 6, backgroundColor: 'rgba(201,169,97,0.15)'}}><Animated.View layout={LinearTransition} style={{height: 6, width: `${pct}%`, backgroundColor: acc}} /></View>
       </View>
       <ActionBar color={pledged ? deco.brass : acc} label={pledged ? 'PLEDGED · TAP TO WITHDRAW' : `PLEDGE AT $${cur[1]}`} onPress={() => setPledged((p) => !p)} />
-      <SampleNote>PREVIEW · A PLEDGE NEVER CHARGES · PAYMENT IS ONLY REQUESTED IF THE BUY CLOSES, AND YOU CONFIRM IT</SampleNote>
+      <SampleNote>SAMPLE · PREVIEW · A PLEDGE NEVER CHARGES · PAYMENT IS ONLY REQUESTED IF THE BUY CLOSES, AND YOU CONFIRM IT</SampleNote>
     </View>
   );
 }

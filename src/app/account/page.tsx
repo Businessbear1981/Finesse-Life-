@@ -3,15 +3,19 @@ import {redirect} from 'next/navigation';
 import Link from 'next/link';
 import {FinesseLayout} from '@/components/finesse-layout';
 import {getVipEntitlement} from '@/lib/vip-lift';
+import {MembershipSection} from '@/components/billing/membership-section';
 import {AccountActions} from './account-actions';
 
 export const metadata: Metadata = {
   title: 'Account · Finesse',
 };
 
-// /account — signed-in only. Data export, lift PIN reset (VIP) and account deletion.
-export default async function AccountPage() {
+// /account — signed-in only. Membership (Stripe), data export, lift PIN reset (VIP)
+// and account deletion. Stripe returns here with ?billing=success|cancelled.
+export default async function AccountPage({searchParams}: {searchParams: Promise<{[key: string]: string | string[] | undefined}>}) {
   const ent = await getVipEntitlement();
+  const {billing} = await searchParams;
+  const returned = billing === 'success' || billing === 'cancelled' ? billing : null;
   if (ent.state === 'signed_out') redirect('/login');
 
   return (
@@ -48,6 +52,8 @@ export default async function AccountPage() {
               ← Back to profile
             </Link>
           </div>
+
+          <MembershipSection returned={returned} />
 
           <AccountActions isVip={ent.state === 'entitled'} />
         </div>

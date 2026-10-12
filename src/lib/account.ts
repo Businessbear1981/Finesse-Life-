@@ -4,6 +4,8 @@
  * SERVER-ONLY — never import from a client component.
  *
  * Deletion order (deleteAccount):
+ *   0. close the member's Stripe customer (cancels any subscription so a deleted member is
+ *      never charged again). If this fails nothing else is deleted — the member can retry.
  *   1. collect the member's R2 object keys (before the rows that name them are gone)
  *   2. public.delete_member_data(uid) — one transaction (20261012_account_lifecycle.sql):
  *      cancels live Scale pledges, anonymises financial/shared rows, deletes member-owned rows
@@ -17,6 +19,7 @@ import {DeleteObjectsCommand, ListObjectsV2Command} from '@aws-sdk/client-s3';
 import {createClient as createSupabaseClient} from '@supabase/supabase-js';
 import {z} from 'zod';
 import {LOCKOUT, VIP_LIFT_COOKIE, service, sha256} from '@/lib/keylock-server';
+import {closeStripeCustomer} from '@/lib/billing';
 import {r2} from '@/lib/r2';
 
 /* ── Request contracts ────────────────────────────────────────────────── */
@@ -126,6 +129,8 @@ export async function auditEvent(row: {lock: AuditLock; eventType: string; outco
 /* ── Deletion orchestration ───────────────────────────────────────────── */
 
 export type DeletionDeps = {
+  /** Cancel billing first; must throw if the member could still be charged. */
+  closeBilling?: (userId: string) => Promise<unknown>;
   collectStorageKeys: (userId: string) => Promise<string[]>;
   deleteMemberData: (userId: string) => Promise<unknown>;
   deleteStorageKeys: (keys: string[]) => Promise<{deleted: number; failed: number}>;
@@ -134,9 +139,17 @@ export type DeletionDeps = {
 
 export type DeletionOutcome =
   | {ok: true; summary: unknown; storage: {deleted: number; failed: number}}
-  | {ok: false; stage: 'data' | 'auth'; message: string};
+  | {ok: false; stage: 'billing' | 'data' | 'auth'; message: string};
 
 export async function deleteAccount(userId: string, deps: DeletionDeps): Promise<DeletionOutcome> {
+  if (deps.closeBilling) {
+    try {
+      await deps.closeBilling(userId);
+    } catch (e) {
+      return {ok: false, stage: 'billing', message: (e as Error).message};
+    }
+  }
+
   let keys: string[] = [];
   try {
     keys = await deps.collectStorageKeys(userId);
@@ -185,6 +198,13 @@ async function listPrefix(prefix: string): Promise<string[]> {
 export function serviceDeletionDeps(): DeletionDeps {
   const db = service();
   return {
+    async closeBilling(userId) {
+      const {data, error} = await db.from('billing_customers').select('stripe_customer_id').eq('user_id', userId).maybeSingle();
+      if (error) throw new Error(`billing lookup failed: ${error.message}`);
+      if (!data) return false; // never had a Stripe customer
+      if (!process.env.STRIPE_SECRET_KEY) throw new Error('billing is not configured; cannot cancel the subscription');
+      return closeStripeCustomer(db as never, userId);
+    },
     async collectStorageKeys(userId) {
       if (!r2Configured()) return [];
       const keys = new Set<string>();
