@@ -13,8 +13,11 @@ import { socialRoutes } from './routes/social';
 import { dataRoutes, meRoute } from './routes/data';
 import type { PaymentGateway, ShippingProvider } from './scale/adapters';
 import { rateLimit } from './ratelimit';
+import { plaidRoutes, jazzRoutes } from './routes/fin';
+import { fakePlaid, livePlaid, type PlaidClient } from './fin/plaid';
+import { feedFm, type MusicProvider } from './jazz/feedfm';
 
-export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider; payments?: PaymentGateway; shipping?: ShippingProvider }
+export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider; payments?: PaymentGateway; shipping?: ShippingProvider; plaid?: PlaidClient; music?: MusicProvider }
 export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims; service?: boolean } };
 export type DepsFactory = (env: Env) => Deps;
 
@@ -23,7 +26,17 @@ export const defaultDeps: DepsFactory = (env) => ({
   verifier: workosVerifier(env.WORKOS_CLIENT_ID),
   registry: defaultRegistry(),
   model: env.AI_GATEWAY_API_KEY ? gatewayModel(env.AI_GATEWAY_API_KEY) : nullModel,
+  plaid: plaidFromEnv(env),
+  music: env.FEEDFM_TOKEN && env.FEEDFM_SECRET ? feedFm({ token: env.FEEDFM_TOKEN, secret: env.FEEDFM_SECRET }) : undefined,
 });
+
+let devFakePlaid: PlaidClient | undefined;
+/** Live Plaid only with credentials; PLAID_ENV=fake is for local dev and never pairs with live keys. */
+export function plaidFromEnv(env: Env): PlaidClient | undefined {
+  if (env.PLAID_ENV === 'fake') return (devFakePlaid ??= fakePlaid());
+  if (!env.PLAID_CLIENT_ID || !env.PLAID_SECRET) return undefined;
+  return livePlaid({ clientId: env.PLAID_CLIENT_ID, secret: env.PLAID_SECRET, env: env.PLAID_ENV === 'production' ? 'production' : 'sandbox' });
+}
 
 export function createApp(makeDeps: DepsFactory = defaultDeps, opts: { rateLimit?: number } = {}) {
   const app = new Hono<AppEnv>();
@@ -76,6 +89,8 @@ export function createApp(makeDeps: DepsFactory = defaultDeps, opts: { rateLimit
   app.route('/v1/scale', scaleRoutes);
   app.route('/v1/social', socialRoutes);
   app.route('/v1/data', dataRoutes);
+  app.route('/v1/plaid', plaidRoutes);
+  app.route('/v1/jazz', jazzRoutes);
   app.route('/v1/me', meRoute);
 
   app.onError((err, c) => {

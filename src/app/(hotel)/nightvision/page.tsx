@@ -5,6 +5,7 @@ import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
 import {createClient} from '@/lib/data/client';
+import {PlaidConnect} from '@/components/fin/plaid-connect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -782,6 +783,13 @@ export default function NightvisionPage() {
     plaid: false,
     spotify: false,
   });
+  const [plaidOpen, setPlaidOpen] = useState(false);
+  const refreshPlaid = () =>
+    fetch('/api/plaid/items').then((r) => (r.ok ? r.json() : null)).then((j: {items?: Array<{status: string}>} | null) => {
+      const linked = !!j?.items?.some((i) => i.status === 'active');
+      setSources((p) => ({...p, plaid: linked}));
+    }).catch(() => {});
+  useEffect(() => { void refreshPlaid(); }, []);
 
   // ── questionnaire ──
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
@@ -875,10 +883,10 @@ export default function NightvisionPage() {
     window.location.href = '/api/auth/instagram';
   };
 
-  // Snapchat and Plaid have no backend integration yet (Plaid is financial data: needs Sean's sign-off given
-  // the "no financial data" rule for standing). Never show them as connected.
+  // Snapchat has no backend integration yet; never show it as connected.
   const handleConnectSnapchat = () => showToast('Snapchat is not available yet');
-  const handleConnectPlaid = () => showToast('Bank connections are not available');
+  // Plaid: consented, scoped, minimized (docs/DATA_POLICY.md). Connected only once the server confirms an Item.
+  const handleConnectPlaid = () => setPlaidOpen(true);
 
   const handleConnectSpotify = () => showToast('Spotify is not available yet');
 
@@ -1013,6 +1021,9 @@ export default function NightvisionPage() {
 
       {/* Toast */}
       <AnimatePresence>
+        {plaidOpen && (
+          <PlaidConnect onClose={() => setPlaidOpen(false)} onDone={(m) => { setPlaidOpen(false); showToast(m); void refreshPlaid(); }} />
+        )}
         {toast && (
           <motion.div
             key="toast"
@@ -1180,9 +1191,9 @@ export default function NightvisionPage() {
                 />
 
                 <ConnectCard
-                  title="PLAID · SPENDING INTEL"
-                  subtitle="Transaction layer"
-                  detail="Real transaction data. We see what brands you actually pay for — not just follow."
+                  title="PLAID · BUDGET SIGNAL"
+                  subtitle="Balances, with your consent"
+                  detail="Account names and balances only, to plan within your budget. No account numbers, no transactions, never used for Standing."
                   connected={sources.plaid}
                   onConnect={handleConnectPlaid}
                 />
@@ -1701,7 +1712,7 @@ export default function NightvisionPage() {
                   {[
                     {key: 'instagram' as const, label: 'INSTAGRAM', detail: 'Visual identity'},
                     {key: 'snapchat' as const, label: 'SNAPCHAT', detail: 'Social graph'},
-                    {key: 'plaid' as const, label: 'PLAID', detail: 'Transaction data'},
+                    {key: 'plaid' as const, label: 'PLAID', detail: 'Balances only'},
                     {key: 'spotify' as const, label: 'SPOTIFY', detail: 'Music intelligence'},
                   ].map(({key, label, detail}) => {
                     const connected = nvProfile.answers && sources[key];

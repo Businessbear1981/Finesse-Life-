@@ -65,3 +65,33 @@ export function strikePenaltyBps(openStrikesIncludingThis: number): number {
   const l = SCALE_POLICY.strikeLadderBps;
   return l[Math.min(Math.max(openStrikesIncludingThis, 1), l.length) - 1] ?? 0;
 }
+
+/**
+ * Financial data (Plaid) policy — docs/DATA_POLICY.md. Opt-in, consented, scoped, minimized.
+ * Never an input to Standing (SOCIAL_POLICY) or any eligibility decision.
+ */
+export const PLAID_POLICY = {
+  version: 1,
+  /** Scopes a member can grant. Stored on fin.consents.scopes. */
+  allowedScopes: ['accounts', 'balances'] as readonly string[],
+  /** Link products. Balance cannot be a Link product, so Link initializes with transactions (we never store transactions). */
+  linkProducts: ['transactions'] as readonly string[],
+  /** Smallest history window Plaid accepts for transactions init; we do not persist transactions. */
+  transactionsDaysRequested: 30,
+  countryCodes: ['US'] as readonly string[],
+  /** Max linked institutions per member. */
+  maxItemsPerMember: 5,
+  /** Webhook JWT must be issued within this window (Plaid recommends 5 minutes). */
+  webhookMaxAgeSeconds: 300,
+  /** On disconnect: remove the Item at Plaid, delete the token and accounts, mark consent revoked. */
+  deleteOnDisconnect: true,
+} as const;
+
+/** Jazz Club (Feed.fm). Clients stream directly from Feed.fm (geo-IP licensing); we only mint short-lived credentials. */
+export const JAZZ_POLICY = {
+  /** Access-token lifetime handed to the member's device. Feed.fm clamps at 30 days; keep it short. */
+  accessTokenTtlSeconds: 3600,
+  /** Required attribution and disclaimer (Feed.fm display requirements). */
+  attribution: 'Powered by Feed.fm',
+  disclaimer: 'There is no affiliation, connection, association or endorsement of the products, goods or services displayed on this page by the copyright owners, featured recording artists and authors of the sound recordings (and the musical works embodied therein) transmitted through the Feed.fm player.',
+} as const;

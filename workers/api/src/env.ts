@@ -19,6 +19,20 @@ export interface Env {
   SHIPBOB_CHANNEL_ID?: string;
   /** Cloudflare Rate Limiting binding ([[ratelimits]] in wrangler.toml). */
   RATE_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
+  /** Plaid: 'sandbox' (default) | 'production' | 'fake' (local only, no keys). */
+  PLAID_ENV?: 'sandbox' | 'production' | 'fake';
+  PLAID_CLIENT_ID?: string;
+  PLAID_SECRET?: string;
+  /** Public URL Plaid calls, e.g. https://api.finesselife.vip/v1/plaid/webhook */
+  PLAID_WEBHOOK_URL?: string;
+  /** base64 32-byte AES-256-GCM key for access tokens; *_PREV for rotation. */
+  PLAID_TOKEN_KEY?: string;
+  PLAID_TOKEN_KEY_VERSION?: string;
+  PLAID_TOKEN_KEY_PREV?: string;
+  PLAID_TOKEN_KEY_PREV_VERSION?: string;
+  /** Feed.fm consumer credentials (Jazz Club). Never sent to devices. */
+  FEEDFM_TOKEN?: string;
+  FEEDFM_SECRET?: string;
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
 }

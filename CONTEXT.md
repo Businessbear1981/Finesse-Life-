@@ -186,8 +186,11 @@ Budget-input is a required field — member sets their budget (e.g. $50 / $150 /
 ### Nexus
 Referenced by Sean as a platform for stock trading integrated into Finesse ("use our Nexus platform to trade stocks"). **Unclear if this is**: (a) a separate product/brand, (b) NEST's financial tools surfaced inside Finesse, or (c) a new feature name. Needs clarification. Flagged 2026-06-08.
 
+### Financial data (Plaid)
+Approved by Sean 2026-10-12, replacing the earlier "no financial data" rule: consented, scoped, minimized Plaid data (accounts + balances only), never used for Standing. See docs/DATA_POLICY.md and docs/decisions/0003.
+
 ### Jazz Club
-A social entertainment room. Not part of the original After Dark spec — new addition. Exact feature set TBD. Resolved 2026-06-08 (existence confirmed, features pending).
+A social entertainment room. Not part of the original After Dark spec — new addition. Resolved 2026-06-08 (existence confirmed). Music vendor: **Feed.fm** (Streaming API v3), approved by Sean 2026-10-12; see docs/DATA_POLICY.md.
 
 ### Backend Surface
 The full integration map Sean confirmed 2026-06-08:

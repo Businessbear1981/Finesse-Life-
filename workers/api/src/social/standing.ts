@@ -1,5 +1,5 @@
 // Standing (social score) per the Engines Spec. Not a credit score: Finesse activity and accounts the
-// member connected on purpose only; no financial data; output sets priority and perks only.
+// member connected on purpose only; never Plaid/financial data (docs/DATA_POLICY.md rule 6); output sets priority and perks only.
 import type { Tx } from '../db';
 import { SOCIAL_POLICY } from '../policy';
 

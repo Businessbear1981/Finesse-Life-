@@ -12,6 +12,10 @@ WORKOS_CLIENT_ID = "client_REPLACE_ME"          # public id; issuer/JWKS are der
 ALLOWED_ORIGINS = "https://finesselife.vip,https://www.finesselife.vip"
 R2_ACCOUNT_ID = "REPLACE_ME_CLOUDFLARE_ACCOUNT_ID"
 R2_MEDIA_BUCKET_NAME = "finesse-media"
+PLAID_ENV = "sandbox"                           # sandbox | production (fake = local dev only)
+PLAID_WEBHOOK_URL = "https://api.finesselife.vip/v1/plaid/webhook"
+# Secrets (wrangler secret put): PLAID_CLIENT_ID, PLAID_SECRET, PLAID_TOKEN_KEY (openssl rand -base64 32),
+# FEEDFM_TOKEN, FEEDFM_SECRET
 
 # Neon via Hyperdrive. Create with:
 #   wrangler hyperdrive create finesse-neon --connection-string="<NEON POOLED URL, role finesse_api>"
