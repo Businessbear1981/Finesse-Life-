@@ -33,7 +33,7 @@ To build (the app has dev fallbacks so it runs without them):
 - `POST /api/keylock/house` `{code}` → `{ok}` — verify the 6-digit house code server-side. Never ship the code in the app.
 - `GET /api/connect/:provider` — OAuth start for instagram, tiktok, pinterest, facebook, x, google. On callback, store tokens server-side in `social_connections` and register the webhooks.
 - `GET /api/style-read` → `{headline, palette[], tags[], posts}` built from connected accounts.
-- `PUT /api/check-in` `{answers, nova, shopper}` → upserts `interview_answers` and `member_staff` in D1 for the authenticated user.
+- `PUT /api/check-in` `{answers, nova, shopper}` → upserts `interview_answers` and `member_staff` in Postgres for the authenticated user.
 - `POST /api/uploads/sign` `{contentType}` → `{uploadUrl, key}` — presigned R2 PUT URL; store `key` as `closet_items.image_key`.
 
 Auth: WorkOS (passkeys + step-up). The app sends `Authorization: Bearer <token>` (`src/lib/auth.ts` keeps it in SecureStore). The Worker verifies the WorkOS JWT and sets Postgres session claims so row-level security applies.

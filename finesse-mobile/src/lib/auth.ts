@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 const KEY = 'finesse.token';
 let cached: string | null | undefined;
 
-/** Bearer token issued by the API after sign-in. Auth provider is undecided; the app only needs a token string. */
+/** Bearer token issued by the API after sign-in. WorkOS access token (AuthKit, passkeys); the app only needs the token string. */
 export async function getToken() {
   if (cached === undefined) cached = await SecureStore.getItemAsync(KEY);
   return cached;
