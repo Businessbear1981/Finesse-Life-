@@ -35,4 +35,8 @@ export const INTERIORS: Record<string, (p: {side: Side}) => React.JSX.Element> =
 
 // Rooms whose interiors make real server calls today. Only these get the green "ROOM ON" lamp; every other
 // interior is sample or local-only and says so. (Signed out, live rooms show a sign-in prompt and a labelled sample.)
-export const LIVE_ROOMS = new Set(['lounge', 'concierge', 'vault', 'gym', 'stylist', 'starmaker', 'kitchen', 'calendar', 'profile', 'closet', 'diary', 'camera', 'jazz-club']);
+export const LIVE_ROOMS = new Set([
+  'lounge', 'concierge', 'vault', 'gym', 'stylist', 'starmaker', 'kitchen', 'calendar', 'profile', 'closet', 'diary', 'camera', 'jazz-club',
+  'wardrobe', 'bag', 'registry', 'lab', 'switchboard', 'scale', 'exchange', 'embassy', 'archive', 'carpe-diem', 'market', 'ballroom',
+  'entourage', 'departures', 'perdiem', 'clubhouse', 'nightvision', 'salon',
+]);

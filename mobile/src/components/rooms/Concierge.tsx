@@ -1,18 +1,21 @@
 // Nova — the concierge's private line (After Hours; mirrors web concierge-view.tsx). One request at a time
-// goes to /api/nova; only a 2xx with text is shown as Nova's reply, anything else is shown as not delivered.
+// goes to /api/nova as {prompt, persona:'concierge'} (the server owns Nova's instructions); only a 2xx with
+// text is shown as Nova's reply, anything else is shown as not delivered. When Nova drafts a request
+// (draft_request tool) it appears as a card to Confirm / Not now — nothing runs until the member confirms.
 import {useId, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import {api} from '@/lib/api';
+import {draftsFromToolCalls, type NovaRequest} from '@/lib/rooms/nova-requests';
 import {AHEyebrow, AHLiveDot, AHTitle} from '@/components/ah';
 import {radius} from '@/lib/ah';
-import {ah, ahFonts, t} from './RoomKit';
+import {ah, ahFonts, Pick, t} from './RoomKit';
+import {RequestCard, RequestsPanel} from './RequestCard';
 
-type Docket = {id: number; ask: string; reply: string; at: string; failed: boolean};
+type Docket = {id: number; ask: string; reply: string; at: string; failed: boolean; drafts: NovaRequest[]};
 
-const SYSTEM = 'You are Nova, the concierge of Finesse, a members-only 1920s grand hotel. Be warm, brief and precise. You may draft plans and options; you never claim to have booked, bought or sent anything. End with what you need the member to confirm.';
 const QUICK: Array<[string, string]> = [
   ['A table for four tonight', 'A table for four tonight'],
   ['Pull a look', 'Pull a look for tonight — help me find something to wear'],
@@ -54,18 +57,21 @@ export function Concierge() {
   const [busy, setBusy] = useState(false);
   const [dockets, setDockets] = useState<Docket[]>([]);
   const [pending, setPending] = useState<string | null>(null);
+  const [showRequests, setShowRequests] = useState(false);
   const send = async (override?: string) => {
     const prompt = (override ?? ask).trim();
     if (!prompt || busy) return;
     setBusy(true); setPending(prompt);
-    const r = await api<{text?: string; error?: string}>('/api/nova', {method: 'POST', json: {prompt, persona: 'concierge', system: SYSTEM}});
+    const r = await api<{text?: string; error?: string; tool_calls?: unknown}>('/api/nova', {method: 'POST', json: {prompt, persona: 'concierge'}});
+    const drafts = draftsFromToolCalls(r.body.tool_calls);
     // Only a 2xx with text is Nova's reply. A 502/503 carries {error, text} where text explains Nova is
     // unreachable — shown as an error, never as if she had answered.
     const failed = !(r.ok && r.body.text);
     const reply = !failed ? r.body.text! : r.status === 0 ? 'The house line is offline. Nothing was sent; ask again when we are connected.'
       : r.status === 401 ? 'Sign in to ring for Nova. Nothing was sent.'
+      : drafts.length > 0 ? 'Nova’s reply didn’t come through, but her draft is below. Nothing runs until you confirm it.'
       : r.body.text ?? 'Nova could not be reached. Nothing was arranged; please try again in a moment.';
-    setDockets((d) => [{id: Date.now(), ask: prompt, reply, failed, at: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}, ...d]);
+    setDockets((d) => [{id: Date.now(), ask: prompt, reply, failed, drafts, at: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}, ...d]);
     if (override === undefined) setAsk('');
     setPending(null); setBusy(false);
   };
@@ -86,7 +92,16 @@ export function Concierge() {
           <Text style={t.eyebrow}>{busy ? 'Writing' : 'Concierge'}</Text>
         </View>
         {first ? <Text style={[t.body, {color: ah.mute, textAlign: 'center', marginTop: 16, maxWidth: 320}]}>Tables, cars, the route, the look. Text it the way you would at 1am.</Text> : null}
+        <Pick label={showRequests ? 'Hide your requests' : 'Your requests'} on={showRequests} onPress={() => setShowRequests((v) => !v)} style={{marginTop: 16}}
+          a11y={showRequests ? 'Hide your requests' : 'Show your requests'} />
       </View>
+
+      {showRequests ? (
+        <View style={{gap: 10}}>
+          <AHEyebrow>Your requests</AHEyebrow>
+          <RequestsPanel />
+        </View>
+      ) : null}
 
       {/* The thread */}
       <View style={{gap: 26}} accessibilityLabel="Conversation with Nova">
@@ -104,6 +119,7 @@ export function Concierge() {
                   <Text style={[t.body, {color: ah.danger}]}>{d.reply}</Text>
                 </View>
               ) : <Text selectable style={t.voice}>{d.reply}</Text>}
+              {d.drafts.map((r) => <RequestCard key={r.id} request={r} />)}
             </View>
           </Animated.View>
         ))}

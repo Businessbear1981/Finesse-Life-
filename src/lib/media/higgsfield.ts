@@ -35,6 +35,24 @@ export async function submitImageJob(input: ImageJobInput) {
   return job as {id: string; status: string};
 }
 
+export type VideoJobInput = {
+  prompt: string;
+  model?: string;       // e.g. 'seedance'
+  aspectRatio?: '16:9' | '9:16' | '1:1';
+  durationSeconds?: number;
+};
+
+export async function submitVideoJob(input: VideoJobInput) {
+  const res = await fetch(`${BASE}/jobs/video`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) throw new Error(`Higgsfield ${res.status}: ${await res.text()}`);
+  const job = await res.json();
+  return job as {id: string; status: string};
+}
+
 export async function pollJob(jobId: string) {
   const res = await fetch(`${BASE}/jobs/${jobId}`, {headers: authHeaders()});
   if (!res.ok) throw new Error(`Higgsfield ${res.status}`);

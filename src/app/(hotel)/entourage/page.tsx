@@ -1,24 +1,20 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { btnCls, fieldCls, roomCall } from '@/lib/room-client';
+import { birthdayBrief, daysLabel, giftQuery, type EntourageGift, type EntouragePerson, type GiftStatus, type NextOccasion } from '@/lib/entourage';
+import { formatCents, resultView, type ItemView } from '@/lib/nova-request-view';
+import { failureText, runNovaRequest, today, useRoomData } from '@/lib/rooms/live-room';
+import { LiveRoom, Notice, SampleLabel } from '@/components/live-room-states';
+import { useLocalPref } from '@/components/after-hours';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Tab = 'crew' | 'find' | 'invite';
 type Edition = 'finesse' | 'carpe_diem';
 
-interface EntourageMember {
-  id: string;
-  display_name: string;
-  username: string;
-  vibe: string;
-  city: string;
-  avatar_url: string | null;
-  backstage_unlocked: boolean;
-}
 
 interface SearchResult {
   found: boolean;
@@ -46,187 +42,261 @@ function vibeColor(vibe: string, edition: Edition): string {
   return edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
 }
 
-// ── Avatar ───────────────────────────────────────────────────────────────────
+// ── Tab: People (the member's own dossiers — entourage_people / entourage_gifts) ──────────
 
-function MemberAvatar({ member }: { member: EntourageMember }) {
+type Person = EntouragePerson & {next: NextOccasion | null; gifts: EntourageGift[]};
+type PeopleData = {today: string; people: Person[]};
+
+const SAMPLE_PEOPLE: Array<{name: string; relation: string; days: number; loves: string[]}> = [
+  {name: 'Mum', relation: 'Family', days: 12, loves: ['Orchids', 'Hermès scarves', 'Earl Grey']},
+  {name: 'Theo', relation: 'Partner', days: 31, loves: ['Vintage watches', 'Negronis', 'Jazz']},
+];
+
+function SamplePeople() {
   return (
-    <div
-      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-      style={{
-        background: 'linear-gradient(135deg, #1A0A0D, #2A1020)',
-        border: '1px solid rgba(201,169,97,0.3)',
-      }}
-    >
-      {member.avatar_url ? (
-        <img
-          src={member.avatar_url}
-          alt={member.display_name}
-          className="w-full h-full rounded-full object-cover"
-        />
-      ) : (
-        <span className="font-display text-lg" style={{ color: '#C9A961' }}>
-          {member.display_name[0]}
-        </span>
-      )}
+    <div className="space-y-3">
+      <SampleLabel>Sample dossiers · sign in to keep your own</SampleLabel>
+      {SAMPLE_PEOPLE.map((p) => (
+        <div key={p.name} className="flex items-center justify-between gap-3 border border-cream/8 bg-ink/40 p-4 opacity-70">
+          <div>
+            <p className="font-display text-lg text-cream/80">{p.name} <span className="font-label text-[8px] uppercase tracking-[0.2em] text-cream/30">{p.relation}</span></p>
+            <p className="font-body text-xs italic text-cream/35">Loves {p.loves.join(', ')}</p>
+          </div>
+          <p className="whitespace-nowrap font-mono text-sm text-brass/70">{daysLabel(p.days)}</p>
+        </div>
+      ))}
     </div>
   );
 }
 
-// ── Member card ───────────────────────────────────────────────────────────────
+const lovesFrom = (s: string) => s.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 12);
 
-function MemberCard({ member, edition }: { member: EntourageMember; edition: Edition }) {
-  const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
+function PersonForm({person, accent, onSaved, onCancel}: {person?: Person; accent: string; onSaved: () => void; onCancel?: () => void}) {
+  const [name, setName] = useState(person?.name ?? '');
+  const [relation, setRelation] = useState(person?.relation ?? '');
+  const [city, setCity] = useState(person?.city ?? '');
+  const [birthday, setBirthday] = useState(person?.birthday ?? '');
+  const [loves, setLoves] = useState(person?.loves.join(', ') ?? '');
+  const [notes, setNotes] = useState(person?.notes ?? '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    setMsg(null);
+    const json = {name: name.trim(), relation: relation.trim() || 'friend', city: city.trim() || null, birthday: birthday || null, loves: lovesFrom(loves), notes: notes.trim() || null};
+    const r = person
+      ? await roomCall(`/api/entourage/${person.id}`, {method: 'PATCH', json})
+      : await roomCall('/api/entourage', {method: 'POST', json});
+    setBusy(false);
+    if (r.ok) onSaved();
+    else setMsg(failureText(r.status, r.body, person ? 'Nothing was changed.' : 'Nothing was added.'));
+  };
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-3 p-4 border border-cream/8 bg-ink/50 hover:border-brass/30 transition-colors duration-300"
-    >
-      <MemberAvatar member={member} />
+    <form onSubmit={save} className="space-y-2 border border-brass/20 bg-ink/50 p-4">
+      <p className="font-label text-[9px] uppercase tracking-[0.3em] text-brass/60">{person ? `Edit ${person.name}` : 'Add someone you love'}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" maxLength={80} className={fieldCls} required />
+        <input aria-label="Relation" value={relation} onChange={(e) => setRelation(e.target.value)} placeholder="Relation (mum, partner, best friend…)" maxLength={40} className={fieldCls} />
+        <input aria-label="City" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" maxLength={80} className={fieldCls} />
+        <label className="flex items-center gap-2 font-label text-[9px] uppercase tracking-[0.2em] text-cream/40">
+          Birthday
+          <input type="date" value={birthday} onChange={(e) => setBirthday(e.target.value)} className={fieldCls} />
+        </label>
+      </div>
+      <input aria-label="Loves" value={loves} onChange={(e) => setLoves(e.target.value)} placeholder="Loves — orchids, jazz, first editions" className={fieldCls} />
+      <textarea aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes only you will see" maxLength={2000} rows={2} className={`${fieldCls} py-2`} />
+      <div className="flex flex-wrap gap-2">
+        <button type="submit" disabled={busy || !name.trim()} className={btnCls} style={{borderColor: accent, color: accent}}>{busy ? 'Saving…' : person ? 'Save' : 'Add to my people'}</button>
+        {onCancel && <button type="button" onClick={onCancel} className={`${btnCls} border-cream/15 text-cream/50`}>Cancel</button>}
+      </div>
+      {msg && <Notice tone="error">{msg}</Notice>}
+    </form>
+  );
+}
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-display text-base text-cream/90 truncate">{member.display_name}</span>
-          {member.backstage_unlocked && (
-            <span
-              className="font-label text-[8px] tracking-[0.2em] uppercase px-1.5 py-0.5 border flex items-center gap-1"
-              style={{ color: accent, borderColor: `${accent}40`, background: `${accent}12` }}
-            >
-              ✦ Backstage
-            </span>
-          )}
+function Dossier({person, accent, reload}: {person: Person; accent: string; reload: () => void}) {
+  const [editing, setEditing] = useState(false);
+  const [budget, setBudget] = useState('150');
+  const [busy, setBusy] = useState<'gifts' | 'plan' | 'save' | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [ideas, setIdeas] = useState<ItemView[] | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const giftIdeas = async () => {
+    setBusy('gifts'); setMsg(null); setIdeas(null);
+    const cents = Math.round(Number(budget) * 100);
+    const r = await runNovaRequest({kind: 'find_item', title: `Gift ideas for ${person.name}`, room: 'entourage',
+      details: {query: giftQuery(person), ...(Number.isFinite(cents) && cents > 0 ? {budget_cents: cents} : {})}});
+    setBusy(null);
+    if (!r.ok) { setMsg(r.message); return; }
+    const view = resultView(r.request.result);
+    setIdeas(view.type === 'items' ? view.items : []);
+  };
+  const planBirthday = async () => {
+    setBusy('plan'); setMsg(null); setPlan(null);
+    const when = person.next ? new Date(`${person.next.date}T19:00:00`).toISOString() : undefined;
+    const r = await runNovaRequest({kind: 'plan', title: `${person.name}’s birthday`, room: 'entourage',
+      details: {topic: 'evening', brief: birthdayBrief(person, person.next?.turning ?? null), ...(when ? {when} : {})}});
+    setBusy(null);
+    if (!r.ok) { setMsg(r.message); return; }
+    const view = resultView(r.request.result);
+    setPlan(view.type === 'plan' ? view.text : 'Nova returned an empty plan. Nothing was booked.');
+  };
+  const saveIdea = async (i: ItemView) => {
+    setBusy('save');
+    const r = await roomCall(`/api/entourage/${person.id}/gifts`, {method: 'POST', json: {title: [i.brand, i.title].filter(Boolean).join(' — ').slice(0, 160), price_cents: i.price_cents, url: i.url, source: 'nova', occasion: person.next ? 'Birthday' : null}});
+    setBusy(null);
+    if (r.ok) { setIdeas((xs) => xs?.filter((x) => x !== i) ?? null); reload(); } else setMsg(failureText(r.status, r.body, 'Nothing was saved.'));
+  };
+  const setGift = async (g: EntourageGift, status: GiftStatus | 'delete') => {
+    const r = status === 'delete'
+      ? await roomCall(`/api/entourage/${person.id}/gifts?gift_id=${g.id}`, {method: 'DELETE'})
+      : await roomCall(`/api/entourage/${person.id}/gifts`, {method: 'PATCH', json: {gift_id: g.id, status}});
+    if (r.ok) reload(); else setMsg(failureText(r.status, r.body));
+  };
+  const remove = async () => {
+    const r = await roomCall(`/api/entourage/${person.id}`, {method: 'DELETE'});
+    if (r.ok) reload(); else setMsg(failureText(r.status, r.body));
+  };
+
+  if (editing) return <PersonForm person={person} accent={accent} onSaved={() => { setEditing(false); reload(); }} onCancel={() => setEditing(false)} />;
+
+  return (
+    <div className="space-y-5 border border-brass/20 bg-ink/50 p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-label text-[8px] uppercase tracking-[0.3em] text-cream/35">{person.relation}{person.city ? ` · ${person.city}` : ''}</p>
+          <h2 className="font-display text-3xl italic text-cream/90">{person.name}</h2>
         </div>
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          {member.username && (
-            <span className="font-label text-[9px] tracking-[0.15em] text-cream/30">@{member.username}</span>
-          )}
-          {member.username && member.city && <span className="text-cream/15 text-[8px]">·</span>}
-          {member.city && (
-            <span className="font-label text-[9px] tracking-[0.1em] text-cream/25">{member.city}</span>
-          )}
+        <div className="text-right">
+          {person.next ? (
+            <>
+              <p className="font-display text-3xl" style={{color: person.next.days <= 14 ? accent : '#C9A961'}}>{person.next.days}</p>
+              <p className="font-label text-[8px] uppercase tracking-[0.2em] text-cream/40">{person.next.days === 1 ? 'day' : 'days'} to their birthday{person.next.turning ? ` · ${person.next.turning}` : ''}</p>
+            </>
+          ) : <p className="font-body text-xs italic text-cream/35">No birthday on file</p>}
         </div>
-        {member.vibe && (
-          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            <span
-              className="font-label text-[7px] tracking-[0.2em] uppercase px-2 py-0.5 rounded-full border"
-              style={{
-                color: vibeColor(member.vibe, edition),
-                borderColor: `${vibeColor(member.vibe, edition)}35`,
-                background: `${vibeColor(member.vibe, edition)}10`,
-              }}
-            >
-              {member.vibe}
-            </span>
+      </div>
+
+      {person.loves.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {person.loves.map((l) => <span key={l} className="rounded-full border border-cream/15 px-3 py-1 font-body text-xs text-cream/70">{l}</span>)}
+        </div>
+      )}
+      {person.notes && <p className="border-l-2 pl-3 font-body text-sm italic text-cream/55" style={{borderColor: accent}}>{person.notes}</p>}
+
+      <div>
+        <p className="mb-2 font-label text-[9px] uppercase tracking-[0.3em] text-brass/60">Gifts on record · {person.gifts.length}</p>
+        {person.gifts.length === 0 ? <Notice>No gifts on record yet.</Notice> : (
+          <ul className="space-y-1">
+            {person.gifts.map((g) => (
+              <li key={g.id} className="flex flex-wrap items-center justify-between gap-2 border-b border-cream/6 py-2 font-body text-sm">
+                <span className="text-cream/75">
+                  {g.url ? <a href={g.url} target="_blank" rel="noopener noreferrer" className="underline decoration-cream/20">{g.title}</a> : g.title}
+                  {g.price_cents != null && <span className="ml-2 font-mono text-xs text-cream/40">{formatCents(g.price_cents)}</span>}
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="font-label text-[8px] uppercase tracking-[0.2em] text-cream/40">{g.status}{g.source === 'nova' ? ' · nova' : ''}</span>
+                  {g.status === 'idea' && <button type="button" onClick={() => setGift(g, 'purchased')} className="min-h-9 px-2 font-label text-[8px] uppercase tracking-[0.2em] text-brass/80">Bought it</button>}
+                  {g.status === 'purchased' && <button type="button" onClick={() => setGift(g, 'given')} className="min-h-9 px-2 font-label text-[8px] uppercase tracking-[0.2em] text-brass/80">Given</button>}
+                  <button type="button" onClick={() => setGift(g, 'delete')} aria-label={`Remove ${g.title}`} className="min-h-9 px-2 font-label text-[8px] uppercase tracking-[0.2em] text-cream/30">Remove</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <div className="space-y-3 border-t border-cream/8 pt-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 font-label text-[9px] uppercase tracking-[0.2em] text-cream/40">
+            Budget $
+            <input inputMode="numeric" value={budget} onChange={(e) => setBudget(e.target.value.replace(/[^\d]/g, '').slice(0, 7))} className={`${fieldCls} w-24`} aria-label="Gift budget in dollars" />
+          </label>
+          <button type="button" disabled={!!busy} onClick={giftIdeas} className={btnCls} style={{borderColor: accent, color: accent}}>{busy === 'gifts' ? 'Nova is looking…' : 'Gift ideas'}</button>
+          <button type="button" disabled={!!busy} onClick={planBirthday} className={`${btnCls} border-brass/40 text-brass`}>{busy === 'plan' ? 'Nova is planning…' : 'Plan their birthday'}</button>
+        </div>
+        <p className="font-body text-[11px] italic text-cream/30">Nova suggests; nothing is bought or booked. Plans land in your Diary for approval.</p>
+        {msg && <Notice tone="error">{msg}</Notice>}
+        {ideas && (ideas.length === 0 ? <Notice>Nova didn’t find anything that fits — try a different budget, or add more of what they love.</Notice> : (
+          <ul className="space-y-2">
+            {ideas.map((i, k) => (
+              <li key={`${i.title}-${k}`} className="flex flex-wrap items-center justify-between gap-2 border border-cream/8 p-3">
+                <span className="font-body text-sm text-cream/80">
+                  {i.brand && <span className="mr-1 font-label text-[8px] uppercase tracking-[0.2em] text-cream/40">{i.brand}</span>}
+                  {i.url ? <a href={i.url} target="_blank" rel="noopener noreferrer" className="underline decoration-cream/20">{i.title}</a> : i.title}
+                  <span className="ml-2 font-mono text-xs text-cream/40">{formatCents(i.price_cents)}</span>
+                </span>
+                <button type="button" disabled={busy === 'save'} onClick={() => saveIdea(i)} className="min-h-9 px-3 font-label text-[8px] uppercase tracking-[0.2em] text-brass">Save as idea</button>
+              </li>
+            ))}
+          </ul>
+        ))}
+        {plan && (
+          <div className="border-t border-brass/10 pt-3">
+            <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-brass/50">Nova’s plan · in your Diary · nothing is booked</p>
+            <p className="whitespace-pre-line font-body text-sm leading-relaxed text-cream/70">{plan}</p>
           </div>
         )}
       </div>
 
-      <Link
-        href={member.username ? `/profile?u=${encodeURIComponent(member.username)}` : '/profile'}
-        className="font-label text-[8px] tracking-[0.25em] uppercase text-cream/30 hover:text-brass transition-colors whitespace-nowrap px-3 py-2 border border-cream/8 hover:border-brass/30"
-      >
-        View
-      </Link>
-    </motion.div>
+      <div className="flex flex-wrap gap-2 border-t border-cream/8 pt-3">
+        <button type="button" onClick={() => setEditing(true)} className={`${btnCls} border-cream/15 text-cream/60`}>Edit</button>
+        {confirmDelete ? (
+          <>
+            <button type="button" onClick={remove} className={`${btnCls} border-neon-pink/50 text-neon-pink`}>Delete {person.name} and their gifts</button>
+            <button type="button" onClick={() => setConfirmDelete(false)} className={`${btnCls} border-cream/15 text-cream/50`}>Keep</button>
+          </>
+        ) : <button type="button" onClick={() => setConfirmDelete(true)} className={`${btnCls} border-cream/10 text-cream/35`}>Delete</button>}
+      </div>
+    </div>
   );
 }
 
-// ── Tab: Members ─────────────────────────────────────────────────────────────
-// There is no connections table yet, so this lists other members of the house —
-// it is not a personal crew and must not be labelled as one.
-
-function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void }) {
-  const [crew, setCrew] = useState<EntourageMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-
-  useEffect(() => {
-    async function fetchCrew() {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        let q = supabase
-          .from('profiles')
-          .select('id, display_name, username, avatar_url, city, vibe')
-          .limit(20);
-        if (user?.id) q = q.neq('id', user.id);
-        const { data, error } = await q;
-        if (error) throw error;
-        const mapped: EntourageMember[] = (data ?? []).map((p: {
-          id: string;
-          display_name: string | null;
-          username: string | null;
-          avatar_url: string | null;
-          city: string | null;
-          vibe: string | null;
-        }) => ({
-          id: p.id,
-          display_name: p.display_name || p.username || 'Member',
-          username: p.username ?? '',
-          vibe: p.vibe ?? '',
-          city: p.city ?? '',
-          avatar_url: p.avatar_url,
-          backstage_unlocked: false,
-        }));
-        setCrew(mapped);
-      } catch {
-        setLoadError(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCrew();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 p-4 border border-cream/8 bg-ink/50"
-            style={{ opacity: 0.4 - i * 0.1 }}
-          >
-            <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ background: 'rgba(201,169,97,0.08)', animation: 'pulse 1.6s infinite' }} />
-            <div className="flex-1">
-              <div className="h-3 w-28 rounded mb-2" style={{ background: 'rgba(244,232,208,0.1)', animation: 'pulse 1.6s infinite' }} />
-              <div className="h-2 w-16 rounded" style={{ background: 'rgba(244,232,208,0.06)', animation: 'pulse 1.6s infinite' }} />
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
+function PeopleTab({edition}: {edition: Edition}) {
+  const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
+  const [day] = useState(() => today());
+  const {data: room, reload} = useRoomData<PeopleData>(`/api/entourage?today=${day}`);
+  const [sel, setSel] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const quiet = () => void reload(true);
   return (
-    <div className="space-y-3">
-      {crew.length > 0 && (
-        <p className="font-label text-[9px] tracking-[0.35em] text-brass/50 uppercase mb-4">
-          Members of the house · personal crews coming soon
-        </p>
-      )}
-
-      {crew.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="font-display text-lg text-cream/30 italic mb-3">
-            {loadError ? "We couldn't load members just now." : 'No other members to show yet.'}
-          </p>
-          <p className="font-body text-sm text-cream/20 mb-6">
-            {loadError ? 'Try again in a moment, or search by username.' : 'Search by username, or invite someone in.'}
-          </p>
-          <button
-            onClick={goToFind}
-            className="font-label text-[9px] tracking-[0.3em] uppercase text-brass border border-brass/30 px-6 py-3 hover:bg-brass/10 transition-colors"
-          >
-            Find Members
-          </button>
-        </div>
-      ) : (
-        crew.map((member) => (
-          <MemberCard key={member.id} member={member} edition={edition} />
-        ))
-      )}
-    </div>
+    <LiveRoom room={room} what="your Entourage" reload={() => void reload()} signedOut={<SamplePeople />}>
+      {(d) => {
+        const current = d.people.find((p) => p.id === sel) ?? d.people[0] ?? null;
+        return (
+          <div className="space-y-5">
+            <p className="font-label text-[9px] uppercase tracking-[0.35em] text-brass/50">Your people · only you see these dossiers</p>
+            {d.people.length === 0 && !adding && (
+              <div className="py-8 text-center">
+                <p className="mb-2 font-display text-lg italic text-cream/40">No one here yet.</p>
+                <p className="mb-5 font-body text-sm text-cream/30">Add the people you love — Nova will count down to their day and help with gifts.</p>
+              </div>
+            )}
+            {d.people.length > 0 && (
+              <div className="flex flex-wrap gap-2" role="tablist" aria-label="Your people">
+                {d.people.map((p) => {
+                  const on = current?.id === p.id;
+                  return (
+                    <button key={p.id} type="button" role="tab" aria-selected={on} onClick={() => { setSel(p.id); setAdding(false); }}
+                      className="min-h-10 rounded-full border px-4 font-body text-sm transition-colors"
+                      style={{borderColor: on ? accent : 'rgba(244,232,208,0.15)', color: on ? accent : 'rgba(244,232,208,0.6)'}}>
+                      {p.name}{p.next && p.next.days <= 30 ? ` · ${daysLabel(p.next.days).toLowerCase()}` : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {adding ? <PersonForm accent={accent} onSaved={() => { setAdding(false); quiet(); }} onCancel={() => setAdding(false)} />
+              : <button type="button" onClick={() => setAdding(true)} className={`${btnCls} border-brass/40 text-brass`}>Add someone</button>}
+            {current && !adding && <Dossier key={current.id} person={current} accent={accent} reload={quiet} />}
+          </div>
+        );
+      }}
+    </LiveRoom>
   );
 }
 
@@ -472,17 +542,12 @@ function InviteTab({ edition }: { edition: Edition }) {
 
 export default function EntouragePage() {
   const [tab, setTab] = useState<Tab>('crew');
-  const [edition, setEdition] = useState<Edition>('finesse');
-
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
+  const edition = useLocalPref<Edition>('finesse_gender', (g) => (g === 'masculine' ? 'carpe_diem' : 'finesse'), 'finesse');
 
   const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
 
   const tabs: { key: Tab; label: string }[] = [
-    { key: 'crew', label: 'Members' },
+    { key: 'crew', label: 'People' },
     { key: 'find', label: 'Find' },
     { key: 'invite', label: 'Invite' },
   ];
@@ -552,7 +617,7 @@ export default function EntouragePage() {
             className="pb-20"
           >
             {tab === 'crew' && (
-              <CrewTab edition={edition} goToFind={() => setTab('find')} />
+              <PeopleTab edition={edition} />
             )}
             {tab === 'find' && <FindTab edition={edition} />}
             {tab === 'invite' && <InviteTab edition={edition} />}

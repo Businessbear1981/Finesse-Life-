@@ -1,15 +1,165 @@
 // Scrapbook — seasons, a filmstrip of frames, "make a film" and the season's chapters (from the design).
-// Frames are empty mounts until the member's photos arrive. The film panel is a preview of the
-// flow: no film is generated from here yet (Higgsfield runs server-side once entries exist).
-import {useEffect, useRef, useState} from 'react';
-import {ScrollView, Text, View} from 'react-native';
-import Animated, {FadeIn, LinearTransition} from 'react-native-reanimated';
+// Signed in it is the member's own archive, the same as the web (src/app/(hotel)/archive/page.tsx):
+// scrapbook_entries grouped by season, "log a moment" (POST /api/scrapbook/log) with Nova writing the line
+// (persona 'archive'), and a film per moment (Higgsfield via /api/scrapbook/generate-video). A film is never
+// faked: the status shown is the server's, and where the app can't start one it says so.
+import {useState} from 'react';
+import {Image, Linking, Pressable, ScrollView, Text, View} from 'react-native';
+import Animated, {FadeIn} from 'react-native-reanimated';
 import {track, type Side} from '@/lib/deco';
 import {ah, ahFonts} from '@/lib/ah';
 import {Icon} from '@/lib/icons';
-import {AHCard, AHChip, AHEyebrow, AHSmoke, AHTitle} from '@/components/ah';
+import {failure, useLive} from '@/lib/live';
+import {ENTRY_LABEL, filmStatus, logMoment, makeFilm, readScrapbook, writeWithNova, type Entry, type EntryType} from '@/lib/rooms/scrapbook';
+import {groupBySeason} from '@/lib/rooms/logic';
+import {AHCard, AHChip, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
-import {Meta, NumRow} from './live';
+import {LiveGate, Meta, NumRow, RowBtn, Status} from './live';
+import {Fine} from './RoomKit';
+
+export function Scrapbook({side}: {side: Side}) {
+  const {live, reload} = useLive<{entries: Entry[]}>(null, readScrapbook);
+  return (
+    <LiveGate live={live} reload={() => void reload()} what="your Scrapbook" signedOut={<ScrapbookSample />}>
+      {(data) => <ScrapbookLive side={side} entries={data.entries} reload={() => reload(true)} />}
+    </LiveGate>
+  );
+}
+
+function ScrapbookLive({side, entries, reload}: {side: Side; entries: Entry[]; reload: () => Promise<void>}) {
+  const seasons = groupBySeason(entries);
+  const [season, setSeason] = useState<string | null>(null);
+  const cur = seasons.find(([k]) => k === season) ?? seasons[0];
+  const [pick, setPick] = useState<string | null>(null);
+  const picked = cur?.[1].find((e) => e.id === pick) ?? cur?.[1][0];
+  return (
+    <View style={{gap: 16}}>
+      {seasons.length === 0 ? (
+        <AHCard pad={22}>
+          <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 24, lineHeight: 28, color: ah.text}}>No moments yet — log your first.</Text>
+          <Fine style={{marginTop: 8}}>Each moment files itself under its season. Nova can write the line for you.</Fine>
+        </AHCard>
+      ) : (
+        <>
+          <Chips options={seasons.map(([k]) => k)} value={cur![0]} onChange={(v) => { setSeason(v); setPick(null); }} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingVertical: 4}}>
+            {cur![1].map((e, i) => {
+              const on = picked?.id === e.id;
+              const photo = e.photo_urls?.[0];
+              return (
+                <Pressable key={e.id} onPress={() => setPick(e.id)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={e.title} style={{gap: 8}}>
+                  <View style={{width: 112, height: 148, borderRadius: 18, borderWidth: 1, borderColor: on ? ah.rose : ah.line, backgroundColor: ah.ink2, alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden', padding: photo ? 0 : 10}}>
+                    {photo ? <Image source={{uri: photo}} style={{width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={e.title} /> : (
+                      <>
+                        <Icon name={e.video_status === 'ready' ? 'clapperboard' : 'image'} size={22} color={on ? ah.rose : ah.faint} strokeWidth={1.2} />
+                        <Text numberOfLines={3} style={{fontFamily: ahFonts.serifItalic, fontSize: 14, lineHeight: 17, color: on ? ah.text : ah.mute, textAlign: 'center'}}>{e.title}</Text>
+                      </>
+                    )}
+                  </View>
+                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{cur![0].slice(0, 3).toUpperCase()} · {String(i + 1).padStart(2, '0')}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+          {picked ? <Film key={picked.id} side={side} entry={picked} onChange={reload} /> : null}
+          <AHEyebrow style={{marginTop: 8}}>Chapters · {cur![0]}</AHEyebrow>
+          <View>
+            {cur![1].map((e, i) => (
+              <NumRow key={e.id} n={i + 1} title={e.title} sub={e.description ?? undefined} meta={ENTRY_LABEL[e.entry_type as EntryType] ?? e.entry_type} last={i === cur![1].length - 1}
+                right={e.video_status === 'ready' ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10.5, letterSpacing: 1.2, color: ah.rose}}>FILM</Text> : undefined} />
+            ))}
+          </View>
+        </>
+      )}
+      <LogMoment side={side} onSaved={reload} />
+    </View>
+  );
+}
+
+function Film({side, entry, onChange}: {side: Side; entry: Entry; onChange: () => Promise<void>}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const status = entry.video_status ?? 'none';
+  const start = async () => {
+    setBusy(true); setMsg(null);
+    const r = await makeFilm(entry.id);
+    setBusy(false);
+    setMsg({ok: r.state === 'started', text: r.text});
+    if (r.state === 'started') void onChange();
+  };
+  const check = async () => {
+    setBusy(true); setMsg(null);
+    const r = await filmStatus(entry.id);
+    setBusy(false);
+    if (r.status === 401) { setMsg({ok: false, text: 'Film status is checked on the web for now. Open the Scrapbook at finesselife.vip.'}); return; }
+    if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing changed.')}); return; }
+    setMsg({ok: r.body.status === 'ready', text: r.body.status === 'ready' ? 'Your film is ready.' : r.body.status === 'failed' ? 'The studio couldn’t finish this film.' : 'Still developing.'});
+    void onChange();
+  };
+  return (
+    <AHCard style={{gap: 12}}>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10}}>
+        <AHTitle size={26} style={{flexShrink: 1}}>{entry.title}</AHTitle>
+        <AHChip label="Higgsfield" tone="outline" />
+      </View>
+      {entry.description ? <Text style={s.small}>{entry.description}</Text> : null}
+      {status === 'ready' && entry.video_url ? (
+        <ActionBar label="Watch the film" color={track[side].acc} onPress={() => void Linking.openURL(entry.video_url!).catch(() => {})} />
+      ) : status === 'pending' ? (
+        <View style={{gap: 8}}>
+          <Meta color={ah.warn}>Developing · the studio is working on it</Meta>
+          <RowBtn label={busy ? 'Checking…' : 'Check on it'} onPress={() => void check()} disabled={busy} />
+        </View>
+      ) : (
+        <View style={{gap: 8}}>
+          {status === 'failed' ? <Meta color={ah.danger}>The last film didn’t finish</Meta> : null}
+          <Text style={s.small}>Turns this moment into a short cinematic film.</Text>
+          <ActionBar label={busy ? 'Starting…' : status === 'failed' ? 'Try the film again' : 'Make a film'} color={track[side].acc} onPress={() => void start()} disabled={busy} />
+        </View>
+      )}
+      <Status msg={msg} />
+    </AHCard>
+  );
+}
+
+const TYPES = Object.keys(ENTRY_LABEL) as EntryType[];
+
+function LogMoment({side, onSaved}: {side: Side; onSaved: () => Promise<void>}) {
+  const [type, setType] = useState<EntryType>('nova_moment');
+  const [title, setTitle] = useState('');
+  const [desc, setDesc] = useState('');
+  const [busy, setBusy] = useState<'nova' | 'save' | null>(null);
+  const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const nova = async () => {
+    setBusy('nova'); setMsg(null);
+    const r = await writeWithNova(title, type);
+    setBusy(null);
+    if (r.ok) setDesc(r.text); else setMsg({ok: false, text: r.text});
+  };
+  const save = async () => {
+    setBusy('save'); setMsg(null);
+    const r = await logMoment({entry_type: type, title, description: desc});
+    setBusy(null);
+    if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was saved.')}); return; }
+    setTitle(''); setDesc(''); setType('nova_moment');
+    setMsg({ok: true, text: `Saved to ${r.body.season ?? 'your seasons'}.`});
+    void onSaved();
+  };
+  const labels = TYPES.map((k) => ENTRY_LABEL[k]);
+  return (
+    <AHCard style={{gap: 10}}>
+      <AHEyebrow>Log a moment</AHEyebrow>
+      <Chips options={labels} value={ENTRY_LABEL[type]} onChange={(l) => setType(TYPES[labels.indexOf(l)] ?? 'nova_moment')} />
+      <AHInput value={title} onChangeText={(v) => setTitle(v.slice(0, 200))} placeholder="What happened? (e.g. Dinner at Lucian)" accessibilityLabel="Moment" />
+      <AHInput value={desc} onChangeText={(v) => setDesc(v.slice(0, 4000))} placeholder="A line about it (optional)" multiline style={{minHeight: 70, paddingTop: 12}} accessibilityLabel="Description" />
+      <RowBtn label={busy === 'nova' ? 'Nova is writing…' : 'Write it with Nova'} onPress={() => void nova()} disabled={busy !== null || !title.trim()} tone={ah.rose} />
+      <ActionBar label={busy === 'save' ? 'Saving…' : 'Log this moment'} color={track[side].acc} onPress={() => void save()} disabled={busy !== null || !title.trim()} />
+      <Status msg={msg} />
+    </AHCard>
+  );
+}
+
+/* ─────────────── signed-out sample ─────────────── */
 
 type Season = 'Spring' | 'Summer' | 'Autumn' | 'Winter';
 const SEASONS: Record<Season, Array<[string, string, string, string]>> = {
@@ -18,91 +168,28 @@ const SEASONS: Record<Season, Array<[string, string, string, string]>> = {
   Autumn: [['I', 'Gallery week', 'Sep 9–14', '26'], ['II', 'Velvet season', 'Oct 2', '9'], ['III', 'Dinner at Lucian', 'Oct 18', '14']],
   Winter: [['I', 'The ball', 'Dec 12', '54'], ['II', 'Aspen', 'Jan 3–8', '61'], ['III', 'Valentine’s', 'Feb 14', '8']],
 };
-const STYLES = ['Cinematic', 'Super 8', 'Runway', 'Slow-mo'];
-const LENS = ['15s', '30s', '60s'];
 
-export function Scrapbook({side}: {side: Side}) {
-  const acc = track[side].acc;
+function ScrapbookSample() {
   const [season, setSeason] = useState<Season>('Autumn');
-  const [style, setStyle] = useState('Cinematic');
-  const [len, setLen] = useState('30s');
-  const [pct, setPct] = useState<number | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
-  const reset = () => { if (timer.current) clearInterval(timer.current); setPct(null); };
-  const go = () => {
-    if (pct !== null) return;
-    setPct(0);
-    timer.current = setInterval(() => setPct((p) => { const n = Math.min(100, (p ?? 0) + 8); if (n >= 100 && timer.current) clearInterval(timer.current); return n; }), 280);
-  };
-  const running = pct !== null && pct < 100, done = pct === 100;
-  const stage = (pct ?? 0) < 30 ? 'Reading frames' : (pct ?? 0) < 70 ? 'Adding motion' : 'Scoring';
-
   return (
-    <View style={{gap: 16}}>
-      <Chips options={Object.keys(SEASONS) as Season[]} value={season} onChange={(v) => { setSeason(v); reset(); }} />
-
+    <Animated.View entering={FadeIn.duration(300)} style={{gap: 16, marginTop: 14}}>
+      <Chips options={Object.keys(SEASONS) as Season[]} value={season} onChange={setSeason} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingVertical: 4}}>
         {[1, 2, 3, 4, 5].map((i) => (
-          <Animated.View key={`${season}${i}`} entering={FadeIn.delay(i * 60).duration(400)} style={{gap: 8}}>
-            <View style={{width: 112, height: 148, borderRadius: 18, borderWidth: 1, borderColor: ah.line, backgroundColor: ah.ink2, alignItems: 'center', justifyContent: 'center', gap: 8, overflow: 'hidden'}}>
-              <View style={{position: 'absolute', top: 8, left: 10, right: 10, flexDirection: 'row', justifyContent: 'space-between'}}>
-                {[0, 1, 2, 3, 4].map((h) => <View key={h} style={{width: 8, height: 4, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.08)'}} />)}
-              </View>
-              <Icon name="clapperboard" size={22} color={ah.faint} strokeWidth={1.2} />
-              <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 15, color: ah.faint}}>Frame {i}</Text>
-            </View>
-            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{season.slice(0, 3).toUpperCase()} · {String(i).padStart(2, '0')}</Text>
-          </Animated.View>
+          <View key={`${season}${i}`} style={{width: 112, height: 148, borderRadius: 18, borderWidth: 1, borderColor: ah.line, backgroundColor: ah.ink2, alignItems: 'center', justifyContent: 'center', gap: 8}}>
+            <Icon name="clapperboard" size={22} color={ah.faint} strokeWidth={1.2} />
+            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 15, color: ah.faint}}>Frame {i}</Text>
+          </View>
         ))}
       </ScrollView>
-
-      <AHCard style={{gap: 14}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-          <AHTitle size={30}>Make a film</AHTitle>
-          <AHChip label="Higgsfield" tone="outline" />
-        </View>
-        <Text style={s.small}>Turns this season’s frames into a short film with motion and a score.</Text>
-        <Meta style={{marginTop: 4}}>Style</Meta>
-        <Chips options={STYLES} value={style} onChange={(v) => { setStyle(v); reset(); }} />
-        <Meta>Length</Meta>
-        <Chips options={LENS} value={len} onChange={(v) => { setLen(v); reset(); }} />
-        {running ? (
-          <View style={{gap: 8}} accessibilityLiveRegion="polite">
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 13, color: ah.text}}>{stage}</Text>
-              <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 13, color: ah.rose}}>{pct}%</Text>
-            </View>
-            <View style={{height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.07)', overflow: 'hidden'}}><Animated.View layout={LinearTransition} style={{height: 4, borderRadius: 2, width: `${pct}%`, backgroundColor: ah.rose}} /></View>
-          </View>
-        ) : null}
-        {done ? (
-          <Animated.View entering={FadeIn.duration(500)}>
-            <AHSmoke aspect={16 / 10} top={<AHChip label="Preview" tone="glass" />}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
-                <View style={{width: 52, height: 52, borderRadius: 26, backgroundColor: ah.white, alignItems: 'center', justifyContent: 'center'}}>
-                  <Text style={{fontSize: 18, color: '#000', marginLeft: 3}}>▶</Text>
-                </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 26, lineHeight: 28, color: ah.text}}>{season}</Text>
-                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: 'rgba(237,235,231,0.7)'}}>{style} · {len} · preview</Text>
-                </View>
-              </View>
-            </AHSmoke>
-          </Animated.View>
-        ) : null}
-        <ActionBar color={running ? ah.platinum : acc} onPress={done ? reset : go} disabled={running}
-          label={done ? 'Preview complete · start over' : running ? 'Generating…' : `Preview · ${len}`} />
-      </AHCard>
-
-      <AHEyebrow style={{marginTop: 8}}>Chapters · {season}</AHEyebrow>
+      <AHEyebrow>Chapters · {season}</AHEyebrow>
       <View>
-        {SEASONS[season].map(([n, t, d, k], i) => (
-          <NumRow key={t} n={n} title={t} sub={d} last={i === SEASONS[season].length - 1}
+        {SEASONS[season].map(([n, title, d, k], i) => (
+          <NumRow key={title} n={n} title={title} sub={d} last={i === SEASONS[season].length - 1}
             right={<Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10.5, letterSpacing: 1.2, color: ah.mute}}>{k} ITEMS</Text>} />
         ))}
       </View>
-      <SampleNote>Sample seasons · frames fill from your photos · the film panel is a preview, no film is made yet</SampleNote>
-    </View>
+      <SampleNote>Sample seasons · signed out · your own moments and films appear once you sign in</SampleNote>
+    </Animated.View>
   );
 }

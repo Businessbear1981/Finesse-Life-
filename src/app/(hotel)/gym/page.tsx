@@ -4,6 +4,9 @@ import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import Link from 'next/link';
 import {GymLog} from '@/components/hotel/gym-log';
+import {GymRecovery, GymWeek} from '@/components/hotel/gym-week';
+import {NovaPlan} from '@/components/hotel/nova-plan';
+import {roomCall} from '@/lib/room-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +51,9 @@ interface ScheduleItem {
   name: string;
   venue: string;
 }
+
+// ─── Sample programme (signed-out preview only, labelled) ─────────────────────
+// Members see their own log, recovery read and planned week instead.
 
 // ─── Feminine data ─────────────────────────────────────────────────────────────
 
@@ -174,9 +180,14 @@ function GoldDivider({label}: {label: string}) {
 
 export default function GymPage() {
   const [gender, setGender] = useState<string | null>(null);
+  const [mode, setMode] = useState<'loading' | 'live' | 'signed_out' | 'other'>('loading');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only side preference
     setGender(localStorage.getItem('finesse_gender'));
+    let alive = true;
+    void roomCall('/api/gym/sessions').then((r) => { if (alive) setMode(r.ok ? 'live' : r.status === 401 ? 'signed_out' : 'other'); });
+    return () => { alive = false; };
   }, []);
 
   const isMasc = gender === 'masculine';
@@ -252,10 +263,18 @@ export default function GymPage() {
       {/* ── Body ───────────────────────────────────────────────────────────── */}
       <main className="max-w-lg mx-auto px-4 pb-32 relative z-10">
         <GymLog accent={accent} />
-        <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample studio programme</p>
+        {mode === 'live' && (
+          <>
+            <GymRecovery accent={accent} />
+            <GymWeek accent={accent} />
+            <NovaPlan room="gym" topic="other" title="Training week" label="Plan my training week · Nova" accent={accent}
+              placeholder={isMasc ? 'Four sessions this week around work, one sauna + cold plunge, legs not two days running' : 'Three classes and one strength session this week, mornings, with a recovery day before Saturday'} />
+          </>
+        )}
+        {mode === 'signed_out' && <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample studio programme · not yours</p>}
 
         {/* ════ FEMININE EXPERIENCE ═══════════════════════════════════════════ */}
-        {!isMasc && (
+        {mode === 'signed_out' && !isMasc && (
           <motion.div
             initial={{opacity: 0, y: 12}}
             animate={{opacity: 1, y: 0}}
@@ -298,7 +317,7 @@ export default function GymPage() {
                 className="font-body italic"
                 style={{fontSize: '0.74rem', color: 'rgba(244,232,208,0.32)', lineHeight: 1.55}}
               >
-                "Consistency is the move."
+                &ldquo;Consistency is the move.&rdquo;
               </p>
             </div>
 
@@ -371,7 +390,7 @@ export default function GymPage() {
                 <span className="font-mono" style={{fontSize: '0.78rem', color: 'rgba(244,232,208,0.65)'}}>{FEM_TRAINER.nextSession}</span>
               </div>
               <p className="font-body italic" style={{fontSize: '0.76rem', color: 'rgba(244,232,208,0.35)', lineHeight: 1.55}}>
-                "{FEM_TRAINER.novaNote}"
+                &ldquo;{FEM_TRAINER.novaNote}&rdquo;
               </p>
             </motion.div>
 
@@ -447,7 +466,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&ldquo;{p.nova}&rdquo;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
@@ -462,7 +481,7 @@ export default function GymPage() {
         )}
 
         {/* ════ MASCULINE EXPERIENCE ══════════════════════════════════════════ */}
-        {isMasc && (
+        {mode === 'signed_out' && isMasc && (
           <motion.div
             initial={{opacity: 0, y: 12}}
             animate={{opacity: 1, y: 0}}
@@ -510,7 +529,7 @@ export default function GymPage() {
                 Nova
               </p>
               <p className="font-body italic" style={{fontSize: '0.9rem', color: 'rgba(244,232,208,0.62)', lineHeight: 1.65}}>
-                "You skipped Monday. I'm not judging — I'm rescheduling. Marcus has 6am Thursday open. Confirmed."
+                &ldquo;You skipped Monday. Want me to look for a Thursday morning slot? Sample — nothing is booked.&rdquo;
               </p>
             </motion.div>
 
@@ -564,7 +583,7 @@ export default function GymPage() {
                     </div>
                     <span className="font-mono" style={{fontSize: '0.85rem', color: '#C9A84C', marginLeft: '1rem'}}>{item.price}</span>
                   </div>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>"{item.novaNote}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>&ldquo;{item.novaNote}&rdquo;</p>
                 </div>
               ))}
             </div>
@@ -589,7 +608,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&ldquo;{p.nova}&rdquo;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
@@ -618,19 +637,15 @@ export default function GymPage() {
         }}
       >
         <div className="max-w-lg mx-auto flex items-center gap-3">
-          <button
-            className="flex-1 py-3 font-label uppercase transition-all duration-300"
-            style={{
-              fontSize: '0.6rem',
-              letterSpacing: '0.3em',
-              background: accent,
-              color: '#0A0406',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            {isMasc ? 'Book Recovery Session' : 'Add a Class'}
-          </button>
+          {mode === 'live' ? (
+            <a href="#gym-week" className="flex-1 py-3 text-center font-label uppercase" style={{fontSize: '0.6rem', letterSpacing: '0.3em', background: accent, color: '#0A0406'}}>
+              {isMasc ? 'Plan Recovery' : 'Add a Class'}
+            </a>
+          ) : mode === 'signed_out' ? (
+            <Link href="/login" className="flex-1 py-3 text-center font-label uppercase" style={{fontSize: '0.6rem', letterSpacing: '0.3em', background: accent, color: '#0A0406'}}>
+              Sign in to plan your week
+            </Link>
+          ) : <span className="flex-1" />}
           <Link
             href="/lobby"
             className="font-label uppercase transition-colors"

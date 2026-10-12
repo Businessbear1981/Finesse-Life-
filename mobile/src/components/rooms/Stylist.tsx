@@ -1,16 +1,21 @@
 // The Stylist — the dressing room. Members take a photo (or choose one) and send it to their stylist.
 // Photos go to /api/camera/uploads, which stores them privately and only with explicit consent;
-// nothing is analysed until the member asks. The mirror note is the stylist's word, not an AI verdict.
+// nothing is analysed until the member asks. When they do, the photo goes through the same analysis the web
+// Stylist runs (POST /api/stylist/analyze-photo → archetype, labels, brands, price range — saved as their style
+// DNA), and "Style me for…" asks the orchestrator (POST /api/nova/requests, kind style_for_occasion).
 import {useState} from 'react';
 import {ActivityIndicator, Image, Pressable, Text, View} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {apiUpload} from '@/lib/api';
+import {useMember} from '@/lib/member';
+import {analyzePhoto, type StyleAnalysis} from '@/lib/rooms/stylist';
 import {track, type Side} from '@/lib/deco';
 import {ah, ahFonts} from '@/lib/ah';
 import {AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
-import {Consent, ERR_PINK, Meta, OK_GREEN, Tile} from './live';
+import {Consent, ERR_PINK, Meta, OK_GREEN, RowBtn, SignInPrompt, Tile} from './live';
+import {NovaAskButton} from './NovaAsk';
 
 type Shot = {id: string; uri: string; mimeType?: string | null; fileName?: string | null; occasion: string; note: string; state: 'ready' | 'sending' | 'sent' | 'failed'; msg?: string};
 const OCCASIONS = ['Tonight', 'Work', 'Weekend', 'Event', 'Travel'];
@@ -23,6 +28,8 @@ export function Stylist({side}: {side: Side}) {
   const [consent, setConsent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const pending = shots.filter((x) => x.state === 'ready' || x.state === 'failed');
+  const lastSent = shots.find((x) => x.state === 'sent');
+  const member = useMember();
 
   const add = (r: ImagePicker.ImagePickerResult) => {
     if (r.canceled) return;
@@ -103,7 +110,62 @@ export function Stylist({side}: {side: Side}) {
       ) : (
         <Text style={[s.small, {textAlign: 'center'}]}>Full-length in good light works best. Mirror selfies are perfect.</Text>
       )}
-      <SampleNote>Photos are stored privately, only with your consent · your stylist’s shortlist arrives here once the stylist desk is live</SampleNote>
+      {member === null ? <SignInPrompt what="the dressing room" /> : null}
+      {lastSent && member ? <StyleRead key={lastSent.id} shot={lastSent} /> : null}
+      {member ? <StyleMe side={side} /> : null}
+      <SampleNote>Photos are stored privately, only with your consent · Nova reads a photo only when you ask · nothing is bought</SampleNote>
+    </View>
+  );
+}
+
+/** Nova's read of one sent photo — only when the member asks. */
+function StyleRead({shot}: {shot: Shot}) {
+  const [busy, setBusy] = useState(false);
+  const [read, setRead] = useState<StyleAnalysis | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const ask = async () => {
+    setBusy(true); setErr(null);
+    const r = await analyzePhoto(shot);
+    setBusy(false);
+    if (r.ok) setRead(r.analysis); else setErr(r.text);
+  };
+  return (
+    <AHSmoke aspect={read ? 0.9 : 1.6} top={<AHEyebrow color="rgba(242,201,184,0.85)">Nova’s read</AHEyebrow>}>
+      {read ? (
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 8}} accessibilityLiveRegion="polite">
+          <AHTitle size={30}>{read.style_archetype}</AHTitle>
+          {read.style_labels.length ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(237,235,231,0.75)'}}>{read.style_labels.join(' · ')}</Text> : null}
+          {read.similar_brands.length ? <Text style={[s.small, {color: ah.text}]}>Houses like yours: {read.similar_brands.join(', ')}</Text> : null}
+          {read.price_range ? <Text style={[s.small, {color: ah.text}]}>Typical spend: {read.price_range}</Text> : null}
+          {read.buying_tendencies.length ? <Text style={s.small}>You reach for {read.buying_tendencies.join(', ')}.</Text> : null}
+          <Text style={[s.small, {color: OK_GREEN}]}>Saved as your style DNA — Nova uses it when it styles or sources for you.</Text>
+        </Animated.View>
+      ) : (
+        <View style={{gap: 10}}>
+          <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text}}>Want Nova to read your style from this photo?</Text>
+          <RowBtn label={busy ? 'Nova is looking…' : 'Read my style'} onPress={() => void ask()} disabled={busy} tone={ah.rose} />
+          {busy ? <ActivityIndicator color={ah.rose} /> : null}
+          {err ? <Text style={[s.small, {color: ERR_PINK}]}>{err}</Text> : null}
+        </View>
+      )}
+    </AHSmoke>
+  );
+}
+
+const FOR: Array<[string, string]> = [['Tonight', 'evening'], ['Work', 'work'], ['Weekend', 'casual'], ['An event', 'event'], ['Travel', 'travel']];
+
+/** "Style me for…" — the orchestrator's stylist, from the member's style DNA. Nothing is bought. */
+function StyleMe({side: _side}: {side: Side}) {
+  const [occ, setOcc] = useState('Tonight');
+  const [detail, setDetail] = useState('');
+  const type = FOR.find(([k]) => k === occ)?.[1] ?? 'evening';
+  const occasion = detail.trim() ? `${occ}: ${detail.trim()}` : occ;
+  return (
+    <View style={{gap: 10}}>
+      <AHEyebrow style={{marginTop: 8}}>Style me for…</AHEyebrow>
+      <Chips options={FOR.map(([k]) => k)} value={occ} onChange={setOcc} />
+      <AHInput value={detail} onChangeText={(v) => setDetail(v.slice(0, 160))} placeholder="Anything to know? (e.g. rooftop dinner, 18°C)" accessibilityLabel="Occasion details" />
+      <NovaAskButton key={occasion} label={`Style me for ${occ.toLowerCase()}`} kind="style_for_occasion" title={`Style me · ${occasion}`.slice(0, 140)} room="stylist" details={{occasion: occasion.slice(0, 200), occasion_type: type}} />
     </View>
   );
 }

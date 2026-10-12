@@ -1,5 +1,7 @@
 // Nova (the concierge): shared types and option lists. Used by the hook, the view and the design preview.
 
+import type {NovaRequest} from '@/lib/nova-request-view';
+
 export interface AvatarConfig {
   name: string;
   gender: 'female' | 'male' | 'neutral';
@@ -21,6 +23,8 @@ export interface Message {
   text: string;
   action?: string;
   tool_calls?: ToolCallResult[];
+  /** Requests Nova drafted this turn (draft_request tool) — rendered as confirm cards. */
+  requests?: NovaRequest[];
 }
 
 export type Option = {key: string; label: string; desc: string};

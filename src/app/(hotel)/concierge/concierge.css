@@ -388,3 +388,7 @@
   .nv-presence i, .nv-dots span { animation: none; }
   .nv-dots span { opacity: 0.8; }
 }
+
+/* "Your requests" — Nova's drafted/working/ready requests (src/components/nova/request-card.tsx). */
+.nv-requests-btn { margin-top: 10px; border: 1px solid var(--ah-line-2); padding: 0 16px; min-height: 36px; }
+.nv-nova-body .nr-card { max-width: 100%; }

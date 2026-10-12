@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useLocalPref } from '@/components/after-hours';
+import { NovaAction } from '@/components/nova/request-card';
+import type { ItemView } from '@/lib/nova-request-view';
+import { wardrobeSeedQuery } from '@/lib/wardrobe-seed';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,11 +50,7 @@ interface VipItem {
 const OCCASION_TYPES = ['Birthday', 'Anniversary', 'Milestone', 'Vacation', 'Cultural', 'Dining', 'Travel', 'Romance', 'No occasion'];
 const CATEGORIES = ['Bags', 'Shoes', 'Jewelry', 'Clothing', 'Beauty', 'Home', 'Travel', 'Experience', 'Other'];
 
-const WARDROBE_SUGGEST: Array<{ id: string; title: string; brand: string; price_cents: number }> = [
-  { id: 'w1', title: 'Bottega Veneta Intrecciato', brand: 'Bottega Veneta', price_cents: 380000 },
-  { id: 'w2', title: 'The Row Agnes Coat', brand: 'The Row', price_cents: 420000 },
-  { id: 'w3', title: 'Jacquemus Le Chiquito', brand: 'Jacquemus', price_cents: 65000 },
-];
+type WishlistRow = { id: string; brand: string | null; item: string | null; price_est_cents: number | null };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +82,7 @@ const CAT_BG: Record<string, string> = {
 // ─── RegistryItemCard ─────────────────────────────────────────────────────────
 
 function RegistryItemCard({ item, accent, index }: { item: RegistryItem; accent: string; index: number }) {
+  const [sourcing, setSourcing] = useState(false);
   const funded = item.pledged_cents >= item.price_cents;
   const p = pct(item.pledged_cents, item.price_cents);
 
@@ -166,6 +167,25 @@ function RegistryItemCard({ item, accent, index }: { item: RegistryItem; accent:
             />
           </div>
         </div>
+
+        {/* Nova: best way to source it (orchestrator hub → procurement). Suggests a route; buys nothing. */}
+        {sourcing ? (
+          <NovaAction
+            label="Source it"
+            accent={accent}
+            build={() => ({
+              kind: 'procurement',
+              title: `Source: ${[item.brand, item.title].filter(Boolean).join(' ')}`.slice(0, 140),
+              room: 'registry',
+              details: { title: `${item.brand ?? ''} ${item.title}`.trim().slice(0, 160), category: (item.category || 'other').toLowerCase().slice(0, 60), price_cents: Math.max(0, item.price_cents || 0) },
+            })}
+          />
+        ) : (
+          <button type="button" onClick={() => setSourcing(true)}
+            style={{ marginTop: '14px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.25em', textTransform: 'uppercase', color: `${accent}cc` }}>
+            ✦ Source it
+          </button>
+        )}
       </div>
     </motion.div>
   );
@@ -310,23 +330,16 @@ function VipItemCard({ item, accent, index, onGenerate }: { item: VipItem; accen
 
 // ─── Add Item Sheet ───────────────────────────────────────────────────────────
 
-/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
-function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
-  if (status === 401) return 'Sign in to ask Nova.';
-  if (status !== 429) return null;
-  const s = Number(body?.retryAfterS);
-  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
-}
-
-function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: () => void; onAdded: (item: RegistryItem) => void }) {
+function AddItemSheet({ accent, onClose, onAdded, registry }: { accent: string; onClose: () => void; onAdded: (item: RegistryItem) => void; registry: RegistryItem[] }) {
   const [subTab, setSubTab] = useState<AddSubTab>('upload');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [identifying, setIdentifying] = useState(false);
   const [identified, setIdentified] = useState(false);
   const [novaPrompt, setNovaPrompt] = useState('');
-  const [novaSuggesting, setNovaSuggesting] = useState(false);
-  const [novaError, setNovaError] = useState<string | null>(null);
+  const [wishlist, setWishlist] = useState<WishlistRow[] | null>(null);
+  const [lookBrands, setLookBrands] = useState<string[][]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formBrand, setFormBrand] = useState('');
   const [formPrice, setFormPrice] = useState('');
@@ -362,47 +375,39 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
     }
   }
 
-  async function handleNovaSuggest() {
-    if (!novaPrompt.trim()) return;
-    setNovaSuggesting(true);
-    setNovaError(null);
-    try {
-      const res = await fetch('/api/nova', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Registry item suggestion: "${novaPrompt}"`,
-          system: 'You are a luxury personal shopper. Return ONLY JSON: {"title":"...","brand":"...","estimated_price_cents":number,"category":"Bags|Shoes|Jewelry|Clothing|Beauty|Home|Travel|Experience|Other"}',
-          persona: 'registry',
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null;
-        setNovaError(novaLimitMessage(res.status, body) ?? "Nova couldn't suggest an item just now. Try again in a moment.");
-      }
-      if (res.ok) {
-        const raw = await res.json() as { text: string };
-        try {
-          const match = raw.text.match(/\{[\s\S]*\}/);
-          if (match) {
-            const data = JSON.parse(match[0]) as { title: string; brand: string; estimated_price_cents: number; category: string };
-            setFormTitle(data.title ?? '');
-            setFormBrand(data.brand ?? '');
-            setFormPrice(data.estimated_price_cents ? String(data.estimated_price_cents / 100) : '');
-            setFormCategory(data.category ?? 'Other');
-          }
-        } catch { /* ignore parse error */ }
-      }
-    } catch {
-      setNovaError("Nova couldn't suggest an item just now. Try again in a moment.");
-    } finally {
-      setNovaSuggesting(false);
-    }
+  // The member's own wardrobe (wishlist + looks) — loaded when the wardrobe tab opens; seeds Nova's search.
+  useEffect(() => {
+    if (subTab !== 'wardrobe' || wishlist !== null) return;
+    let alive = true;
+    Promise.all([
+      fetch('/api/wardrobe/wishlist').then((r) => (r.ok ? r.json() : { items: [] })).catch(() => ({ items: [] })),
+      fetch('/api/wardrobe/looks').then((r) => (r.ok ? r.json() : { looks: [] })).catch(() => ({ looks: [] })),
+    ]).then(([w, l]: [{ items?: WishlistRow[] }, { looks?: Array<{ brands?: string[] }> }]) => {
+      if (!alive) return;
+      setWishlist(w.items ?? []);
+      setLookBrands((l.looks ?? []).map((x) => (Array.isArray(x.brands) ? x.brands : [])));
+    });
+    return () => { alive = false; };
+  }, [subTab, wishlist]);
+
+  const seedQuery = wardrobeSeedQuery({ lookBrands, wishlist: wishlist ?? [], registry });
+
+  /** "Use this" on a Nova result: fill the form with it. */
+  function applySuggestion(it: ItemView) {
+    setFormTitle(it.title);
+    setFormBrand(it.brand);
+    setFormPrice(it.price_cents ? String(it.price_cents / 100) : '');
   }
+  const suggestionActions = (it: ItemView) => (
+    <button type="button" onClick={() => applySuggestion(it)} className="nr-link" style={{ background: 'none', border: 0, cursor: 'pointer', padding: 0 }}>
+      Use this
+    </button>
+  );
 
   async function handleSubmit() {
     if (!formTitle.trim()) return;
     setSubmitting(true);
+    setSubmitError(null);
     try {
       const body = {
         title: formTitle,
@@ -411,7 +416,8 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
         category: formCategory,
         occasion: formOccasion,
         source: subTab,
-        photo_url: photoPreview,
+        // A blob: preview lives only in this tab — never store it as the item's photo.
+        photo_url: photoPreview && !photoPreview.startsWith('blob:') ? photoPreview : null,
       };
       const res = await fetch('/api/registry/items', {
         method: 'POST',
@@ -433,7 +439,11 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
           source: subTab,
         });
         setTimeout(onClose, 1200);
+      } else {
+        setSubmitError(res.status === 401 ? 'Sign in to add to your registry.' : 'This item couldn’t be added just now. Try again.');
       }
+    } catch {
+      setSubmitError('This item couldn’t be added just now. Try again.');
     } finally {
       setSubmitting(false);
     }
@@ -586,39 +596,25 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
 
           {subTab === 'nova' && (
             <motion.div key="nova" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ marginBottom: '16px' }}>
-              <label style={labelStyle}>describe what you want</label>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  value={novaPrompt}
-                  onChange={e => setNovaPrompt(e.target.value)}
-                  placeholder="e.g. designer bag under $3k, perfect for dinner"
-                  style={{ ...inputStyle, flex: 1 }}
-                  onKeyDown={e => { if (e.key === 'Enter') handleNovaSuggest(); }}
-                />
-                <button
-                  onClick={handleNovaSuggest}
-                  disabled={novaSuggesting || !novaPrompt.trim()}
-                  style={{
-                    padding: '10px 16px',
-                    background: accent,
-                    color: '#0A0406',
-                    fontFamily: 'Cinzel,serif',
-                    fontSize: '8px',
-                    letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
-                    cursor: novaSuggesting ? 'not-allowed' : 'pointer',
-                    border: 'none',
-                    opacity: novaSuggesting || !novaPrompt.trim() ? 0.5 : 1,
-                  }}
-                >
-                  {novaSuggesting ? '...' : 'ASK'}
-                </button>
-              </div>
-              {novaError && (
-                <p role="alert" style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.45)', marginTop: '8px' }}>
-                  {novaError}
-                </p>
-              )}
+              <label style={labelStyle} htmlFor="reg-nova">describe what you want</label>
+              <input
+                id="reg-nova"
+                value={novaPrompt}
+                onChange={e => setNovaPrompt(e.target.value)}
+                placeholder="e.g. designer bag under $3k, perfect for dinner"
+                style={inputStyle}
+                maxLength={200}
+              />
+              <NovaAction
+                label="Ask Nova to find it"
+                accent={accent}
+                itemActions={suggestionActions}
+                build={() => {
+                  const q = novaPrompt.trim();
+                  if (!q) return null;
+                  return { kind: 'find_item', title: `Registry: ${q}`.slice(0, 140), details: { query: q.slice(0, 200) }, room: 'registry' };
+                }}
+              />
             </motion.div>
           )}
 
@@ -627,25 +623,52 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
               <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.25)', marginBottom: '12px' }}>
                 from your wishlist
               </p>
-              {WARDROBE_SUGGEST.map(w => (
-                <div
-                  key={w.id}
-                  onClick={() => { setFormTitle(w.title); setFormBrand(w.brand); setFormPrice(String(w.price_cents / 100)); }}
-                  style={{
-                    padding: '12px 14px',
-                    border: formTitle === w.title ? `1px solid ${accent}80` : '1px solid rgba(244,232,208,0.06)',
-                    marginBottom: '8px',
-                    cursor: 'pointer',
-                    background: formTitle === w.title ? `${accent}0A` : 'transparent',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  <p style={{ fontFamily: '"Playfair Display",serif', fontStyle: 'italic', fontSize: '15px', color: '#F4E8D0', marginBottom: '2px' }}>{w.title}</p>
-                  <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.3)' }}>
-                    {w.brand} &middot; {fmt(w.price_cents)}
-                  </p>
-                </div>
-              ))}
+              {wishlist === null ? (
+                <div style={{ height: '52px', background: 'rgba(244,232,208,0.03)', marginBottom: '8px' }} aria-label="Loading your wishlist" />
+              ) : wishlist.length === 0 ? (
+                <p style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '15px', color: 'rgba(244,232,208,0.4)', marginBottom: '8px' }}>
+                  Nothing on your wardrobe wishlist yet.
+                </p>
+              ) : wishlist.slice(0, 8).map(w => {
+                const title = w.item ?? '';
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => { setFormTitle(title); setFormBrand(w.brand ?? ''); setFormPrice(w.price_est_cents ? String(w.price_est_cents / 100) : ''); }}
+                    style={{
+                      display: 'block', width: '100%', textAlign: 'left',
+                      padding: '12px 14px',
+                      border: formTitle === title ? `1px solid ${accent}80` : '1px solid rgba(244,232,208,0.06)',
+                      marginBottom: '8px',
+                      cursor: 'pointer',
+                      background: formTitle === title ? `${accent}0A` : 'transparent',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    <p style={{ fontFamily: '"Playfair Display",serif', fontStyle: 'italic', fontSize: '15px', color: '#F4E8D0', marginBottom: '2px' }}>{title || 'Untitled'}</p>
+                    <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.3)' }}>
+                      {[w.brand, w.price_est_cents ? fmt(w.price_est_cents) : null].filter(Boolean).join(' · ')}
+                    </p>
+                  </button>
+                );
+              })}
+
+              <p style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.25)', margin: '18px 0 4px' }}>
+                nova, from your wardrobe
+              </p>
+              {seedQuery ? (
+                <NovaAction
+                  label="Suggest pieces"
+                  accent={accent}
+                  itemActions={suggestionActions}
+                  build={() => ({ kind: 'find_item', title: 'Registry ideas from my wardrobe', details: { query: seedQuery }, room: 'registry' })}
+                />
+              ) : (
+                <p style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '14px', color: 'rgba(244,232,208,0.35)' }}>
+                  {wishlist === null ? '…' : 'Add looks to your wardrobe or items here and Nova will suggest pieces that fit.'}
+                </p>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -703,6 +726,11 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
         >
           {done ? 'Added ✓' : submitting ? 'Adding...' : 'Add to Registry'}
         </button>
+        {submitError && (
+          <p role="alert" style={{ fontFamily: '"Cormorant Garamond",serif', fontStyle: 'italic', fontSize: '14px', color: 'rgba(255,138,160,0.85)', marginTop: '10px', textAlign: 'center' }}>
+            {submitError}
+          </p>
+        )}
       </motion.div>
     </motion.div>
   );
@@ -1028,7 +1056,7 @@ const MAIN_TABS: MainTab[] = ['MY LIST', 'OUTINGS', 'VIP BOARD'];
 
 export default function RegistryPage() {
   const [activeTab, setActiveTab] = useState<MainTab>('MY LIST');
-  const [accent, setAccent] = useState('#FF4D7D');
+  const accent = useLocalPref('finesse_gender', (g) => ((g as Gender | null) === 'masculine' ? '#FFA96B' : '#FF4D7D'), '#FF4D7D');
   const [isVip, setIsVip] = useState<boolean | null>(null); // null = loading
   const [items, setItems] = useState<RegistryItem[]>([]);
   const [outings, setOutings] = useState<OutingCard[]>([]);
@@ -1039,13 +1067,6 @@ export default function RegistryPage() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [showNewOuting, setShowNewOuting] = useState(false);
   const [tokenItem, setTokenItem] = useState<VipItem | null>(null);
-
-  // Gender accent
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const g = localStorage.getItem('finesse_gender') as Gender | null;
-    setAccent(g === 'masculine' ? '#FFA96B' : '#FF4D7D');
-  }, []);
 
   // Load profile (for is_vip)
   useEffect(() => {
@@ -1067,7 +1088,6 @@ export default function RegistryPage() {
 
   // Load registry items
   useEffect(() => {
-    setLoadingItems(true);
     fetch('/api/registry/items')
       .then(r => r.json())
       .then((d: { items: RegistryItem[] }) => setItems(d.items ?? []))
@@ -1077,7 +1097,6 @@ export default function RegistryPage() {
 
   // Load outings
   useEffect(() => {
-    setLoadingOutings(true);
     fetch('/api/registry/outings')
       .then(r => r.json())
       .then((d: { outings: OutingCard[] }) => setOutings(d.outings ?? []))
@@ -1088,7 +1107,6 @@ export default function RegistryPage() {
   // Load VIP exclusives (only when on VIP BOARD tab and VIP confirmed)
   useEffect(() => {
     if (activeTab !== 'VIP BOARD' || isVip !== true) return;
-    setLoadingVip(true);
     fetch('/api/registry/vip')
       .then(r => r.json())
       .then((d: { exclusives: VipItem[] }) => setVipExclusives(d.exclusives ?? []))
@@ -1460,6 +1478,7 @@ export default function RegistryPage() {
             accent={accent}
             onClose={() => setShowAddItem(false)}
             onAdded={item => setItems(prev => [item, ...prev])}
+            registry={items}
           />
         )}
         {showNewOuting && (

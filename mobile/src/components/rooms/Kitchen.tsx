@@ -2,21 +2,27 @@
 // calorie ledger, one weekly order), SHOP (the house pan, pots & pans, the Finesse house line, add to Sunday's
 // order or check out separately), MASTERS (cook-along classes step by step with an optional chef voice, or book
 // a private chef) and THE RECIPE BOOK drawer (your book, and recipe trades with members).
-// PLAN is live when signed in: GET /api/kitchen/plan reads the week, POST /api/kitchen/compose saves it (the
-// member can start from the house menu and edit it), and only then does POST /api/kitchen/order-intent record
-// one order *intent* — nothing is placed or charged until a grocery partner asks the member to authorise.
-// Signed out, PLAN is a labelled sample. Shop checkout and chef requests are previews.
-import {useState} from 'react';
+// Signed in, everything is the member's own: PLAN reads the week (GET /api/kitchen/plan), saves it
+// (POST /api/kitchen/compose — start blank or from last week's plan) and records ONE order *intent*
+// (POST /api/kitchen/order-intent); checkout says which grocery partner is connected (/api/kitchen/grocery-options —
+// Instacart isn't yet, so nothing is placed or charged). TABLE is Nova's table (/api/nova/requests, kind 'plan',
+// topic 'table' — options for a table out or a chef at home, never a reservation). ORDERS and the recipe book are
+// derived from kitchen_orders / kitchen_plans (/api/kitchen/history).
+// Signed out, PLAN, SHOP, MASTERS and the recipe book are labelled samples.
+import {useEffect, useState} from 'react';
 import {Pressable, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {api} from '@/lib/api';
 import {track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
+import {useMember} from '@/lib/member';
+import {ORDER_STATE, readGroceryOptions, readHistory, type KitchenHistory} from '@/lib/rooms/kitchen';
+import {PlanWithNova} from './plan-with-nova';
 import {AHCard, AHChip, AHEyebrow, AHTitle} from '@/components/ah';
 import {radius} from '@/lib/ah';
 import {ActionBar, SampleNote, Segmented} from './shared';
-import {LiveGate, OK_GREEN, Status} from './live';
+import {LiveGate, Loading, Meta, OK_GREEN, Status} from './live';
 import {Fine, Head, Meter, Pick, Row, Round, TextBtn, ah, ahFonts, t} from './RoomKit';
 
 const KDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -76,6 +82,88 @@ function PickRow({init, name, sub, right, rightColor, on, onPress}: {init: strin
 }
 
 export function Kitchen({side}: {side: Side}) {
+  const member = useMember();
+  if (member === undefined) return <Loading />;
+  if (member) return <KitchenLive side={side} />;
+  return <KitchenSample side={side} />;
+}
+
+/* ─────────────── Signed in: the member's own kitchen ─────────────── */
+
+function KitchenLive({side}: {side: Side}) {
+  const acc = track[side].acc;
+  const [tab, setTab] = useState<'PLAN' | 'TABLE' | 'ORDERS'>('PLAN');
+  const [week] = useState(mondayISO);
+  const [hist, setHist] = useState<{data: KitchenHistory | null; err: string | null; n: number}>({data: null, err: null, n: 0});
+  const [bookOpen, setBookOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void readHistory(week).then((r) => { if (alive) setHist((h) => ({...h, data: r.ok ? r.body : null, err: r.ok ? null : failure(r.status, r.body, 'Nothing was loaded.')})); });
+    return () => { alive = false; };
+  }, [week, hist.n]);
+  const refresh = () => setHist((h) => ({...h, n: h.n + 1}));
+  const book = hist.data?.book ?? [];
+  return (
+    <View style={{gap: 16}}>
+      <AHTitle size={34}>Plan the week, order once, let Nova find the table.</AHTitle>
+      <Segmented options={[['PLAN', 'Plan'], ['TABLE', 'Table'], ['ORDERS', 'Orders']]} value={tab} onChange={setTab} />
+      {tab === 'PLAN' ? <PlanTab acc={acc} lastPlan={hist.data?.lastPlan ?? null} onSaved={refresh} /> : null}
+      {tab === 'TABLE' ? (
+        <Animated.View entering={FadeIn.duration(300)}>
+          <PlanWithNova room="kitchen" topic="table" title={side === 'him' ? 'Table' : 'Nova’s table'} label="Nova’s table · a table out or a chef at home" acc={acc} withWhen withParty
+            placeholder={side === 'him' ? 'Steakhouse for four Thursday, somewhere we can talk' : 'Omakase for two on Friday, or a private chef at home'} />
+        </Animated.View>
+      ) : null}
+      {tab === 'ORDERS' ? (
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
+          {hist.err ? <Text style={t.small}>{hist.err}</Text> : !hist.data ? <Text style={t.small}>Opening your orders…</Text> : hist.data.orders.length === 0 ? (
+            <AHCard pad={22}><Text style={[t.voice, {textAlign: 'center', color: ah.mute}]}>No orders yet. Confirm a week’s grocery list on Plan to record one.</Text></AHCard>
+          ) : (
+            <AHCard pad={0} style={{paddingHorizontal: 18}}>
+              {hist.data.orders.map((o, i) => (
+                <Row key={o.id} last={i === hist.data!.orders.length - 1}>
+                  <View style={{flex: 1, gap: 3}}>
+                    <Text style={t.title}>Week of {o.week_start}</Text>
+                    <Text style={t.meta}>{o.itemCount} {o.itemCount === 1 ? 'item' : 'items'}{o.partner ? ` · ${o.partner}` : ''}</Text>
+                    <Text style={[t.small, {color: o.state === 'authorized' || o.state === 'fulfilled' ? OK_GREEN : ah.mute}]}>{ORDER_STATE[o.state]}</Text>
+                  </View>
+                </Row>
+              ))}
+            </AHCard>
+          )}
+          {hist.data ? <Fine>{hist.data.partners.length ? hist.data.disclosure : 'Grocery delivery needs a partner (Instacart) — not connected yet, so intents are never placed or charged.'}</Fine> : null}
+        </Animated.View>
+      ) : null}
+
+      {/* The recipe book — the plates you've planned, most-planned first */}
+      <AHCard pad={0} style={{backgroundColor: ah.ink3}}>
+        {bookOpen ? (
+          <Animated.View entering={FadeInDown.duration(300)} style={{padding: 16, gap: 4, borderBottomWidth: 1, borderColor: ah.line}}>
+            {book.length === 0 ? <Text style={t.small}>Your book fills itself from the plates you plan. Nothing in it yet.</Text> : book.map((b, i) => (
+              <Row key={b.name} last={i === book.length - 1}>
+                <View style={{flex: 1}}><Text style={t.titleI}>{b.name}</Text><Text style={t.meta}>{b.slots.map(cap).join(' · ')} · planned {b.times}×{b.kcal != null ? ` · ${b.kcal} kcal` : ''}</Text></View>
+              </Row>
+            ))}
+          </Animated.View>
+        ) : null}
+        <Pressable onPress={() => setBookOpen((o) => !o)} accessibilityRole="button" accessibilityState={{expanded: bookOpen}} accessibilityLabel={`Your recipe book, ${book.length} recipes`}
+          style={({pressed}) => ({minHeight: 60, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', opacity: pressed ? 0.8 : 1})}>
+          <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
+            <Icon name="chefhat" size={18} color={ah.rose} />
+            <Text numberOfLines={1} style={[t.title, {flexShrink: 1, fontSize: 20}]}>Your recipe book</Text>
+            <Text style={t.meta}>{book.length} {book.length === 1 ? 'recipe' : 'recipes'}</Text>
+          </View>
+          <Text style={{fontSize: 16, color: ah.mute}}>{bookOpen ? '⌄' : '⌃'}</Text>
+        </Pressable>
+      </AHCard>
+      <SampleNote>Your kitchen · an order is an intent until a grocer authorises it · Nova’s table drafts options, nothing is reserved</SampleNote>
+    </View>
+  );
+}
+
+/* ─────────────── Signed out: the labelled sample room ─────────────── */
+
+function KitchenSample({side}: {side: Side}) {
   const acc = track[side].acc;
   const [tab, setTab] = useState<'PLAN' | 'SHOP' | 'MASTERS'>('PLAN');
   // SHOP
@@ -109,7 +197,7 @@ export function Kitchen({side}: {side: Side}) {
       </View>
       <Segmented options={[['PLAN', 'Plan'], ['SHOP', 'Shop'], ['MASTERS', 'Masters']]} value={tab} onChange={setTab} />
 
-      {tab === 'PLAN' ? <PlanTab acc={acc} /> : null}
+      {tab === 'PLAN' ? <PlanTab acc={acc} lastPlan={null} /> : null}
 
       {tab === 'SHOP' ? (
         <Animated.View entering={FadeIn.duration(300)} style={{gap: 16}}>
@@ -237,7 +325,7 @@ export function Kitchen({side}: {side: Side}) {
           <Text style={{fontSize: 16, color: ah.mute}}>{bookOpen ? '⌄' : '⌃'}</Text>
         </Pressable>
       </AHCard>
-      <SampleNote>Sample menu, shop and classes · The weekly order is an intent until your grocer authorises it · Shop checkout and chef requests are previews</SampleNote>
+      <SampleNote>Sample menu, shop, classes and recipe book · not yours · nothing is ordered, charged or booked · sign in for your own kitchen</SampleNote>
     </View>
   );
 }
@@ -248,13 +336,6 @@ type Meal = {day: number; slot: Slot; name: string; kcal?: number | null};
 type Grocery = {item: string; qty: string};
 type PlanData = {weekStart: string; dailyKcalTarget: number | null; meals: Meal[]; dailyTotals: number[]; groceryList: Grocery[]; order: {id: string; state: string; partner: string | null; created_at: string} | null; stage: string};
 const SLOT_ORDER: Slot[] = ['breakfast', 'lunch', 'snack', 'dinner'];
-// The house's suggested week — offered to the member as a starting point, saved only when they choose it.
-const HOUSE_MEALS: Meal[] = Array.from({length: 7}, (_, day) => (day % 2
-  ? [['breakfast', 'Eggs, sourdough, avocado', 450], ['lunch', 'Chicken, farro, herbs', 610], ['dinner', 'Miso cod, greens', 520]]
-  : [['breakfast', 'Greek yogurt, figs, pistachio', 380], ['lunch', 'Seared salmon, fennel, lemon', 560], ['dinner', 'Dinner out', 700]]
-).map(([slot, name, kcal]) => ({day, slot: slot as Slot, name: name as string, kcal: kcal as number}))).flat();
-const HOUSE_GROCERIES: Grocery[] = [['Greek yogurt', '2 tubs'], ['Figs', '8'], ['Pistachios', '1 bag'], ['Salmon fillets', '4'], ['Fennel', '2 bulbs'], ['Lemons', '4'], ['Eggs', '1 dozen'], ['Sourdough', '1 loaf'], ['Avocados', '4'], ['Chicken breast', '1.5 lb'], ['Farro', '1 bag'], ['Fresh herbs', '2 bunches'], ['Black cod', '3 fillets'], ['Miso & greens', '1 each']].map(([item, qty]) => ({item, qty}));
-
 function Ledger({total, target}: {total: number; target: number | null}) {
   const goal = target ?? 0;
   return (
@@ -284,7 +365,9 @@ function DayStrip({kd, setKd}: {kd: number; setKd: (n: number) => void}) {
   );
 }
 
-function PlanTab({acc}: {acc: string}) {
+type LastPlan = KitchenHistory['lastPlan'];
+
+function PlanTab({acc, lastPlan, onSaved}: {acc: string; lastPlan: LastPlan; onSaved?: () => void}) {
   const week = mondayISO();
   const {live, reload} = useLive<PlanData>(`/api/kitchen/plan?week=${week}`);
   // The status line lives here so it survives the plan re-reading (and remounting) after a save.
@@ -292,7 +375,7 @@ function PlanTab({acc}: {acc: string}) {
   return (
     <Animated.View entering={FadeIn.duration(300)} style={{gap: 14}}>
       <LiveGate live={live} reload={() => void reload()} what="your week in the Kitchen" signedOut={<SamplePlan />}>
-        {(data) => <LivePlan key={`${data.weekStart}:${data.stage}:${JSON.stringify(data.meals)}:${JSON.stringify(data.groceryList)}`} data={data} acc={acc} reload={() => reload(true)} setMsg={setMsg} />}
+        {(data) => <LivePlan key={`${data.weekStart}:${data.stage}:${JSON.stringify(data.meals)}:${JSON.stringify(data.groceryList)}`} data={data} acc={acc} lastPlan={lastPlan} reload={async () => { await reload(true); onSaved?.(); }} setMsg={setMsg} />}
       </LiveGate>
       <Status msg={live.state === 'ready' ? msg : null} />
     </Animated.View>
@@ -333,7 +416,13 @@ function SamplePlan() {
   );
 }
 
-function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; reload: () => Promise<void>; setMsg: (m: {ok: boolean; text: string} | null) => void}) {
+function LivePlan({data, acc, lastPlan, reload, setMsg}: {data: PlanData; acc: string; lastPlan: LastPlan; reload: () => Promise<void>; setMsg: (m: {ok: boolean; text: string} | null) => void}) {
+  const [partners, setPartners] = useState<{names: string[]; disclosure: string} | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void readGroceryOptions().then((r) => { if (alive && r.ok) setPartners({names: (r.body.partners ?? []).map((p) => p.name), disclosure: r.body.disclosure}); });
+    return () => { alive = false; };
+  }, []);
   const [kd, setKd] = useState(() => (new Date().getDay() + 6) % 7);
   const [meals, setMeals] = useState<Meal[]>(data.meals);
   const [groc, setGroc] = useState<Grocery[]>(data.groceryList);
@@ -374,8 +463,9 @@ function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; rel
           <AHEyebrow>Week of {data.weekStart}</AHEyebrow>
           <Text style={[t.voice, {textAlign: 'center', marginTop: 10}]}>A blank menu. Nothing is planned for this week yet.</Text>
         </AHCard>
-        <Fine>Start from the house menu — seven days, three plates a day and one grocery list — then change anything before you order.</Fine>
-        <ActionBar label={busy ? 'Saving…' : 'Start from the house menu'} color={acc} onPress={() => compose(HOUSE_MEALS, HOUSE_GROCERIES, 'Your week is saved from the house menu. Edit any plate, then confirm the order.')} disabled={busy} />
+        <Fine>{lastPlan ? `Start from the week of ${lastPlan.weekStart} — the same plates and grocery list — then change anything before you order.` : 'Start a blank week, then add plates day by day.'}</Fine>
+        {lastPlan ? <ActionBar label={busy ? 'Saving…' : 'Start from last week'} color={acc} onPress={() => compose(lastPlan.meals, lastPlan.groceryList, 'Your week is saved from last week’s plan. Edit any plate, then confirm the order.')} disabled={busy} /> : null}
+        <Pick label={busy ? 'Saving…' : 'Start a blank week'} onPress={() => compose([], [], 'A blank week is saved. Add plates day by day.')} disabled={busy} style={{minHeight: 50}} />
       </View>
     );
   }
@@ -426,7 +516,10 @@ function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; rel
             onSubmitEditing={addItem} style={{flex: 1, minWidth: 0, minHeight: 44, fontFamily: ahFonts.sans, fontSize: 15, color: ah.text}} />
           <Round label="+" a11y="Add" solid size={40} onPress={addItem} disabled={!newItem.trim() || groc.length >= 80} />
         </View>
-        <Fine style={{marginTop: 12}}>Priced by the grocer once a partner is connected. Delivery is arranged with them, not here.</Fine>
+        <View style={{marginTop: 14, gap: 4}}>
+          <Meta>Delivery</Meta>
+          <Fine>{partners === null ? 'Checking grocery partners…' : partners.names.length ? `${partners.names.join(', ')} · ${partners.disclosure} They ask you to authorise before anything is charged.` : 'Instacart isn’t connected yet. Confirming records an order intent for this list — nothing is placed, delivered or charged.'}</Fine>
+        </View>
       </AHCard>
 
       {dirty ? <ActionBar label={busy ? 'Saving…' : 'Save the plan'} color={acc} onPress={() => compose(meals, groc, 'The plan is saved.')} disabled={busy} /> : null}

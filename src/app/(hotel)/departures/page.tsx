@@ -1,229 +1,256 @@
 'use client';
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
+// Departures — the member's trips (table `trips`) composed with Nova (nova_requests hub, topic 'trip'),
+// and ride plans (topic 'ride'). No flight, hotel or ride partner is connected: plans are saved, nothing
+// is searched live or booked, and the room says so at exactly that step.
+import {useState} from 'react';
+import {motion} from 'framer-motion';
+import Link from 'next/link';
+import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+import {daysUntil, PARTNER_NOTE, rideBrief, tripBrief, tripDate, type Trip} from '@/lib/departures';
+import {resultView} from '@/lib/nova-request-view';
+import {failureText, runNovaRequest, useRoomData} from '@/lib/rooms/live-room';
+import {LiveRoom, Notice, SampleLabel} from '@/components/live-room-states';
 
-interface DepartureConnector {
-  key: string;
-  label: string;
-  icon: string;
-  color: string;
-  category: "deals" | "flights" | "hotels" | "dining";
-  description: string;
-  badge?: string;
+type TripsData = {trips: Trip[]};
+const ACCENT = '#C9A961';
+
+/** <input type="date"> value → ISO at local noon (keeps the calendar day in every timezone). */
+const dayToIso = (d: string) => (d ? new Date(`${d}T12:00:00`).toISOString() : null);
+
+function PartnerNote() {
+  return (
+    <p className="border border-cream/10 bg-ink/40 px-4 py-3 font-body text-xs italic text-cream/50">{PARTNER_NOTE}</p>
+  );
 }
 
-const CONNECTORS: DepartureConnector[] = [
-  { key: "groupon", label: "Groupon", icon: "🏷", color: "#53A318", category: "deals", description: "Local deals, spa packages, experiences, and dining discounts.", badge: "up to 70% off" },
-  { key: "fareharbor", label: "FareHarbor", icon: "⚓", color: "#1E88E5", category: "deals", description: "Tours, activities, watersports, and adventure bookings." },
-  { key: "viator", label: "Viator", icon: "🧭", color: "#F35B04", category: "deals", description: "Guided experiences and excursions worldwide." },
-  { key: "google_flights", label: "Google Flights", icon: "✈", color: "#4285F4", category: "flights", description: "Search and compare flights across every airline.", badge: "best prices" },
-  { key: "kayak", label: "Kayak", icon: "🛶", color: "#FF690F", category: "flights", description: "Flight + hotel bundles and price alerts." },
-  { key: "delta", label: "Delta SkyMiles", icon: "♦", color: "#003DA5", category: "flights", description: "Book with miles or cash, manage your SkyMiles." },
-  { key: "aa", label: "American Airlines", icon: "★", color: "#C9A961", category: "flights", description: "AAdvantage miles, upgrades, and lounge access." },
-  { key: "airbnb", label: "Airbnb", icon: "⌂", color: "#FF5A5F", category: "hotels", description: "Unique stays, entire homes, and luxury villas." },
-  { key: "marriott", label: "Marriott Bonvoy", icon: "M", color: "#C9A961", category: "hotels", description: "Hotel bookings and Bonvoy points redemptions." },
-  { key: "hilton", label: "Hilton Honors", icon: "H", color: "#12214D", category: "hotels", description: "Hilton properties with member-exclusive rates." },
-  { key: "opentable", label: "OpenTable", icon: "🍽", color: "#DA3743", category: "dining", description: "Restaurant reservations at 55,000+ restaurants." },
-  { key: "resy", label: "Resy", icon: "🥂", color: "#4C84FF", category: "dining", description: "Reservations at the hottest restaurants in any city." },
-  { key: "uber_eats", label: "Uber Eats", icon: "🚀", color: "#06C167", category: "dining", description: "Food delivery from restaurants near you." },
-  { key: "doordash", label: "DoorDash", icon: "🛵", color: "#FF3008", category: "dining", description: "Restaurant delivery with DashPass savings." },
-];
-
-const CATEGORIES: { key: DepartureConnector["category"]; label: string; icon: string; color: string; desc: string }[] = [
-  { key: "deals", label: "Deals", icon: "🏷", color: "#53A318", desc: "Local experiences & packages" },
-  { key: "flights", label: "Flights", icon: "✈", color: "#4285F4", desc: "Airfare & miles" },
-  { key: "hotels", label: "Hotels", icon: "🏨", color: "#FF5A5F", desc: "Stays & rewards" },
-  { key: "dining", label: "Dining", icon: "🍽", color: "#DA3743", desc: "Reservations & delivery" },
-];
-
-const RECENT_SEARCHES = [
-  { route: "ATX → MIA", date: "Jun 14–18", price: "$189 rt", type: "flights" as const },
-  { route: "Hotel ZaZa Austin", date: "Jun 21–22", price: "$189/nt", type: "hotels" as const },
-  { route: "Uchi Restaurant", date: "Fri 9:00 PM", price: "2 guests", type: "dining" as const },
-];
-
-/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
-function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
-  if (status === 401) return 'Sign in to ask Nova.';
-  if (status !== 429) return null;
-  const s = Number(body?.retryAfterS);
-  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+function SampleTrips() {
+  return (
+    <div className="space-y-3">
+      <SampleLabel>Sample trip · sign in to compose your own</SampleLabel>
+      <div className="border border-cream/8 bg-ink/40 p-4 opacity-70">
+        <p className="font-display text-xl text-cream/80">Atlanta → Naples</p>
+        <p className="font-mono text-[10px] text-cream/35">Fri 14 Nov · 2 people · planned</p>
+        <p className="mt-2 font-body text-sm italic text-cream/40">Day 1: car to ATL, lounge. Day 2: driver to Positano, lunch on the terrace…</p>
+      </div>
+    </div>
+  );
 }
 
-export default function Departures() {
-  const [activeCategory, setActiveCategory] = useState<DepartureConnector["category"] | "all">("all");
-  const [itinerary, setItinerary] = useState("");
-  const [planning, setPlanning] = useState(false);
-  const [plan, setPlan] = useState<string | null>(null);
-  const [planError, setPlanError] = useState<string | null>(null);
+/** Ask Nova for a trip plan and keep it on the trip (the server copies the plan from the member's own request). */
+async function planTrip(trip: Trip): Promise<{ok: true; trip: Trip} | {ok: false; message: string}> {
+  const r = await runNovaRequest({
+    kind: 'plan', title: `Trip: ${trip.title}`, room: 'departures',
+    details: {topic: 'trip', brief: tripBrief(trip), party_size: trip.party_size, ...(trip.depart_at ? {when: trip.depart_at} : {})},
+  });
+  if (!r.ok) return {ok: false, message: `${r.message} Your trip is saved as a draft.`};
+  const p = await roomCall<{trip?: Trip}>(`/api/departures/trips/${trip.id}`, {method: 'PATCH', json: {nova_request_id: r.request.id}});
+  if (!p.ok || !p.body.trip) return {ok: false, message: failureText(p.status, p.body, 'The plan is in your Diary; the trip stays a draft.')};
+  return {ok: true, trip: p.body.trip};
+}
 
-  // No travel partner is connected yet — every connector is shown as "coming soon".
-  const filtered = activeCategory === "all" ? CONNECTORS : CONNECTORS.filter((c) => c.category === activeCategory);
+function Compose({onDone}: {onDone: () => void}) {
+  const [destination, setDestination] = useState('');
+  const [origin, setOrigin] = useState('');
+  const [depart, setDepart] = useState('');
+  const [ret, setRet] = useState('');
+  const [party, setParty] = useState(2);
+  const [brief, setBrief] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
 
-  // Nova drafts an itinerary. Nothing is searched or booked with any partner.
-  const planTrip = async () => {
-    const request = itinerary.trim();
-    if (!request || planning) return;
-    setPlanning(true);
-    setPlan(null);
-    setPlanError(null);
-    try {
-      const res = await fetch("/api/nova", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: `Draft a short trip plan for: ${request}`,
-          system: "You are Nova, the Finesse travel concierge. Draft a concise day-by-day trip plan with neighbourhoods, dining and experience ideas. You cannot search live fares or book anything — never claim to have booked, reserved or held anything, and say prices are rough estimates.",
-          persona: "travel",
-        }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { text?: string; retryAfterS?: unknown };
-      if (!res.ok || !data.text) {
-        setPlanError(
-          res.status === 401
-            ? "Sign in to have Nova draft a plan. Nothing has been booked."
-            : res.status === 429
-              ? `${novaLimitMessage(429, data)} Nothing has been booked.`
-              : "Nova couldn't be reached just now. Nothing has been booked.",
-        );
-        return;
-      }
-      setPlan(data.text);
-    } catch {
-      setPlanError("Nova couldn't be reached just now. Nothing has been booked.");
-    } finally {
-      setPlanning(false);
-    }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!destination.trim() || busy) return;
+    if (depart && ret && ret < depart) { setMsg({ok: false, text: 'The return date is before departure. Nothing was saved.'}); return; }
+    setMsg(null);
+    setBusy('Saving your trip…');
+    const c = await roomCall<{trip?: Trip}>('/api/departures/trips', {method: 'POST', json: {
+      destination: destination.trim(), origin: origin.trim() || null, depart_at: dayToIso(depart), return_at: dayToIso(ret), party_size: party, brief: brief.trim() || null,
+    }});
+    if (!c.ok || !c.body.trip) { setBusy(null); setMsg({ok: false, text: failureText(c.status, c.body, 'Nothing was saved.')}); return; }
+    setBusy('Nova is composing your departure…');
+    const p = await planTrip(c.body.trip);
+    setBusy(null);
+    setMsg(p.ok ? {ok: true, text: 'Composed. Nova’s plan is saved on the trip and in your Diary.'} : {ok: false, text: p.message});
+    setDestination(''); setOrigin(''); setDepart(''); setRet(''); setBrief('');
+    onDone();
   };
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
-      className="min-h-screen relative overflow-hidden"
-    >
+    <form onSubmit={submit} className="space-y-2 border border-brass/15 bg-ink/60 p-5">
+      <p className="font-label text-[8px] uppercase tracking-[0.3em] text-brass/50">Compose a departure</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input aria-label="Destination" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="Where to — Amalfi, Tokyo, Miami" maxLength={120} className={fieldCls} required />
+        <input aria-label="From" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="From (optional)" maxLength={120} className={fieldCls} />
+        <label className="flex items-center gap-2 font-label text-[9px] uppercase tracking-[0.2em] text-cream/40">Depart<input type="date" value={depart} onChange={(e) => setDepart(e.target.value)} className={fieldCls} /></label>
+        <label className="flex items-center gap-2 font-label text-[9px] uppercase tracking-[0.2em] text-cream/40">Return<input type="date" value={ret} min={depart || undefined} onChange={(e) => setRet(e.target.value)} className={fieldCls} /></label>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="font-label text-[9px] uppercase tracking-[0.2em] text-cream/40">Party</span>
+        <button type="button" aria-label="Fewer people" onClick={() => setParty((n) => Math.max(1, n - 1))} className="h-9 w-9 border border-brass/30 text-brass">−</button>
+        <span className="w-6 text-center font-mono text-cream/80" aria-live="polite">{party}</span>
+        <button type="button" aria-label="More people" onClick={() => setParty((n) => Math.min(40, n + 1))} className="h-9 w-9 border border-brass/30 text-brass">+</button>
+      </div>
+      <textarea aria-label="What kind of trip" value={brief} onChange={(e) => setBrief(e.target.value)} placeholder="Great food and beaches, one boat day, nothing before 10 AM." maxLength={600} rows={2} className={`${fieldCls} py-2`} />
+      <button type="submit" disabled={!destination.trim() || !!busy} className={`${btnCls} border-brass/60 text-brass`}>{busy ?? 'Compose with Nova'}</button>
+      {msg && <Notice tone={msg.ok ? 'quiet' : 'error'}>{msg.text}</Notice>}
+      <PartnerNote />
+    </form>
+  );
+}
+
+function TripCard({trip, reload}: {trip: Trip; reload: () => void}) {
+  const [open, setOpen] = useState(trip.status === 'planned');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const days = daysUntil(trip.depart_at);
+  const act = async (fn: () => Promise<string | null>) => {
+    setBusy(true); setMsg(null);
+    const err = await fn();
+    setBusy(false);
+    if (err) setMsg(err); else reload();
+  };
+  const replan = () => act(async () => { const r = await planTrip(trip); return r.ok ? null : r.message; });
+  const setStatus = (status: 'draft' | 'cancelled') => act(async () => {
+    const r = await roomCall(`/api/departures/trips/${trip.id}`, {method: 'PATCH', json: {status}});
+    return r.ok ? null : failureText(r.status, r.body);
+  });
+  const remove = () => act(async () => {
+    const r = await roomCall(`/api/departures/trips/${trip.id}`, {method: 'DELETE'});
+    return r.ok ? null : failureText(r.status, r.body);
+  });
+  return (
+    <motion.div initial={{opacity: 0, y: 8}} animate={{opacity: 1, y: 0}} className="border border-cream/8 bg-ink/40 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-display text-xl tracking-wide text-cream/85">{trip.origin ? `${trip.origin} → ` : ''}{trip.destination}</p>
+          <p className="font-mono text-[10px] text-cream/35">
+            {[tripDate(trip.depart_at), trip.return_at ? `to ${tripDate(trip.return_at)}` : '', `${trip.party_size} ${trip.party_size === 1 ? 'person' : 'people'}`].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        <div className="text-right">
+          <span className="font-label text-[8px] uppercase tracking-[0.2em]" style={{color: trip.status === 'planned' ? ACCENT : 'rgba(244,232,208,0.4)'}}>
+            {trip.status === 'planned' ? 'Planned · not booked' : trip.status}
+          </span>
+          {days !== null && trip.status !== 'cancelled' && <p className="font-mono text-xs text-cream/40">{days === 0 ? 'today' : `in ${days} days`}</p>}
+        </div>
+      </div>
+      {trip.plan && (
+        <div className="mt-3">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="min-h-9 font-label text-[8px] uppercase tracking-[0.25em] text-brass/70">{open ? 'Hide Nova’s plan' : 'Show Nova’s plan'}</button>
+          {open && <p className="mt-2 whitespace-pre-line border-t border-brass/10 pt-3 font-body text-sm leading-relaxed text-cream/70">{trip.plan}</p>}
+        </div>
+      )}
+      {trip.status !== 'cancelled' && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={busy} onClick={replan} className={`${btnCls} border-brass/40 text-brass`}>{busy ? 'Working…' : trip.plan ? 'Re-plan with Nova' : 'Plan with Nova'}</button>
+          <button type="button" disabled={busy} onClick={() => setStatus('cancelled')} className={`${btnCls} border-cream/15 text-cream/50`}>Cancel trip</button>
+        </div>
+      )}
+      {trip.status === 'cancelled' && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={busy} onClick={() => setStatus('draft')} className={`${btnCls} border-cream/15 text-cream/60`}>Restore</button>
+          {confirmDelete
+            ? <button type="button" disabled={busy} onClick={remove} className={`${btnCls} border-neon-pink/50 text-neon-pink`}>Delete for good</button>
+            : <button type="button" onClick={() => setConfirmDelete(true)} className={`${btnCls} border-cream/10 text-cream/35`}>Delete</button>}
+        </div>
+      )}
+      {msg && <div className="mt-2"><Notice tone="error">{msg}</Notice></div>}
+    </motion.div>
+  );
+}
+
+function Ride() {
+  const [pickup, setPickup] = useState('');
+  const [dropoff, setDropoff] = useState('');
+  const [at, setAt] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const go = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pickup.trim() || !dropoff.trim() || busy) return;
+    setBusy(true); setErr(null); setPlan(null);
+    const when = at ? new Date(at) : null;
+    const valid = when && !Number.isNaN(when.getTime()) ? when : null;
+    const r = await runNovaRequest({kind: 'plan', title: `Ride to ${dropoff.trim()}`, room: 'departures', details: {
+      topic: 'ride', brief: rideBrief(pickup.trim(), dropoff.trim(), valid ? valid.toLocaleString([], {weekday: 'short', hour: 'numeric', minute: '2-digit'}) : null),
+      ...(valid ? {when: valid.toISOString()} : {}),
+    }});
+    setBusy(false);
+    if (!r.ok) { setErr(r.message); return; }
+    const v = resultView(r.request.result);
+    setPlan(v.type === 'plan' ? v.text : 'Nova returned an empty plan.');
+  };
+  return (
+    <form onSubmit={go} className="space-y-2 border border-cream/8 bg-ink/40 p-5">
+      <p className="font-label text-[8px] uppercase tracking-[0.3em] text-brass/50">Plan a ride</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <input aria-label="Pickup" value={pickup} onChange={(e) => setPickup(e.target.value)} placeholder="Pickup" maxLength={120} className={fieldCls} required />
+        <input aria-label="Drop-off" value={dropoff} onChange={(e) => setDropoff(e.target.value)} placeholder="Drop-off" maxLength={120} className={fieldCls} required />
+        <input aria-label="When" type="datetime-local" value={at} onChange={(e) => setAt(e.target.value)} className={fieldCls} />
+      </div>
+      <button type="submit" disabled={busy || !pickup.trim() || !dropoff.trim()} className={`${btnCls} border-brass/50 text-brass`}>{busy ? 'Nova is planning…' : 'Plan the ride'}</button>
+      {err && <Notice tone="error">{err}</Notice>}
+      {plan && (
+        <div className="border-t border-brass/10 pt-3">
+          <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-brass/40">Nova’s ride plan · in your Diary</p>
+          <p className="whitespace-pre-line font-body text-sm leading-relaxed text-cream/70">{plan}</p>
+        </div>
+      )}
+      <p className="font-body text-xs italic text-cream/40">Ride partners connect soon — your plan is saved. No car has been requested.</p>
+    </form>
+  );
+}
+
+export default function Departures() {
+  const {data: room, reload} = useRoomData<TripsData>('/api/departures/trips');
+  const quiet = () => void reload(true);
+  return (
+    <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.6}} className="relative min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px]"
-          style={{ background: "radial-gradient(ellipse at center, rgba(66,133,244,0.06) 0%, transparent 65%)" }}
-        />
+        <div className="absolute left-1/2 top-0 h-[400px] w-[700px] -translate-x-1/2" style={{background: 'radial-gradient(ellipse at center, rgba(66,133,244,0.06) 0%, transparent 65%)'}} />
       </div>
 
-      <header className="text-center pt-12 pb-4 relative z-10">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-          <span className="text-4xl mb-4 inline-block">&#x1F6AB;</span>
-          <h1 className="font-display text-4xl text-brass tracking-[0.2em]">departures</h1>
-          <p className="font-label text-[10px] tracking-[0.5em] text-cream/20 uppercase mt-2">travel &middot; dining &middot; experiences</p>
+      <header className="relative z-10 pb-4 pt-12 text-center">
+        <motion.div initial={{opacity: 0, y: -10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.2}}>
+          <h1 className="font-display text-4xl tracking-[0.2em] text-brass">departures</h1>
+          <p className="mt-2 font-label text-[10px] uppercase tracking-[0.5em] text-cream/20">trips &middot; rides &middot; composed by nova</p>
         </motion.div>
       </header>
 
-      <div className="max-w-3xl mx-auto px-4 mb-8 relative z-10">
-        <div className="border border-brass/15 bg-ink/60 backdrop-blur-sm p-5">
-          <p className="font-label text-[8px] tracking-[0.3em] text-brass/30 uppercase mb-2">plan a trip</p>
-          <div className="flex gap-2">
-            <input type="text" value={itinerary} onChange={(e) => setItinerary(e.target.value)} onKeyDown={(e) => e.key === "Enter" && planTrip()}
-              placeholder="Miami for 4 days, June 14–18. Great food and beaches."
-              className="flex-1 px-4 py-3 bg-ink border border-cream/8 text-cream font-body text-sm placeholder:text-cream/12 focus:border-brass focus:outline-none"
-            />
-            <button onClick={planTrip} disabled={!itinerary.trim() || planning}
-              className="px-5 py-3 font-label text-[9px] tracking-[0.2em] uppercase text-ink bg-brass hover:bg-brass-highlight transition-colors disabled:opacity-20 shrink-0"
-            >{planning ? "planning..." : "plan it"}</button>
-          </div>
-          {planError && (
-            <p className="font-body text-xs text-cream/50 italic mt-3">{planError}</p>
-          )}
-          {plan && (
-            <div className="mt-4 border-t border-brass/10 pt-4">
-              <p className="font-label text-[8px] tracking-[0.3em] text-brass/40 uppercase mb-2">nova&apos;s draft &middot; nothing is booked</p>
-              <p className="font-body text-sm text-cream/70 leading-relaxed whitespace-pre-line">{plan}</p>
-            </div>
-          )}
-        </div>
+      <div className="relative z-10 mx-auto max-w-3xl space-y-8 px-4 pb-12">
+        <LiveRoom room={room} what="your Departures" reload={() => void reload()} signedOut={<SampleTrips />}>
+          {(d) => {
+            const upcoming = d.trips.filter((t) => t.status !== 'cancelled');
+            const cancelled = d.trips.filter((t) => t.status === 'cancelled');
+            return (
+              <div className="space-y-8">
+                <Compose onDone={quiet} />
+                <section className="space-y-3">
+                  <p className="font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Your trips</p>
+                  {upcoming.length === 0 ? <Notice>No trips yet — compose one above.</Notice> : upcoming.map((t) => <TripCard key={t.id} trip={t} reload={quiet} />)}
+                  {cancelled.length > 0 && (
+                    <details className="pt-2">
+                      <summary className="min-h-9 cursor-pointer font-label text-[8px] uppercase tracking-[0.3em] text-cream/30">Cancelled · {cancelled.length}</summary>
+                      <div className="mt-3 space-y-3">{cancelled.map((t) => <TripCard key={t.id} trip={t} reload={quiet} />)}</div>
+                    </details>
+                  )}
+                </section>
+                <Ride />
+              </div>
+            );
+          }}
+        </LiveRoom>
+        <p className="text-center font-body text-[11px] italic text-cream/25">Flights, hotels and cars: booking partners connect soon. Nothing in this room searches live fares or books anything.</p>
       </div>
 
-      {RECENT_SEARCHES.length > 0 && (
-        <div className="max-w-3xl mx-auto px-4 mb-8 relative z-10">
-          <p className="font-label text-[8px] tracking-[0.3em] text-cream/40 uppercase mb-3">recent searches &middot; sample</p>
-          <div className="flex gap-3 flex-wrap">
-            {RECENT_SEARCHES.map((s, i) => {
-              const cat = CATEGORIES.find((c) => c.key === s.type);
-              return (
-                <div key={i} className="flex items-center gap-3 px-3 py-2 border border-cream/6 bg-ink/30">
-                  <span className="text-base">{cat?.icon}</span>
-                  <div>
-                    <p className="font-display text-sm text-cream/70 tracking-wide">{s.route}</p>
-                    <p className="font-mono text-[9px] text-cream/25">{s.date} &middot; {s.price}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-4xl mx-auto px-4 mb-6 relative z-10">
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          {CATEGORIES.map((cat) => (
-            <motion.button key={cat.key} whileHover={{ scale: 1.02 }}
-              onClick={() => setActiveCategory(activeCategory === cat.key ? "all" : cat.key)}
-              className={`p-4 border text-center transition-all duration-300 ${
-                activeCategory === cat.key ? "border-brass/40 bg-ink/60" : "border-cream/6 bg-ink/30 hover:border-cream/15"
-              }`}
-            >
-              <div className="text-2xl mb-2" style={{ color: activeCategory === cat.key ? cat.color : "rgba(244,232,208,0.25)" }}>{cat.icon}</div>
-              <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/50">{cat.label}</p>
-              <p className="font-label text-[6px] tracking-[0.05em] text-cream/15 mt-0.5">{cat.desc}</p>
-            </motion.button>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <span className="font-label text-[8px] tracking-[0.3em] text-cream/40 uppercase">sample partners &middot; not connected &mdash; coming soon</span>
-          {activeCategory !== "all" && (
-            <button onClick={() => setActiveCategory("all")} className="font-label text-[8px] tracking-[0.15em] text-brass/40 hover:text-brass/60 uppercase">show all</button>
-          )}
-        </div>
+      <div className="relative z-10 pb-8 text-center">
+        <Link href="/lobby" className="font-body text-sm text-cream/20 transition-colors hover:text-brass">return to the lobby</Link>
       </div>
-
-      <div className="max-w-5xl mx-auto px-4 relative z-10 pb-12">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          <AnimatePresence mode="popLayout">
-            {filtered.map((conn, i) => {
-              const catInfo = CATEGORIES.find((c) => c.key === conn.category);
-              return (
-                <motion.div key={conn.key} layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} transition={{ delay: i * 0.03 }}
-                  className="border border-cream/6 bg-ink/30 transition-all duration-500"
-                >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-2xl leading-none" style={{ color: "rgba(244,232,208,0.2)" }}>{conn.icon}</span>
-                      <span className="w-2 h-2 rounded-full mt-1 bg-cream/8" />
-                    </div>
-
-                    <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/60">{conn.label}</p>
-                    <p className="font-body text-[10px] text-cream/30 italic mt-1 leading-tight">{conn.description}</p>
-
-                    <div className="flex items-center justify-between mt-3">
-                      {conn.badge ? (
-                        <span className="font-label text-[6px] tracking-[0.1em] uppercase px-1.5 py-0.5 border text-green-400/60 border-green-500/15">{conn.badge}</span>
-                      ) : (
-                        <span className="font-label text-[6px] tracking-[0.1em] uppercase text-cream/10" style={{ color: catInfo ? `${catInfo.color}60` : undefined }}>
-                          {catInfo?.label}
-                        </span>
-                      )}
-                      <span className="font-label text-[7px] uppercase text-cream/25">coming soon</span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      <div className="text-center pb-8 relative z-10">
-        <Link href="/lobby" className="font-body text-sm text-cream/20 hover:text-brass transition-colors">return to the lobby</Link>
-      </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-oxblood/8 to-transparent pointer-events-none" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-oxblood/8 to-transparent" />
     </motion.div>
   );
 }

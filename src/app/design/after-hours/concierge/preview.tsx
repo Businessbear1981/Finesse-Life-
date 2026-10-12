@@ -41,6 +41,36 @@ const CHAT: Message[] = [
   {id: 'g3', role: 'guest', text: 'Perfect. Then a car at 9.'},
 ];
 
+// Nova's draft_request tool → request cards (src/components/nova/request-card.tsx). Sample ids; Confirm here
+// reaches the real hub and answers honestly (401 when signed out).
+const REQUESTS: Message[] = [
+  WELCOME,
+  {id: 'g1', role: 'guest', text: 'Find me black slingbacks under $600, and plan dinner Friday for two.'},
+  {
+    id: 'c1',
+    role: 'concierge',
+    text: 'Two drafts for you — confirm and I will get to work. Nothing is booked yet.',
+    requests: [
+      {id: '00000000-0000-4000-8000-000000000001', kind: 'find_item', title: 'Black slingbacks under $600', status: 'drafted'},
+      {id: '00000000-0000-4000-8000-000000000002', kind: 'plan', title: 'Dinner for two, Friday', status: 'drafted'},
+    ],
+  },
+  {id: 'g2', role: 'guest', text: 'Go.'},
+  {
+    id: 'c2',
+    role: 'concierge',
+    text: 'Here is what I found, and a plan to approve.',
+    requests: [
+      {id: '00000000-0000-4000-8000-000000000003', kind: 'find_item', title: 'Black slingbacks under $600', status: 'ready', result: {agent: 'scout', items: [
+        {title: 'Patent slingback 85', brand: 'Aquazzura', price_cents: 59500, source: 'web', purchase_url: 'https://example.com/aquazzura', image_url: null, partner: null},
+        {title: 'Leather slingback pump', brand: 'Sam Edelman', price_cents: 15000, source: 'nova', purchase_url: null, image_url: null, partner: null},
+      ]}},
+      {id: '00000000-0000-4000-8000-000000000004', kind: 'plan', title: 'Dinner for two, Friday', status: 'ready', result: {agent: 'planner', booked: false,
+        plan: '1. Bar Mirelle, 8:30 — low light, natural wine.\n2. Orso Notte, 9:00 — the room you liked.\nRecommended: Orso Notte at 9.'}},
+    ],
+  },
+];
+
 const ERRORS: Message[] = [
   WELCOME,
   {id: 'g1', role: 'guest', text: 'I need a black car'},
@@ -56,6 +86,7 @@ function initial(state: string): {step: SetupStep; messages: Message[]; sending:
     case 'name': return {step: 'name', messages: [], sending: false, gender: 'female'};
     case 'empty': return {step: 'done', messages: [WELCOME], sending: false, gender: 'female'};
     case 'errors': return {step: 'done', messages: ERRORS, sending: false, gender: 'female'};
+    case 'requests': return {step: 'done', messages: REQUESTS, sending: false, gender: 'female'};
     case 'sending': return {step: 'done', messages: CHAT, sending: true, gender: 'female'};
     default: return {step: 'done', messages: CHAT.slice(0, -1), sending: false, gender: 'female'};
   }

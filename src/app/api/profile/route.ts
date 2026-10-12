@@ -1,30 +1,9 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
-import {cookies} from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 
 async function getServiceClient() {
-  const cookieStore = await cookies();
 
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({name, value, options}) =>
-              cookieStore.set(name, value, options),
-            );
-          } catch {
-            // Server Component context — middleware handles session refresh
-          }
-        },
-      },
-    },
-  );
+  return await createClient();
 }
 
 function isR2Url(v: unknown): boolean {
@@ -47,25 +26,7 @@ function sanitizePhotos(arr: unknown): string[] | null {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const anonClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({name, value, options}) =>
-                cookieStore.set(name, value, options),
-              );
-            } catch {}
-          },
-        },
-      },
-    );
+    const anonClient = await createClient();
 
     const {
       data: {user},
@@ -97,25 +58,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     // Verify the caller is authenticated using the anon client
-    const cookieStore = await cookies();
-    const anonClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({name, value, options}) =>
-                cookieStore.set(name, value, options),
-              );
-            } catch {}
-          },
-        },
-      },
-    );
+    const anonClient = await createClient();
 
     const {
       data: {user},

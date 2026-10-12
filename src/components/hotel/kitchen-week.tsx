@@ -8,6 +8,8 @@ type Meal = {day: number; slot: 'breakfast' | 'lunch' | 'dinner' | 'snack'; name
 type Plan = {weekStart: string; dailyKcalTarget: number | null; meals: Meal[]; dailyTotals: number[]; groceryList: {item: string; qty: string}[]; order: {id: string; state: string} | null; stage: string};
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const STAGES = ['plan', 'intent', 'authorized', 'fulfilled'];
+type Options = {partners: {id: string; name: string}[]; disclosure: string};
+type LastPlan = {weekStart: string; meals: Meal[]; groceryList: Plan['groceryList']; dailyKcal: number | null} | null;
 
 export function KitchenWeek({accent}: {accent: string}) {
   const [plan, setPlan] = useState<Plan | null>(null);
@@ -18,11 +20,21 @@ export function KitchenWeek({accent}: {accent: string}) {
   const [kcal, setKcal] = useState('');
   const [grocery, setGrocery] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
+  const [options, setOptions] = useState<Options | null>(null);
+  const [last, setLast] = useState<LastPlan>(null);
 
   const load = useCallback(async () => {
     const r = await roomCall<Plan>('/api/kitchen/plan');
     if (r.ok) { setPlan(r.body); setStatus('live'); }
     else setStatus(r.status === 401 ? 'signed_out' : r.status === 503 ? 'closed' : 'error');
+    if (!r.ok) return;
+    // Checkout honesty: which grocery partners are actually connected (none ⇒ intent only).
+    const o = await roomCall<Options>('/api/kitchen/grocery-options');
+    if (o.ok) setOptions(o.body);
+    if (r.body.meals.length === 0) {
+      const h = await roomCall<{lastPlan: LastPlan}>(`/api/kitchen/history?week=${r.body.weekStart}`);
+      if (h.ok) setLast(h.body.lastPlan);
+    }
   }, []);
   // eslint-disable-next-line react-hooks/set-state-in-effect -- state is set after the awaited fetch, not synchronously
   useEffect(() => { void load(); }, [load]);
@@ -91,7 +103,23 @@ export function KitchenWeek({accent}: {accent: string}) {
           <button type="button" onClick={addGrocery} className={`${btnCls} border-brass/40 text-cream/80`}>Add</button>
         </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-2">
+      {plan.meals.length === 0 && last && (
+        <div className="mt-4 border border-brass/15 p-3">
+          <p className="font-body text-sm text-cream/75">Nothing planned yet this week. Start from the week of {last.weekStart}? You can change any plate after.</p>
+          <button type="button" onClick={() => void save(last.meals, last.groceryList)} className={`${btnCls} mt-2 border-brass/50 text-brass-highlight`}>Start from last week</button>
+        </div>
+      )}
+      <div className="mt-4 border-t border-brass/10 pt-3">
+        <p className="font-label text-[9px] uppercase tracking-[0.3em] text-brass/80">Delivery</p>
+        {options === null ? (
+          <p className="mt-1 font-body text-xs italic text-cream/50">Checking grocery partners…</p>
+        ) : options.partners.length ? (
+          <p className="mt-1 font-body text-xs text-cream/70">{options.partners.map((p) => p.name).join(', ')} · {options.disclosure} They ask you to authorise before anything is charged.</p>
+        ) : (
+          <p className="mt-1 font-body text-xs italic text-cream/70">Instacart isn&apos;t connected yet. Confirming records an order intent for this list — nothing is placed, delivered or charged.</p>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
         {!plan.order && <button type="button" onClick={() => intent()} className={btnCls} style={{borderColor: accent, color: accent}}>Confirm the order</button>}
         {plan.order?.state === 'intent' && <button type="button" onClick={() => intent(true)} className={`${btnCls} border-brass/40 text-cream/70`}>Withdraw the order</button>}
       </div>

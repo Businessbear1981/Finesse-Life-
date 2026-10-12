@@ -4,12 +4,13 @@
 // use-concierge.ts; the design preview (/design/after-hours/concierge) feeds this sample props.
 
 import Link from 'next/link';
-import type {CSSProperties, RefObject} from 'react';
+import {useState, type CSSProperties, type RefObject} from 'react';
 import {AHDisplay, AHEyebrow, AHPill, AHRoom, AHTopBar} from '@/components/after-hours';
 import {
   GENDER_OPTIONS, LOOK_OPTIONS, QUICK_ASKS, SETUP_STEPS, VOICE_OPTIONS,
   type AvatarConfig, type Message, type Option, type SetupStep,
 } from './nova-model';
+import {RequestCard, RequestsSheet} from '@/components/nova/request-card';
 import './concierge.css';
 
 export type ConciergeViewProps = {
@@ -218,6 +219,7 @@ function SetupView(p: Omit<ConciergeViewProps, 'bottomRef'>) {
 /* ─── Chat ─── */
 
 function ChatView({bottomRef, ...p}: ConciergeViewProps) {
+  const [sheet, setSheet] = useState(false);
   const name = p.avatar?.name || 'Concierge';
   const firstVisit = !p.messages.some((m) => m.role === 'guest');
   const meta = [p.avatar?.look?.replace(/-/g, ' '), p.avatar?.voice && `${p.avatar.voice} voice`].filter(Boolean) as string[];
@@ -258,7 +260,11 @@ function ChatView({bottomRef, ...p}: ConciergeViewProps) {
             {meta.map((m) => <span key={m} className="nv-tag">{m}</span>)}
           </div>
         )}
+        <button type="button" className="nv-head-btn nv-requests-btn" onClick={() => setSheet(true)}>
+          Your requests
+        </button>
       </div>
+      <RequestsSheet open={sheet} onClose={() => setSheet(false)} accent="var(--ah-rose)" />
 
       <ol className="nv-thread" role="log" aria-live="polite" aria-label={`Conversation with ${name}`}>
         {p.messages.map((msg, i) => {
@@ -289,6 +295,7 @@ function ChatView({bottomRef, ...p}: ConciergeViewProps) {
                       {msg.tool_calls.map((tc, idx) => <ToolResultCard key={idx} name={tc.name} result={tc.result} />)}
                     </div>
                   )}
+                  {msg.requests?.map((r) => <RequestCard key={r.id} request={r} accent="var(--ah-rose)" />)}
                 </div>
               </div>
             </li>

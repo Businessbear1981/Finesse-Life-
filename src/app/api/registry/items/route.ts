@@ -1,23 +1,12 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
 import { parseBody } from '@/lib/api/validate';
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -41,7 +30,7 @@ export async function GET() {
       return NextResponse.json({ items: [] });
     }
 
-    const items = (data ?? []).map((row) => ({
+    const items = (data ?? []).map((row: Record<string, any>) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
       id: row.id,
       title: row.name,
       brand: row.brand,
@@ -72,17 +61,7 @@ const itemSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -93,8 +72,8 @@ export async function POST(req: Request) {
     const body = parsed.data;
 
     if (!user) {
-      // Allow unauthenticated in demo — return a synthetic id
-      return NextResponse.json({ success: true, id: `demo_${Date.now()}` });
+      // Never fake a save: signed-out callers get an honest 401.
+      return NextResponse.json({ error: 'signed_out' }, { status: 401 });
     }
 
     // Real schema (registry_items): name/image_url, not title/photo_url; no

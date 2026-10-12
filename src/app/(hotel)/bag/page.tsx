@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useLocalPref } from '@/components/after-hours';
+import { NovaAction } from '@/components/nova/request-card';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -18,7 +20,7 @@ interface CollectionItem {
   note: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Sample pieces (signed-out preview only; members see their own collection) ─
 
 const FINESSE_ITEMS: CollectionItem[] = [
   { id: '1', name: 'Birkin 25', brand: 'Hermès', category: 'bag', value_est: 38000, color: 'Gold', acquired: '2024', photo: null, note: 'My first Birkin. Never selling.' },
@@ -87,8 +89,11 @@ function PhotoPlaceholder({ category }: { category: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BagPage() {
-  const [edition, setEdition] = useState<'finesse' | 'carpe_diem'>('finesse');
-  const [items, setItems] = useState<CollectionItem[]>(FINESSE_ITEMS);
+  // SSR-safe gender detection (device-local preference).
+  const edition = useLocalPref<'finesse' | 'carpe_diem'>('finesse_gender', (g) => (g === 'masculine' ? 'carpe_diem' : 'finesse'), 'finesse');
+  const [items, setItems] = useState<CollectionItem[]>([]);
+  const [load, setLoad] = useState<'loading' | 'ready' | 'signed_out' | 'error'>('loading');
+  const [addError, setAddError] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -108,25 +113,38 @@ export default function BagPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // SSR-safe gender detection + load from DB
+  // Load the member's real items. Signed out → a clearly labelled sample; never sample rows for a member.
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    const ed: 'finesse' | 'carpe_diem' = g === 'masculine' ? 'carpe_diem' : 'finesse';
-    setEdition(ed);
-    // Load real items from DB; fall back to demo data if unauthenticated
-    fetch(`/api/bag/items?edition=${ed}`)
-      .then((r) => r.json())
-      .then((d: { items?: CollectionItem[] }) => {
-        const dbItems = (d.items ?? []).map((i) => ({
-          ...i,
-          value_est: Math.round((i as unknown as { value_est_cents: number }).value_est_cents / 100),
-          acquired: (i as unknown as { acquired_year?: string }).acquired_year ?? '',
-          photo: (i as unknown as { photo_url?: string }).photo_url ?? null,
-        }));
-        setItems(dbItems.length > 0 ? dbItems : []);
+    let alive = true;
+    fetch(`/api/bag/items?edition=${edition}`)
+      .then(async (r) => {
+        if (!alive) return;
+        if (r.status === 401) {
+          setItems(edition === 'carpe_diem' ? CARPE_DIEM_ITEMS : FINESSE_ITEMS);
+          setLoad('signed_out');
+          return;
+        }
+        if (!r.ok) throw new Error('bag unavailable');
+        const d = (await r.json()) as { items?: Array<Record<string, unknown>> };
+        if (!alive) return;
+        setItems((d.items ?? []).map((i) => ({
+          id: String(i.id),
+          name: String(i.name ?? ''),
+          brand: String(i.brand ?? ''),
+          category: String(i.category ?? 'other'),
+          value_est: Math.round(Number(i.value_est_cents ?? 0) / 100),
+          color: String(i.color ?? ''),
+          acquired: String(i.acquired_year ?? ''),
+          photo: typeof i.photo_url === 'string' ? i.photo_url : null,
+          note: String(i.note ?? ''),
+        })));
+        setLoad('ready');
       })
-      .catch(() => setItems([]));
-  }, []);
+      .catch(() => { if (alive) { setItems([]); setLoad('error'); } });
+    return () => { alive = false; };
+  }, [edition]);
+
+  const isSample = load === 'signed_out';
 
   const accentColor = edition === 'finesse' ? '#FF4D7D' : '#69C9D0';
   const categories = edition === 'finesse' ? FINESSE_CATEGORIES : CARPE_DIEM_CATEGORIES;
@@ -143,6 +161,7 @@ export default function BagPage() {
 
   async function saveNote() {
     if (!detailItem) return;
+    if (isSample) { setEditingNote(false); return; } // sample pieces aren't saved anywhere
     // Optimistic update
     const updated = items.map((i) => i.id === detailItem.id ? { ...i, note: draftNote } : i);
     setItems(updated);
@@ -193,6 +212,8 @@ export default function BagPage() {
 
   async function addToCollection() {
     if (!newName.trim() || !newBrand.trim()) return;
+    if (isSample) { setAddError('Sign in to add pieces to your bag.'); return; }
+    setAddError(null);
     const value_est = parseFloat(newValue.replace(/[^0-9.]/g, '')) || 0;
     try {
       const res = await fetch('/api/bag/items', {
@@ -210,9 +231,14 @@ export default function BagPage() {
           edition,
         }),
       });
-      const data = await res.json() as { item?: { id: string } };
+      const data = (await res.json().catch(() => ({}))) as { item?: { id: string } };
+      // Only a saved row joins the bag — no optimistic ghost items.
+      if (!res.ok || !data.item?.id) {
+        setAddError(res.status === 401 ? 'Sign in to add pieces to your bag.' : 'This piece couldn’t be saved just now. Try again.');
+        return;
+      }
       const item: CollectionItem = {
-        id: data.item?.id ?? crypto.randomUUID(),
+        id: data.item.id,
         name: newName.trim(),
         brand: newBrand.trim(),
         category: newCategory || 'other',
@@ -223,20 +249,10 @@ export default function BagPage() {
         note: newNote.trim(),
       };
       setItems((prev) => [item, ...prev]);
+      setLoad('ready');
     } catch {
-      // Optimistic add even on error
-      const item: CollectionItem = {
-        id: crypto.randomUUID(),
-        name: newName.trim(),
-        brand: newBrand.trim(),
-        category: newCategory || 'other',
-        value_est,
-        color: newColor.trim(),
-        acquired: newAcquired.trim() || new Date().getFullYear().toString(),
-        photo: newPhotoUrl,
-        note: newNote.trim(),
-      };
-      setItems((prev) => [item, ...prev]);
+      setAddError('This piece couldn’t be saved just now. Try again.');
+      return;
     }
     resetAddSheet();
     setAddOpen(false);
@@ -300,8 +316,18 @@ export default function BagPage() {
             letterSpacing: '0.1em',
           }}
         >
-          {items.length} {pieceLabel} &middot; est. {formatValue(portfolioTotal)}
+          {load === 'loading' ? 'opening the bag…' : `${items.length} ${pieceLabel} · est. ${formatValue(portfolioTotal)}`}
         </motion.p>
+        {isSample && (
+          <p className="text-center mb-6 font-label uppercase" style={{ fontSize: '8px', letterSpacing: '0.35em', color: 'rgba(244,232,208,0.4)' }}>
+            Sample pieces · <Link href="/login" style={{ color: accentColor }}>sign in</Link> to see your collection
+          </p>
+        )}
+        {load === 'error' && (
+          <p className="text-center mb-6 font-body italic" style={{ fontSize: '12px', color: 'rgba(244,232,208,0.45)' }}>
+            Your bag couldn’t be opened just now. Try again in a moment.
+          </p>
+        )}
 
         {/* ── Category filter ── */}
         <div className="flex gap-2 flex-wrap justify-center mb-8">
@@ -424,7 +450,7 @@ export default function BagPage() {
                 className="font-label uppercase"
                 style={{ fontSize: '9px', letterSpacing: '0.4em', color: 'rgba(244,232,208,0.15)' }}
               >
-                nothing in this category yet
+                {load === 'loading' ? '' : items.length === 0 && load === 'ready' ? 'nothing in the bag yet — add your first piece' : 'nothing in this category yet'}
               </p>
             </div>
           )}
@@ -563,6 +589,32 @@ export default function BagPage() {
                     {formatValue(detailItem.value_est)}
                   </p>
                 </div>
+
+                {/* Nova: price check + best way to buy (orchestrator hub; members only) */}
+                {!isSample && (
+                  <div key={detailItem.id} className="mb-5" style={{ textAlign: 'left' }}>
+                    <NovaAction
+                      label="Price check"
+                      accent={accentColor}
+                      build={() => ({
+                        kind: 'price_check',
+                        title: `Price check: ${[detailItem.brand, detailItem.name].filter(Boolean).join(' ')}`,
+                        room: 'bag',
+                        details: { title: detailItem.name, brand: detailItem.brand, category: detailItem.category || 'fashion', retail_cents: Math.round(detailItem.value_est * 100) },
+                      })}
+                    />
+                    <NovaAction
+                      label="Best way to buy"
+                      accent={accentColor}
+                      build={() => ({
+                        kind: 'procurement',
+                        title: `Best way to buy: ${[detailItem.brand, detailItem.name].filter(Boolean).join(' ')}`,
+                        room: 'bag',
+                        details: { title: `${detailItem.brand} ${detailItem.name}`.trim().slice(0, 160), category: detailItem.category || 'other', price_cents: Math.round(detailItem.value_est * 100) },
+                      })}
+                    />
+                  </div>
+                )}
 
                 {/* Personal note (editable inline) */}
                 <div className="mb-5">
@@ -876,6 +928,11 @@ export default function BagPage() {
                   >
                     Add to Collection
                   </button>
+                  {addError && (
+                    <p role="alert" className="font-body italic mt-3 text-center" style={{ fontSize: '12px', color: 'rgba(255,138,160,0.85)' }}>
+                      {addError}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

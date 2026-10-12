@@ -1,37 +1,24 @@
 'use client';
 
-import {useState, useEffect, useCallback} from 'react';
+// Per Diem — plan the night around a budget. Signed-in members get their real night for the chosen date
+// (table per_diem_plans): Nova's evening plan (nova_requests hub, topic 'evening') is kept as written and
+// parsed into stops the member ticks off. Nothing is reserved or paid. Signed out, a labelled sample.
+import {useCallback, useState} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
+import {useLocalPref} from '@/components/after-hours';
+import {LiveRoom, Notice, SampleLabel} from '@/components/live-room-states';
+import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+import {eveningBrief, totals, type PerDiemItem, type PerDiemPlan} from '@/lib/per-diem';
+import {formatCents, resultView, type ItemView} from '@/lib/nova-request-view';
+import {failureText, runNovaRequest, today, useRoomData} from '@/lib/rooms/live-room';
 
 /* ─── Types ─── */
 
 type Tab = 'planner' | 'wishlist' | 'verify' | 'split';
 type Gender = 'masculine' | 'feminine';
 type SplitMode = 'all' | 'fair' | 'cover';
-
-interface DatePlan {
-  id: string;
-  time: string;
-  activity: string;
-  venue: string;
-  cost_cents: number;
-  category: string;
-  booked: boolean;
-  eventbrite_id?: string; // set for bookable Eventbrite events
-}
-
-interface WishlistSuggestion {
-  id: string;
-  original_name: string;
-  original_brand: string;
-  original_price: number;
-  alt_name: string;
-  alt_brand: string;
-  alt_price: number;
-  match_reason: string;
-  image: string;
-}
+type DayData = {date: string; plan: PerDiemPlan | null};
 
 interface MemberResult {
   found: boolean;
@@ -41,20 +28,13 @@ interface MemberResult {
   city?: string;
 }
 
-/* ─── Demo Data ─── */
+/* ─── Signed-out sample (labelled) ─── */
 
-const DEMO_PLAN: DatePlan[] = [
-  {id: '1', time: '7:00 PM', activity: 'Black car pickup', venue: 'Your location', cost_cents: 4500, category: 'transport', booked: false},
-  {id: '2', time: '7:45 PM', activity: 'Dinner reservation', venue: 'Uchi — omakase bar', cost_cents: 32000, category: 'dining', booked: false},
-  {id: '3', time: '9:30 PM', activity: 'Cocktails', venue: 'Roosevelt Room — speakeasy', cost_cents: 8000, category: 'drinks', booked: false},
-  {id: '4', time: '11:00 PM', activity: 'Live music', venue: 'Continental Club', cost_cents: 4000, category: 'entertainment', booked: false},
-  {id: '5', time: '12:30 AM', activity: 'Black car home', venue: 'Return trip', cost_cents: 4500, category: 'transport', booked: false},
-];
-
-const DEMO_WISHLIST: WishlistSuggestion[] = [
-  {id: 'w1', original_name: 'Cashmere Throw Wrap', original_brand: 'Loro Piana', original_price: 89500, alt_name: 'Cashmere Travel Wrap', alt_brand: 'Jenni Kayne', alt_price: 28500, match_reason: 'Same weight cashmere, similar drape, neutral palette', image: 'https://images.unsplash.com/photo-1601924994987-69e26d50dc26?w=200&h=200&fit=crop&q=80'},
-  {id: 'w2', original_name: 'Le Labo Santal 33', original_brand: 'Le Labo', original_price: 31000, alt_name: 'Santal Royale', alt_brand: 'Commodity', alt_price: 10500, match_reason: 'Sandalwood-forward, similar dry-down, less sweet', image: 'https://images.unsplash.com/photo-1541643600914-78b084683601?w=200&h=200&fit=crop&q=80'},
-  {id: 'w3', original_name: 'Pearl Drop Earrings', original_brand: 'Sophie Buhai', original_price: 39500, alt_name: 'Baroque Pearl Drops', alt_brand: 'Faris', alt_price: 14800, match_reason: 'Same baroque freshwater pearl, sterling silver, minimal setting', image: 'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?w=200&h=200&fit=crop&q=80'},
+const SAMPLE_PLAN: PerDiemItem[] = [
+  {time: '7:00 PM', label: 'Black car pickup', cost_cents: 4500, done: false},
+  {time: '7:45 PM', label: 'Dinner — omakase bar', cost_cents: 32000, done: false},
+  {time: '9:30 PM', label: 'Cocktails — speakeasy', cost_cents: 8000, done: false},
+  {time: '11:00 PM', label: 'Live music', cost_cents: 4000, done: false},
 ];
 
 const BUDGET_PRESETS = [
@@ -62,7 +42,7 @@ const BUDGET_PRESETS = [
   {label: '$250', cents: 25000},
   {label: '$500', cents: 50000},
   {label: '$1,000', cents: 100000},
-  {label: 'No limit', cents: 999999},
+  {label: 'No limit', cents: 0},
 ];
 
 const VIBE_OPTIONS = ['romantic', 'casual', 'adventurous', 'group night', 'solo treat', 'impress'];
@@ -70,9 +50,10 @@ const VIBE_OPTIONS = ['romantic', 'casual', 'adventurous', 'group night', 'solo 
 const TEAL = '#69C9D0';
 
 function formatPrice(cents: number): string {
-  if (cents >= 999999) return 'No limit';
-  return `$${(cents / 100).toLocaleString('en-US', {minimumFractionDigits: 0})}`;
+  return `$${(cents / 100).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
 }
+const budgetLabel = (cents: number) => (cents > 0 ? formatPrice(cents) : 'No limit');
+const occasionFor = (vibe: string) => `${vibe.charAt(0).toUpperCase()}${vibe.slice(1)} night`.slice(0, 60);
 
 /* ─── Gender Lock ─── */
 
@@ -110,25 +91,115 @@ function GenderLock() {
   );
 }
 
-/* ─── Main Component ─── */
+/* ─── Timeline ─── */
 
-/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
-function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
-  if (status === 401) return 'Sign in to ask Nova.';
-  if (status !== 429) return null;
-  const s = Number(body?.retryAfterS);
-  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+function Timeline({items, onToggle, busy}: {items: PerDiemItem[]; onToggle?: (i: number, done: boolean) => void; busy?: boolean}) {
+  return (
+    <div className="relative pl-8">
+      <div className="absolute bottom-0 left-3 top-0 w-px" style={{background: 'rgba(105,201,208,0.15)'}} />
+      <div className="space-y-4">
+        {items.map((item, i) => (
+          <motion.div key={`${i}-${item.time}-${item.label}`} initial={{opacity: 0, x: -10}} animate={{opacity: 1, x: 0}} transition={{delay: i * 0.06}} className="relative">
+            <div className="absolute -left-5 top-4 h-3 w-3 rounded-full border" style={{
+              borderColor: item.done ? 'rgba(0,255,136,0.5)' : 'rgba(105,201,208,0.3)', background: item.done ? 'rgba(0,255,136,0.2)' : '#0A0406',
+            }} />
+            <button type="button" disabled={!onToggle || busy} onClick={() => onToggle?.(i, !item.done)} aria-pressed={item.done}
+              className="w-full border p-4 text-left transition-all disabled:cursor-default"
+              style={{borderColor: item.done ? 'rgba(0,255,136,0.15)' : 'rgba(244,232,208,0.06)', background: item.done ? 'rgba(10,4,6,0.5)' : 'rgba(10,4,6,0.3)'}}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <span className="font-mono text-sm" style={{color: 'rgba(105,201,208,0.7)'}}>{item.time}</span>
+                  <p className="mt-1 font-display text-base tracking-wide" style={{color: 'rgba(244,232,208,0.85)', textDecoration: item.done ? 'line-through' : undefined}}>{item.label}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-base" style={{color: TEAL}}>{item.cost_cents ? formatPrice(item.cost_cents) : '—'}</p>
+                  {onToggle && (
+                    <span className="font-label text-[7px] uppercase tracking-[0.15em]" style={{color: item.done ? 'rgba(0,255,136,0.6)' : 'rgba(244,232,208,0.25)'}}>
+                      {item.done ? 'done ✓' : 'tap when done'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </button>
+          </motion.div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
+function Rule({children}: {children: React.ReactNode}) {
+  return (
+    <div className="mb-6 flex items-center gap-4">
+      <div className="h-px flex-1" style={{background: 'rgba(105,201,208,0.2)'}} />
+      <span className="font-label text-[9px] uppercase tracking-[0.4em]" style={{color: 'rgba(105,201,208,0.4)'}}>{children}</span>
+      <div className="h-px flex-1" style={{background: 'rgba(105,201,208,0.2)'}} />
+    </div>
+  );
+}
+
+/* ─── Wishlist (signed in): Nova's scout, through the hub ─── */
+
+function WishlistFinder({budget}: {budget: number}) {
+  const [query, setQuery] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [items, setItems] = useState<ItemView[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const find = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim() || busy) return;
+    setBusy(true); setErr(null); setItems(null);
+    const r = await runNovaRequest({kind: 'find_item', title: `Gift: ${query.trim()}`, room: 'perdiem',
+      details: {query: query.trim().slice(0, 200), ...(budget > 0 ? {budget_cents: budget} : {})}});
+    setBusy(false);
+    if (!r.ok) { setErr(r.message); return; }
+    const v = resultView(r.request.result);
+    setItems(v.type === 'items' ? v.items : []);
+  };
+  return (
+    <div className="space-y-4">
+      <p className="text-center font-body text-xs italic" style={{color: 'rgba(244,232,208,0.35)'}}>
+        Tell Nova what she’s been wanting. Nova looks within tonight’s budget — nothing is bought.
+      </p>
+      <form onSubmit={find} className="flex gap-2">
+        <input aria-label="What she wants" value={query} onChange={(e) => setQuery(e.target.value)} maxLength={200} placeholder="cashmere wrap, Santal 33, pearl drops…" className={fieldCls} />
+        <button type="submit" disabled={busy || !query.trim()} className={btnCls} style={{borderColor: TEAL, color: TEAL}}>{busy ? 'Looking…' : 'Find'}</button>
+      </form>
+      {err && <Notice tone="error">{err}</Notice>}
+      {items && (items.length === 0 ? <Notice>Nova didn’t find a match inside the budget — try different words or a bigger budget.</Notice> : (
+        <ul className="space-y-2">
+          {items.map((i, k) => (
+            <li key={`${i.title}-${k}`} className="flex items-center justify-between gap-3 border p-4" style={{borderColor: 'rgba(244,232,208,0.06)', background: 'rgba(10,4,6,0.4)'}}>
+              <div>
+                {i.brand && <p className="font-label text-[8px] uppercase tracking-[0.15em]" style={{color: 'rgba(244,232,208,0.3)'}}>{i.brand}</p>}
+                <p className="font-display text-base tracking-wide" style={{color: 'rgba(244,232,208,0.85)'}}>{i.title}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-mono text-base" style={{color: TEAL}}>{formatCents(i.price_cents)}</p>
+                {i.url && <a href={i.url} target="_blank" rel="noopener noreferrer" className="font-label text-[8px] uppercase tracking-[0.2em] text-cream/40 underline">view</a>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ))}
+      <p className="text-center font-body text-[10px] italic" style={{color: 'rgba(244,232,208,0.2)'}}>This search is in your Diary.</p>
+    </div>
+  );
+}
+
+/* ─── Main Component ─── */
+
 export default function PerDiemPage() {
-  const [gender, setGender] = useState<Gender | null>(null);
+  const gender = useLocalPref<Gender>('finesse_gender', (g) => (g === 'feminine' ? 'feminine' : 'masculine'), 'masculine');
   const [tab, setTab] = useState<Tab>('planner');
+  const [date, setDate] = useState(() => today());
   const [budget, setBudget] = useState(50000);
   const [vibe, setVibe] = useState('romantic');
-  const [plan, setPlan] = useState<DatePlan[]>(DEMO_PLAN);
-  const [generating, setGenerating] = useState(false);
-  const [planIsSample, setPlanIsSample] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
+  const {data: room, reload} = useRoomData<DayData>(`/api/per-diem?date=${date}`);
+  const plan = room.state === 'ready' ? room.data.plan : null;
+  const signedIn = room.state === 'ready';
 
   /* verify state */
   const [verifyQuery, setVerifyQuery] = useState('');
@@ -140,72 +211,31 @@ export default function PerDiemPage() {
   const [splitParty, setSplitParty] = useState(2);
   const [mySharePct, setMySharePct] = useState(70);
 
-  /* resolve gender from localStorage — SSR safe */
-  useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    setGender(stored === 'feminine' ? 'feminine' : 'masculine');
-  }, []);
-
-  /* load Eventbrite checkout widget script once */
-  useEffect(() => {
-    if (document.getElementById('eb-widget-script')) return;
-    const s = document.createElement('script');
-    s.id = 'eb-widget-script';
-    s.src = 'https://www.eventbrite.com/static/widgets/eb_widgets.js';
-    s.async = true;
-    document.body.appendChild(s);
-  }, []);
-
-  /* Bernard AI itinerary generation */
-  const generateItinerary = useCallback(async () => {
-    setGenerating(true);
+  /* Nova draws the evening; the server keeps her plan and parses the stops. */
+  const generate = useCallback(async () => {
     setPlanError(null);
-    try {
-      const budgetLabel = budget >= 999999 ? 'unlimited budget' : `$${(budget / 100).toLocaleString()} budget`;
-      const res = await fetch('/api/nova', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          prompt: `Generate a ${vibe} date night itinerary with a ${budgetLabel}. Return ONLY a raw JSON array — no markdown, no explanation. Format: [{"id":"1","time":"7:00 PM","activity":"Black car pickup","venue":"Your location","cost_cents":4500,"category":"transport","booked":false}]. Categories: transport, dining, drinks, entertainment, experience. Include 4-6 stops. Total cost must fit within the budget.`,
-          system: 'You are Nova, the AI concierge at Finesse — a members-only lifestyle platform for people who live well. Return only raw JSON arrays, never markdown fences or explanations.',
-          persona: 'date_planner',
-        }),
-      });
-      if (!res.ok) {
-        const limit = novaLimitMessage(res.status, (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null);
-        if (limit) {
-          setPlanError(`${limit} Nothing has been booked.`);
-          return;
-        }
-        throw new Error('nova unavailable');
-      }
-      const {text} = (await res.json()) as {text?: string};
-      const jsonMatch = text?.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('no itinerary');
-      const parsed: DatePlan[] = JSON.parse(jsonMatch[0]);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        setPlan(
-          parsed.map((item, i) => ({
-            id: String(i + 1),
-            time: item.time ?? '',
-            activity: item.activity ?? '',
-            venue: item.venue ?? '',
-            cost_cents: typeof item.cost_cents === 'number' ? item.cost_cents : 0,
-            category: item.category ?? 'experience',
-            booked: false,
-          }))
-        );
-        setPlanIsSample(false);
-      } else {
-        throw new Error('empty itinerary');
-      }
-    } catch {
-      // Keep the current plan (still labelled) and say so — nothing new was generated.
-      setPlanError("Nova couldn't draft an itinerary just now. Nothing has been booked — try again in a moment.");
-    } finally {
-      setGenerating(false);
-    }
-  }, [budget, vibe]);
+    setBusy('Saving tonight…');
+    const occasion = occasionFor(vibe);
+    const c = await roomCall<{plan?: PerDiemPlan}>('/api/per-diem', {method: 'POST', json: {date, budget_cents: budget, occasion}});
+    if (!c.ok || !c.body.plan) { setBusy(null); setPlanError(failureText(c.status, c.body, 'Nothing was saved.')); return; }
+    setBusy('Nova is curating your night…');
+    const r = await runNovaRequest({kind: 'plan', title: `${occasion} · ${date}`, room: 'perdiem',
+      details: {topic: 'evening', brief: eveningBrief(occasion, budget, `The vibe: ${vibe}.`), when: new Date(`${date}T19:00:00`).toISOString(), party_size: 2}});
+    if (!r.ok) { setBusy(null); setPlanError(`${r.message} Your budget for the night is saved.`); void reload(true); return; }
+    const p = await roomCall(`/api/per-diem/${c.body.plan.id}`, {method: 'PATCH', json: {nova_request_id: r.request.id}});
+    setBusy(null);
+    if (!p.ok) setPlanError(failureText(p.status, p.body, 'Nova’s plan is in your Diary.'));
+    void reload(true);
+  }, [budget, date, reload, vibe]);
+
+  const toggle = useCallback(async (index: number, done: boolean) => {
+    if (!plan) return;
+    setBusy('Saving…');
+    const r = await roomCall(`/api/per-diem/${plan.id}`, {method: 'PATCH', json: {toggle: {index, done}}});
+    setBusy(null);
+    if (!r.ok) setPlanError(failureText(r.status, r.body));
+    void reload(true);
+  }, [plan, reload]);
 
   /* Member verify */
   const runVerify = useCallback(async () => {
@@ -223,14 +253,13 @@ export default function PerDiemPage() {
     }
   }, [verifyQuery]);
 
-  /* Derived values */
-  const totalPlanned = plan.reduce((s, p) => s + p.cost_cents, 0);
-  const totalBooked = plan.filter((p) => p.booked).reduce((s, p) => s + p.cost_cents, 0);
-  const remaining = budget - totalPlanned;
-  const cashback = Math.round(totalPlanned * 0.15);
-  const budgetPct = budget >= 999999 ? 0 : Math.min(100, Math.round((totalPlanned / budget) * 100));
+  /* Derived values — the member's real night when signed in, the labelled sample otherwise. */
+  const items = signedIn ? plan?.items ?? [] : SAMPLE_PLAN;
+  const shownBudget = plan ? plan.budget_cents : budget;
+  const t = totals(items, shownBudget);
+  const remaining = t.left;
 
-  const splitTotal = totalBooked || totalPlanned;
+  const splitTotal = t.planned;
   const myShareAmount =
     splitMode === 'all'
       ? splitTotal
@@ -238,130 +267,66 @@ export default function PerDiemPage() {
       ? Math.round(splitTotal / splitParty)
       : Math.round(splitTotal * (mySharePct / 100));
 
-  const toggleBooked = (id: string) => {
-    setPlan((prev) => prev.map((p) => (p.id === id ? {...p, booked: !p.booked} : p)));
-  };
-
-  /* Eventbrite branded checkout modal */
-  const openEventbriteCheckout = useCallback((eventbriteId: string, stopId: string) => {
-    const w = window as Window & {EBWidgets?: {createWidget: (opts: Record<string, unknown>) => void}};
-    if (!w.EBWidgets) return;
-    w.EBWidgets.createWidget({
-      widgetType: 'checkout',
-      eventId: eventbriteId,
-      modal: true,
-      modalTriggerElementId: `eb-trigger-${stopId}`,
-      onOrderComplete: () => toggleBooked(stopId),
-      themeSettings: {
-        brandColor: '#69C9D0',
-        fontColor: '#F4E8D0',
-        background: '#0A0406',
-      },
-    });
-  }, []);
-
-  if (gender === null) return null;
   if (gender === 'feminine') return <GenderLock />;
 
   return (
-    <motion.div
-      initial={{opacity: 0}}
-      animate={{opacity: 1}}
-      exit={{opacity: 0}}
-      transition={{duration: 0.6}}
-      className="min-h-screen relative overflow-hidden"
-    >
+    <motion.div initial={{opacity: 0}} animate={{opacity: 1}} exit={{opacity: 0}} transition={{duration: 0.6}} className="relative min-h-screen overflow-hidden">
       <div className="pointer-events-none absolute inset-0">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px]"
-          style={{background: `radial-gradient(ellipse at center, rgba(105,201,208,0.07) 0%, transparent 65%)`}}
-        />
+        <div className="absolute left-1/2 top-0 h-[400px] w-[700px] -translate-x-1/2" style={{background: 'radial-gradient(ellipse at center, rgba(105,201,208,0.07) 0%, transparent 65%)'}} />
       </div>
 
       {/* Header */}
-      <header className="text-center pt-12 pb-4 relative z-10">
+      <header className="relative z-10 pb-4 pt-12 text-center">
         <motion.div initial={{opacity: 0, y: -10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.2}}>
-          <span className="text-4xl mb-4 inline-block">🎩</span>
-          <h1 className="font-display text-4xl tracking-[0.2em]" style={{color: TEAL}}>
-            per diem
-          </h1>
-          <p className="font-label text-[10px] tracking-[0.5em] uppercase mt-2" style={{color: 'rgba(244,232,208,0.2)'}}>
-            date curator · carpe diem
-          </p>
+          <span className="mb-4 inline-block text-4xl">🎩</span>
+          <h1 className="font-display text-4xl tracking-[0.2em]" style={{color: TEAL}}>per diem</h1>
+          <p className="mt-2 font-label text-[10px] uppercase tracking-[0.5em]" style={{color: 'rgba(244,232,208,0.2)'}}>date curator · carpe diem</p>
         </motion.div>
       </header>
 
       {/* Budget bar */}
-      <div className="max-w-3xl mx-auto px-4 mb-6 relative z-10">
-        <div className="brass-border bg-ink/60 backdrop-blur-sm p-5">
-          <div className="flex justify-between items-center mb-3">
-            <span className="font-label text-[9px] tracking-[0.3em] uppercase" style={{color: `rgba(105,201,208,0.4)`}}>
-              tonight&apos;s budget
-            </span>
-            <span className="font-mono text-2xl" style={{color: TEAL, textShadow: `0 0 12px rgba(105,201,208,0.2)`}}>
-              {formatPrice(budget)}
-            </span>
+      <div className="relative z-10 mx-auto mb-6 max-w-3xl px-4">
+        <div className="brass-border bg-ink/60 p-5 backdrop-blur-sm">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <label className="flex flex-wrap items-center gap-2 font-label text-[9px] uppercase tracking-[0.3em]" style={{color: 'rgba(105,201,208,0.4)'}}>
+              the night of
+              <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className={`${fieldCls} w-auto`} />
+            </label>
+            <span className="font-mono text-2xl" style={{color: TEAL, textShadow: '0 0 12px rgba(105,201,208,0.2)'}}>{budgetLabel(shownBudget)}</span>
           </div>
 
-          <div className="flex gap-2 mb-4">
+          <div className="mb-4 flex gap-2">
             {BUDGET_PRESETS.map((b) => (
-              <button
-                key={b.cents}
-                onClick={() => setBudget(b.cents)}
-                className="flex-1 py-1.5 text-[9px] font-label tracking-[0.12em] uppercase transition-all"
-                style={{
-                  background: budget === b.cents ? TEAL : 'transparent',
-                  color: budget === b.cents ? '#0A0406' : 'rgba(244,232,208,0.25)',
-                  border: budget === b.cents ? 'none' : '1px solid rgba(244,232,208,0.08)',
-                }}
-              >
+              <button key={b.cents} type="button" onClick={() => setBudget(b.cents)} aria-pressed={budget === b.cents}
+                className="flex-1 py-1.5 font-label text-[9px] uppercase tracking-[0.12em] transition-all"
+                style={{background: budget === b.cents ? TEAL : 'transparent', color: budget === b.cents ? '#0A0406' : 'rgba(244,232,208,0.25)', border: budget === b.cents ? 'none' : '1px solid rgba(244,232,208,0.08)'}}>
                 {b.label}
               </button>
             ))}
           </div>
 
-          <div className="relative h-2 bg-cream/5 mb-2">
-            <motion.div
-              className="h-full"
-              style={{background: budgetPct > 90 ? '#FF4D7D' : budgetPct > 70 ? '#FFA96B' : TEAL}}
-              animate={{width: `${budgetPct}%`}}
-              transition={{duration: 0.5}}
-            />
+          <div className="relative mb-2 h-2 bg-cream/5">
+            <motion.div className="h-full" style={{background: t.pct > 90 ? '#FF4D7D' : t.pct > 70 ? '#FFA96B' : TEAL}} animate={{width: `${t.pct}%`}} transition={{duration: 0.5}} />
           </div>
           <div className="flex justify-between">
-            <span className="font-mono text-[10px]" style={{color: 'rgba(244,232,208,0.3)'}}>
-              {formatPrice(totalPlanned)} planned
-            </span>
+            <span className="font-mono text-[10px]" style={{color: 'rgba(244,232,208,0.3)'}}>{formatPrice(t.planned)} planned{t.spent ? ` · ${formatPrice(t.spent)} done` : ''}</span>
             <span className="font-mono text-[10px]" style={{color: remaining >= 0 ? 'rgba(0,255,136,0.6)' : 'rgba(255,77,125,0.6)'}}>
-              {budget >= 999999 ? 'no limit' : remaining >= 0 ? formatPrice(remaining) + ' left' : 'over budget'}
+              {shownBudget <= 0 ? 'no limit' : remaining >= 0 ? `${formatPrice(remaining)} left` : 'over budget'}
             </span>
           </div>
-
-          <div className="mt-3 pt-3 border-t border-cream/5 flex justify-between">
-            <span className="font-label text-[8px] tracking-[0.2em] uppercase" style={{color: 'rgba(244,232,208,0.15)'}}>
-              est. cashback · not live yet
-            </span>
-            <span className="font-mono text-sm" style={{color: 'rgba(0,255,136,0.6)'}}>
-              +{formatPrice(cashback)}
-            </span>
-          </div>
+          {plan && plan.budget_cents !== budget && (
+            <p className="mt-2 font-body text-[10px] italic" style={{color: 'rgba(244,232,208,0.3)'}}>Saved budget {budgetLabel(plan.budget_cents)} — generate again to plan around {budgetLabel(budget)}.</p>
+          )}
         </div>
       </div>
 
       {/* Vibe selector */}
-      <div className="max-w-3xl mx-auto px-4 mb-6 relative z-10">
-        <div className="flex gap-2 justify-center flex-wrap">
+      <div className="relative z-10 mx-auto mb-6 max-w-3xl px-4">
+        <div className="flex flex-wrap justify-center gap-2">
           {VIBE_OPTIONS.map((v) => (
-            <button
-              key={v}
-              onClick={() => setVibe(v)}
-              className="px-3 py-1.5 text-[9px] font-label tracking-[0.12em] uppercase transition-all"
-              style={{
-                background: vibe === v ? TEAL : 'transparent',
-                color: vibe === v ? '#0A0406' : 'rgba(244,232,208,0.25)',
-                border: vibe === v ? 'none' : '1px solid rgba(244,232,208,0.08)',
-              }}
-            >
+            <button key={v} type="button" onClick={() => setVibe(v)} aria-pressed={vibe === v}
+              className="px-3 py-1.5 font-label text-[9px] uppercase tracking-[0.12em] transition-all"
+              style={{background: vibe === v ? TEAL : 'transparent', color: vibe === v ? '#0A0406' : 'rgba(244,232,208,0.25)', border: vibe === v ? 'none' : '1px solid rgba(244,232,208,0.08)'}}>
               {v}
             </button>
           ))}
@@ -369,245 +334,81 @@ export default function PerDiemPage() {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-3xl mx-auto px-4 mb-8 relative z-10">
-        <div className="flex justify-center gap-2 flex-wrap">
-          {(
-            [
-              {key: 'planner', label: 'planner'},
-              {key: 'wishlist', label: 'her wishlist'},
-              {key: 'verify', label: 'verify her'},
-              {key: 'split', label: 'finesse split'},
-            ] as const
-          ).map(({key, label}) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="px-4 py-2 text-[10px] font-label tracking-[0.2em] uppercase transition-all"
-              style={{
-                background: tab === key ? TEAL : 'transparent',
-                color: tab === key ? '#0A0406' : 'rgba(244,232,208,0.25)',
-                border: tab === key ? 'none' : '1px solid rgba(244,232,208,0.08)',
-              }}
-            >
+      <div className="relative z-10 mx-auto mb-8 max-w-3xl px-4">
+        <div className="flex flex-wrap justify-center gap-2">
+          {([
+            {key: 'planner', label: 'planner'},
+            {key: 'wishlist', label: 'her wishlist'},
+            {key: 'verify', label: 'verify her'},
+            {key: 'split', label: 'finesse split'},
+          ] as const).map(({key, label}) => (
+            <button key={key} type="button" onClick={() => setTab(key)} aria-pressed={tab === key}
+              className="px-4 py-2 font-label text-[10px] uppercase tracking-[0.2em] transition-all"
+              style={{background: tab === key ? TEAL : 'transparent', color: tab === key ? '#0A0406' : 'rgba(244,232,208,0.25)', border: tab === key ? 'none' : '1px solid rgba(244,232,208,0.08)'}}>
               {label}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-4 relative z-10 pb-12">
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-12">
         <AnimatePresence mode="wait">
 
           {/* ═══ DATE PLANNER ═══ */}
           {tab === 'planner' && (
             <motion.div key="planner" initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}>
-              {/* Nova generate */}
-              <div className="text-center mb-8">
-                <button
-                  onClick={generateItinerary}
-                  disabled={generating}
-                  className="px-8 py-3 font-label text-[10px] tracking-[0.3em] uppercase transition-all"
-                  style={{
-                    background: generating ? 'transparent' : TEAL,
-                    color: generating ? TEAL : '#0A0406',
-                    border: generating ? `1px solid rgba(105,201,208,0.4)` : 'none',
-                    opacity: generating ? 0.7 : 1,
-                  }}
-                >
-                  {generating ? 'nova is curating your night...' : 'generate with nova'}
-                </button>
-                {!generating && (
-                  <p className="font-body text-[10px] italic mt-2" style={{color: 'rgba(244,232,208,0.2)'}}>
-                    tailored to your vibe and budget
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
-                <span className="font-label text-[9px] tracking-[0.4em] uppercase" style={{color: `rgba(105,201,208,0.4)`}}>
-                  {planIsSample ? <>tonight&apos;s itinerary · sample</> : <>nova&apos;s draft · nothing booked</>}
-                </span>
-                <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
-              </div>
-
-              {planError && (
-                <p className="text-center font-body text-xs italic mb-6" style={{color: 'rgba(244,232,208,0.45)'}}>
-                  {planError}
-                </p>
-              )}
-
-              {/* Timeline */}
-              <div className="relative pl-8">
-                <div className="absolute left-3 top-0 bottom-0 w-px" style={{background: `rgba(105,201,208,0.15)`}} />
+              <LiveRoom room={room} what="Per Diem" reload={() => void reload()} signedOut={
                 <div className="space-y-4">
-                  {plan.map((item, i) => (
-                    <motion.div
-                      key={item.id}
-                      initial={{opacity: 0, x: -10}}
-                      animate={{opacity: 1, x: 0}}
-                      transition={{delay: i * 0.06}}
-                      className="relative"
-                    >
-                      <div
-                        className="absolute -left-5 top-4 w-3 h-3 rounded-full border"
-                        style={{
-                          borderColor: item.booked ? 'rgba(0,255,136,0.5)' : `rgba(105,201,208,0.3)`,
-                          background: item.booked ? 'rgba(0,255,136,0.2)' : '#0A0406',
-                          boxShadow: item.booked ? '0 0 6px #00FF8840' : 'none',
-                        }}
-                      />
-                      <div
-                        id={item.eventbrite_id ? `eb-trigger-${item.id}` : undefined}
-                        className="p-4 border transition-all cursor-pointer"
-                        style={{
-                          borderColor: item.booked ? 'rgba(0,255,136,0.15)' : 'rgba(244,232,208,0.06)',
-                          background: item.booked ? 'rgba(10,4,6,0.5)' : 'rgba(10,4,6,0.3)',
-                        }}
-                        onClick={() =>
-                          item.eventbrite_id
-                            ? openEventbriteCheckout(item.eventbrite_id, item.id)
-                            : toggleBooked(item.id)
-                        }
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-sm" style={{color: `rgba(105,201,208,0.7)`}}>
-                                {item.time}
-                              </span>
-                              <span
-                                className="font-label text-[7px] tracking-[0.15em] uppercase px-1.5 py-0.5 border"
-                                style={{color: 'rgba(244,232,208,0.2)', borderColor: 'rgba(244,232,208,0.06)'}}
-                              >
-                                {item.category}
-                              </span>
-                            </div>
-                            <p className="font-display text-base tracking-wide mt-1" style={{color: 'rgba(244,232,208,0.85)'}}>
-                              {item.activity}
-                            </p>
-                            <p className="font-body text-xs italic" style={{color: 'rgba(244,232,208,0.3)'}}>
-                              {item.venue}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-mono text-base" style={{color: TEAL}}>
-                              {formatPrice(item.cost_cents)}
-                            </p>
-                            <span
-                              className="font-label text-[7px] tracking-[0.15em] uppercase"
-                              style={{color: item.booked ? 'rgba(0,255,136,0.6)' : 'rgba(244,232,208,0.15)'}}
-                            >
-                              {item.booked ? 'marked ✓' : item.eventbrite_id ? 'get tickets' : 'tap to mark'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                  <SampleLabel>Tonight’s itinerary · sample</SampleLabel>
+                  <Timeline items={SAMPLE_PLAN} />
                 </div>
-              </div>
+              }>
+                {() => (
+                  <div>
+                    <div className="mb-8 text-center">
+                      <button type="button" onClick={generate} disabled={!!busy} className="px-8 py-3 font-label text-[10px] uppercase tracking-[0.3em] transition-all"
+                        style={{background: busy ? 'transparent' : TEAL, color: busy ? TEAL : '#0A0406', border: busy ? '1px solid rgba(105,201,208,0.4)' : 'none', opacity: busy ? 0.7 : 1}}>
+                        {busy ?? (plan?.items.length ? 'plan it again with nova' : 'generate with nova')}
+                      </button>
+                      <p className="mt-2 font-body text-[10px] italic" style={{color: 'rgba(244,232,208,0.25)'}}>tailored to your vibe and budget · nothing is booked or paid</p>
+                    </div>
 
-              <div
-                className="mt-6 flex justify-between items-center px-4 py-3 border"
-                style={{borderColor: `rgba(105,201,208,0.2)`, background: 'rgba(10,4,6,0.5)'}}
-              >
-                <span className="font-label text-[9px] tracking-[0.3em] uppercase" style={{color: 'rgba(244,232,208,0.3)'}}>
-                  tonight&apos;s total
-                </span>
-                <span className="font-mono text-xl" style={{color: TEAL, textShadow: `0 0 10px rgba(105,201,208,0.2)`}}>
-                  {formatPrice(totalPlanned)}
-                </span>
-              </div>
+                    <Rule>{plan?.status === 'planned' || plan?.items.length ? <>nova&apos;s plan · nothing booked</> : <>the night of {date}</>}</Rule>
+                    {planError && <p className="mb-6 text-center font-body text-xs italic" style={{color: 'rgba(255,77,125,0.75)'}} role="alert">{planError}</p>}
+
+                    {!plan || (plan.items.length === 0 && !plan.plan_text) ? (
+                      <Notice>No plan for this night yet — set the budget and the vibe, then let Nova draw it.</Notice>
+                    ) : plan.items.length > 0 ? (
+                      <Timeline items={plan.items} onToggle={toggle} busy={!!busy} />
+                    ) : null}
+
+                    {plan?.plan_text && (
+                      <details className="mt-6" open={plan.items.length === 0}>
+                        <summary className="min-h-9 cursor-pointer font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova’s plan, as written</summary>
+                        <p className="mt-3 whitespace-pre-line font-body text-sm leading-relaxed text-cream/65">{plan.plan_text}</p>
+                      </details>
+                    )}
+
+                    {plan && plan.items.length > 0 && (
+                      <div className="mt-6 flex items-center justify-between border px-4 py-3" style={{borderColor: 'rgba(105,201,208,0.2)', background: 'rgba(10,4,6,0.5)'}}>
+                        <span className="font-label text-[9px] uppercase tracking-[0.3em]" style={{color: 'rgba(244,232,208,0.3)'}}>the night’s total</span>
+                        <span className="font-mono text-xl" style={{color: TEAL}}>{formatPrice(t.planned)}</span>
+                      </div>
+                    )}
+                    <p className="mt-4 text-center font-body text-[10px] italic" style={{color: 'rgba(244,232,208,0.2)'}}>Reservation partners connect soon — your plan is saved and in your Diary.</p>
+                  </div>
+                )}
+              </LiveRoom>
             </motion.div>
           )}
 
           {/* ═══ HER WISHLIST ═══ */}
           {tab === 'wishlist' && (
             <motion.div key="wishlist" initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} exit={{opacity: 0}}>
-              <div className="flex items-center gap-4 mb-4">
-                <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
-                <span className="font-label text-[9px] tracking-[0.4em] uppercase" style={{color: `rgba(105,201,208,0.4)`}}>
-                  smart picks from her list · sample
-                </span>
-                <div className="h-px flex-1" style={{background: `rgba(105,201,208,0.2)`}} />
-              </div>
-              <p className="text-center font-body text-xs italic mb-6" style={{color: 'rgba(244,232,208,0.25)'}}>
-                Sample picks — wishlist matching isn&apos;t connected yet.
-              </p>
-
-              <div className="space-y-5">
-                {DEMO_WISHLIST.map((item, i) => {
-                  const savings = Math.round(((item.original_price - item.alt_price) / item.original_price) * 100);
-                  return (
-                    <motion.div
-                      key={item.id}
-                      initial={{opacity: 0, y: 10}}
-                      animate={{opacity: 1, y: 0}}
-                      transition={{delay: i * 0.08}}
-                      className="border overflow-hidden"
-                      style={{borderColor: 'rgba(244,232,208,0.06)', background: 'rgba(10,4,6,0.4)'}}
-                    >
-                      <div className="p-5">
-                        <div className="flex gap-4">
-                          <div
-                            className="w-20 h-20 shrink-0 overflow-hidden"
-                            style={{border: `1px solid rgba(105,201,208,0.15)`}}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={item.image} alt="" className="w-full h-full object-cover" loading="lazy" />
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-label text-[7px] tracking-[0.2em] uppercase mb-1" style={{color: 'rgba(244,232,208,0.15)'}}>
-                              she wants
-                            </p>
-                            <p className="font-body text-sm italic line-through" style={{color: 'rgba(244,232,208,0.4)'}}>
-                              {item.original_name} — {item.original_brand} — {formatPrice(item.original_price)}
-                            </p>
-                            <p className="font-label text-[7px] tracking-[0.2em] uppercase mt-3 mb-1" style={{color: `rgba(105,201,208,0.6)`}}>
-                              we suggest
-                            </p>
-                            <p className="font-display text-base tracking-wide" style={{color: 'rgba(244,232,208,0.85)'}}>
-                              {item.alt_name}
-                            </p>
-                            <p className="font-label text-[8px] tracking-[0.15em] uppercase" style={{color: 'rgba(244,232,208,0.3)'}}>
-                              {item.alt_brand}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <span className="font-mono text-lg" style={{color: TEAL}}>
-                                {formatPrice(item.alt_price)}
-                              </span>
-                              <span
-                                className="font-label text-[8px] tracking-[0.12em] uppercase px-2 py-0.5 border"
-                                style={{color: 'rgba(0,255,136,0.8)', borderColor: 'rgba(0,255,136,0.2)', background: 'rgba(0,255,136,0.08)'}}
-                              >
-                                save {savings}%
-                              </span>
-                            </div>
-                            <p className="font-body text-[10px] italic mt-2" style={{color: 'rgba(244,232,208,0.25)'}}>
-                              {item.match_reason}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          <button
-                            className="flex-1 py-2 font-label text-[9px] tracking-[0.2em] uppercase transition-colors"
-                            style={{background: TEAL, color: '#0A0406'}}
-                          >
-                            add to bag
-                          </button>
-                          <button
-                            className="px-4 py-2 font-label text-[9px] tracking-[0.2em] uppercase transition-colors"
-                            style={{color: 'rgba(244,232,208,0.3)', border: '1px solid rgba(244,232,208,0.08)'}}
-                          >
-                            get original
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
+              <Rule>her wishlist · found by nova</Rule>
+              <LiveRoom room={room} what="Per Diem" reload={() => void reload()} signedOut={<SampleLabel>Sign in and Nova finds what she wants inside your budget.</SampleLabel>}>
+                {() => <WishlistFinder budget={budget} />}
+              </LiveRoom>
             </motion.div>
           )}
 
@@ -904,16 +705,15 @@ export default function PerDiemPage() {
               </p>
             </motion.div>
           )}
-
         </AnimatePresence>
       </div>
 
-      <div className="text-center pb-8 relative z-10">
+      <div className="relative z-10 pb-8 text-center">
         <Link href="/lobby" className="font-body text-sm transition-colors" style={{color: 'rgba(244,232,208,0.2)'}}>
           return to the lobby
         </Link>
       </div>
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-oxblood/8 to-transparent pointer-events-none" />
+      <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-oxblood/8 to-transparent" />
     </motion.div>
   );
 }

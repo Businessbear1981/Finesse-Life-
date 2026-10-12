@@ -4,7 +4,19 @@
 // Moved verbatim from the old page.tsx; only the look lives elsewhere (concierge-view.tsx).
 
 import {useEffect, useRef, useState} from 'react';
+import {draftsFromToolCalls} from '@/lib/nova-request-view';
 import type {AvatarConfig, Message, SetupStep} from './nova-model';
+
+/** The avatar as Nova style data (never instructions). Empty fields are left out; the server validates the rest. */
+export function styleFor(avatar: AvatarConfig | null): Record<string, string> | undefined {
+  if (!avatar) return undefined;
+  const out: Record<string, string> = {};
+  for (const k of ['name', 'gender', 'look', 'voice'] as const) {
+    const v = avatar[k]?.trim();
+    if (v) out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 export function useConcierge(initialInput = '') {
   const [avatar, setAvatar] = useState<AvatarConfig | null>(null);
@@ -106,13 +118,11 @@ export function useConcierge(initialInput = '') {
     setMessages((prev) => [...prev, userMsg]);
     setSending(true);
 
-    const system = `You are ${avatar?.name || 'Nova'}, a personal AI concierge inside Finesse, a luxury lifestyle app. You are ${avatar?.gender || 'neutral'} with a ${avatar?.voice || 'balanced'} voice and ${avatar?.look || 'professional'} style. You help with: reservations, travel planning, ordering cars, appointments, reminders, shopping, and general lifestyle management. Be concise, warm, and decisive. When a user asks about their vault balance, call check_vault_balance. When asked for recommendations, call get_recommendations. When asked what to do next, call get_next_action. Always log purchase intent with log_intent when the user expresses interest in a specific service. Use real data from tools — never fabricate responses.`;
-
     try {
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt: text, system, persona: 'concierge'}),
+        body: JSON.stringify({prompt: text, persona: 'concierge', style: styleFor(avatar)}),
       });
       const data = (await res.json().catch(() => ({}))) as {text?: string; error?: string; retryAfterS?: number; tool_calls?: Array<{name: string; result: unknown}>};
 
@@ -127,12 +137,15 @@ export function useConcierge(initialInput = '') {
               ? 'Sign in to speak with your concierge. Nothing has been arranged.'
               : res.status === 429
                 ? `Nova needs a moment — try again ${Number(data.retryAfterS) > 0 ? `in ${Math.ceil(Number(data.retryAfterS))} s` : 'shortly'}. Nothing has been arranged.`
-                : "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment.",
+                : draftsFromToolCalls(data.tool_calls).length > 0
+                  ? "Your concierge's reply didn't come through, but a draft is waiting in Your requests. Nothing runs until you confirm it."
+                  : "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment.",
           },
         ]);
         return;
       }
       const responseText = data.text;
+      const drafts = draftsFromToolCalls(data.tool_calls);
 
       setMessages((prev) => [
         ...prev,
@@ -141,6 +154,7 @@ export function useConcierge(initialInput = '') {
           role: 'concierge',
           text: responseText,
           tool_calls: data.tool_calls && data.tool_calls.length > 0 ? data.tool_calls : undefined,
+          requests: drafts.length > 0 ? drafts : undefined,
         },
       ]);
     } catch {

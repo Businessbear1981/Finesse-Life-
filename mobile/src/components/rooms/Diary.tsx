@@ -1,8 +1,9 @@
 // The Diary — the day on one noir page: the one thing that needs the member above the fold, approve / hold
 // kept visibly distinct. Reads and writes the member's own diary through /api/diary and /api/diary/items.
 // Approving records the member's choice only; any partner confirmation stays with the room the entry came
-// from. Signed out, a labelled sample page is shown.
-import {useId, useState} from 'react';
+// from. Items Nova created (source_room 'nova') open the request they came from — Nova's plan, never a booking.
+// Signed out, a labelled sample page is shown.
+import {useEffect, useId, useState} from 'react';
 import {Pressable, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
 import Svg, {Defs, RadialGradient, Rect, Stop} from 'react-native-svg';
@@ -14,6 +15,28 @@ import {failure, useLive} from '@/lib/live';
 import {AHCard, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, SampleNote, s, sentence} from './shared';
 import {LiveGate, Meta, OK_GREEN, RowBtn, Status} from './live';
+import {REQUEST_STATUS, listRequests, type NovaRequest} from '@/lib/rooms/nova-plan';
+
+const fromLabel = (room: string) => (room === 'nova' ? 'from Nova' : room === 'diary' ? '' : `from the ${room}`);
+
+/** The Nova request a Diary item came from: what was asked and Nova's draft. Nothing in it is booked. */
+function NovaRequestPanel({id}: {id: string}) {
+  const [req, setReq] = useState<NovaRequest | null | 'missing'>(null);
+  useEffect(() => {
+    let alive = true;
+    void listRequests().then((r) => { if (alive) setReq((r.ok ? r.body.requests?.find((q) => q.id === id) : undefined) ?? 'missing'); });
+    return () => { alive = false; };
+  }, [id]);
+  if (req === null) return <Text style={s.small}>Opening Nova’s request…</Text>;
+  if (req === 'missing') return <Text style={s.small}>Nova’s request could not be opened. Nothing was changed.</Text>;
+  return (
+    <Animated.View entering={FadeIn.duration(250)} style={{gap: 6, paddingLeft: 12, borderLeftWidth: 1, borderColor: 'rgba(232,180,160,0.4)'}}>
+      <Meta color={ah.blush}>Nova’s request · {REQUEST_STATUS[req.status] ?? req.status}{req.room ? ` · ${req.room}` : ''}</Meta>
+      <Text style={[s.small, {color: ah.text, fontSize: 14, lineHeight: 20}]}>{req.result?.plan ?? (req.result ? JSON.stringify(req.result).slice(0, 600) : 'No result yet.')}</Text>
+      {req.result?.booked === false ? <Text style={s.small}>Nothing is booked — approving keeps the plan; you or Nova arrange it next.</Text> : null}
+    </Animated.View>
+  );
+}
 
 const SAMPLE: Array<[string, string, string]> = [['9:00 AM', 'Salon · blow-out', 'DONE'], ['11:30 AM', 'Tailor fitting', 'MOVED'], ['1:00 PM', 'Lunch table for two', 'DONE'], ['4:00 PM', 'Registry gift wrapped', 'DONE'], ['8:00 PM', 'Ballroom evening · approve the hold', 'NEEDS YOU']];
 
@@ -94,6 +117,7 @@ function DiaryPage({data, acc, reload}: {data: DiaryDay; acc: string; reload: ()
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
   const [title, setTitle] = useState('');
   const [mins, setMins] = useState(19 * 60);
+  const [openNova, setOpenNova] = useState<string | null>(null);
   const next = data.nextDecision;
 
   const act = async (item: DiaryItem, verb: 'approve' | 'hold' | 'done') => {
@@ -125,7 +149,14 @@ function DiaryPage({data, acc, reload}: {data: DiaryDay; acc: string; reload: ()
           <NeedsYou>
             <AHEyebrow color={ah.blush}>One thing needs you</AHEyebrow>
             <AHTitle size={32}>{next.title}</AHTitle>
-            <Text style={[s.small, {color: 'rgba(237,235,231,0.7)'}]}>{clock(next.starts_at)} · from {next.source_room}</Text>
+            <Text style={[s.small, {color: 'rgba(237,235,231,0.7)'}]}>{clock(next.starts_at)}{fromLabel(next.source_room) ? ` · ${fromLabel(next.source_room)}` : ''}</Text>
+            {next.notes ? <Text style={[s.small, {color: 'rgba(237,235,231,0.7)'}]}>{next.notes}</Text> : null}
+            {next.source_room === 'nova' && next.source_id ? (
+              <>
+                <RowBtn label={openNova === next.id ? 'Close Nova’s plan' : 'Open Nova’s plan'} onPress={() => setOpenNova(openNova === next.id ? null : next.id)} />
+                {openNova === next.id ? <NovaRequestPanel id={next.source_id} /> : null}
+              </>
+            ) : null}
             <View style={{flexDirection: 'row', gap: 10, marginTop: 6}}>
               <View style={{flex: 1}}><ActionBar label={busy === next.id ? 'One moment…' : 'Approve'} color={acc} onPress={() => act(next, 'approve')} disabled={!!busy} /></View>
               <View style={{flex: 1}}>
@@ -150,6 +181,13 @@ function DiaryPage({data, acc, reload}: {data: DiaryDay; acc: string; reload: ()
           const decidable = DECIDABLE.includes(i.state) && i.id !== next?.id;
           return (
             <PageLine key={i.id} last={n === data.items.length - 1} time={clock(i.starts_at)} title={i.title} label={DIARY_LABEL[i.state] ?? i.state.toUpperCase()} tone={i.state === 'needs_member_action' ? ah.rose : i.state === 'approved' || i.state === 'done' ? OK_GREEN : ah.faint}>
+              {fromLabel(i.source_room) ? <Text style={[s.small, {marginLeft: 76, marginTop: -6}]}>{fromLabel(i.source_room)}</Text> : null}
+              {i.source_room === 'nova' && i.source_id && i.id !== next?.id ? (
+                <View style={{gap: 8, marginLeft: 76}}>
+                  <RowBtn label={openNova === i.id ? 'Close Nova’s plan' : 'Open Nova’s plan'} onPress={() => setOpenNova(openNova === i.id ? null : i.id)} />
+                  {openNova === i.id ? <NovaRequestPanel id={i.source_id} /> : null}
+                </View>
+              ) : null}
               {i.state !== 'done' ? (
                 <View style={{flexDirection: 'row', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap'}}>
                   {decidable ? <RowBtn label="Approve" onPress={() => act(i, 'approve')} disabled={!!busy} tone={ah.rose} /> : null}

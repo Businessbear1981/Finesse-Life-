@@ -1,5 +1,6 @@
-// The Penthouse interior, After Hours (shown after the Private Lift opens; mirrors web vip/penthouse/penthouse-scene.tsx) — YOUR FLOOR (rooms you add, keys you hand
-// out) and HANDYMAN (a vetted pro at your door), from the design. Also "This Is You", the portrait room:
+// The Penthouse interior, After Hours (shown after the Private Lift opens; mirrors web vip/penthouse/penthouse-scene.tsx) — the INNER
+// CIRCLE (vip_posts, read like the web /vip room — VIP-only by RLS), YOUR FLOOR (call up a service: Nova drafts a plan through
+// the orchestrator, nothing booked) and HANDYMAN (no service partner is connected, so Nova drafts what to do — no one is dispatched). Also "This Is You", the portrait room:
 // exactly what other members can see. Signed in it is live — GET /api/identity/context (the public view is
 // computed by the server from the allowlist), PATCH /api/identity/projections and /visibility, and the
 // GET /api/identity/export download, plus a read-only membership line (GET /api/billing/status). Per App
@@ -20,10 +21,11 @@ import {AHCard, AHDisplay, AHEyebrow, AHInput, AHLiveDot, AHMark, AHPill, AHRing
 import {NightView} from '@/components/lift/LiftScene';
 import {ActionBar, Chips, SampleNote, SectionHead, Segmented, s, sentence} from './shared';
 import {LiveGate, RowBtn, Status} from './live';
+import {PlanWithNova} from './plan-with-nova';
+import {readVipFeed, postVip, type VipPost} from '@/lib/rooms/vip';
 
-const MODS: Array<[string, string, string]> = [['chef', 'Private chef', 'Dinners at home, menus from your macros'], ['concierge', 'Human concierge', 'A person, any hour'], ['jet', 'Jet & yacht desk', 'Charters on a day’s notice'], ['art', 'Art advisor', 'Acquisitions and loans'], ['security', 'Security detail', 'Discreet, on request'], ['screen', 'Screening room', 'Private premieres'], ['cellar', 'Wine cellar', 'Allocations and storage'], ['spa', 'Wellness suite', 'In-home treatments']];
+const SERVICES: Array<[string, string, string]> = [['chef', 'Private chef', 'Dinners at home, menus from your macros'], ['concierge', 'Human concierge', 'A person, any hour'], ['jet', 'Jet & yacht desk', 'Charters on a day’s notice'], ['art', 'Art advisor', 'Acquisitions and loans'], ['security', 'Security detail', 'Discreet, on request'], ['screen', 'Screening room', 'Private premieres'], ['cellar', 'Wine cellar', 'Allocations and storage'], ['spa', 'Wellness suite', 'In-home treatments']];
 const JOBS: Array<[string, string, string]> = [['plumbing', 'Plumbing', 'droplets'], ['electrical', 'Electrical', 'zap'], ['locks', 'Locks & doors', 'lock'], ['appliance', 'Appliances', 'refrigerator'], ['ac', 'Heat & AC', 'thermometer'], ['tv', 'TV & Wi-Fi', 'wifi'], ['car', 'Car trouble', 'car'], ['hang', 'Hang & mount', 'hammer'], ['anything', 'Anything else', 'wrench']];
-const PROS: Record<string, [string, string]> = {plumbing: ['Marcus T.', 'Master plumber · 4.98 · 12 min away'], electrical: ['Dee A.', 'Licensed electrician · 4.97 · 18 min away'], locks: ['Sam K.', 'Locksmith · 4.99 · 9 min away'], appliance: ['Rosa V.', 'Appliance tech · 4.96 · 25 min away'], ac: ['Jon P.', 'HVAC · 4.95 · 30 min away'], tv: ['Priya N.', 'AV & network · 4.98 · 15 min away'], car: ['Andre L.', 'Mobile mechanic · 4.97 · 20 min away'], hang: ['Theo R.', 'Handyman · 4.99 · 10 min away'], anything: ['Élodie', 'Your concierge is finding the right pro']};
 
 /** The Penthouse hero: the city at night through floor-to-ceiling glass (web penthouse-scene.tsx). */
 function PenthouseHero() {
@@ -70,62 +72,46 @@ function PenthouseHero() {
 }
 
 export function PenthouseFloor() {
-  const [tab, setTab] = useState<'floor' | 'handy'>('floor');
-  const [mods, setMods] = useState<string[]>(['chef', 'concierge']);
-  const [extraKey, setExtraKey] = useState(false);
+  const [tab, setTab] = useState<'feed' | 'floor' | 'handy'>('feed');
+  const [svc, setSvc] = useState('chef');
   const [job, setJob] = useState('plumbing');
-  const [when, setWhen] = useState('Now');
-  const [note, setNote] = useState('');
-  const [sent, setSent] = useState(false);
-  const guests: Array<[string, string]> = [['Theo', 'KEY ACCEPTED'], ['Maya', 'KEY SENT'], ...(extraKey ? [['New key', 'READY TO SEND'] as [string, string]] : [])];
-  const P = PROS[job], J = JOBS.find((j) => j[0] === job)!;
+  const S = SERVICES.find((x) => x[0] === svc)!, J = JOBS.find((j) => j[0] === job)!;
   return (
     <View style={{alignSelf: 'stretch'}}>
       <PenthouseHero />
       <View style={{gap: 12, paddingHorizontal: 20, marginTop: 30, width: '100%', maxWidth: 560, alignSelf: 'center'}}>
-      <Text style={[s.body, {fontSize: 15, lineHeight: 22, color: ah.mute}]}>Your floor. Nobody sees it unless you hand them a key. Build it the way you live.</Text>
-      <Segmented options={[['floor', 'Your floor'], ['handy', 'Handyman']]} value={tab} onChange={setTab} />
-      {tab === 'floor' ? (
+      <Text style={[s.body, {fontSize: 15, lineHeight: 22, color: ah.mute}]}>Your floor. The inner circle, the services you call up, and a pro at your door.</Text>
+      <Segmented options={[['feed', 'Inner circle'], ['floor', 'Your floor'], ['handy', 'Handyman']]} value={tab} onChange={setTab} />
+      {tab === 'feed' ? <VipFeed /> : tab === 'floor' ? (
         <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-          <SectionHead>Build your floor · {mods.length} rooms</SectionHead>
+          <SectionHead>Call up a service</SectionHead>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10}}>
-            {MODS.map(([k, name, line]) => {
-              const on = mods.includes(k);
+            {SERVICES.map(([k, name, line]) => {
+              const on = k === svc;
               return (
-                <Pressable key={k} onPress={() => setMods((m) => (on ? m.filter((x) => x !== k) : [...m, k]))} accessibilityRole="button" accessibilityState={{selected: on}}
+                <Pressable key={k} onPress={() => setSvc(k)} accessibilityRole="button" accessibilityState={{selected: on}}
                   style={({pressed}) => ({width: '48.5%', minHeight: 92, padding: 14, gap: 4, borderRadius: 20, borderWidth: 1, borderColor: on ? 'rgba(232,180,160,0.55)' : ah.line, backgroundColor: on ? 'rgba(183,110,121,0.14)' : ah.ink2, opacity: pressed ? 0.85 : 1})}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6}}>
-                    <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 19, lineHeight: 21, color: ah.text}}>{name}</Text>
-                    <View style={{width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: on ? ah.rose : ah.line2, backgroundColor: on ? ah.rose : 'transparent', alignItems: 'center', justifyContent: 'center'}}>{on ? <Text style={{fontSize: 10, color: '#2A1014', fontFamily: ahFonts.sansBold}}>✓</Text> : null}</View>
-                  </View>
+                  <Text style={{fontFamily: ahFonts.serif, fontSize: 19, lineHeight: 21, color: ah.text}}>{name}</Text>
                   <Text style={{fontFamily: ahFonts.sans, fontSize: 12, lineHeight: 16, color: ah.mute}}>{line}</Text>
                 </Pressable>
               );
             })}
           </View>
-          <AHCard style={{gap: 12}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <AHEyebrow>Keys to hand out</AHEyebrow>
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.text}}>{3 - guests.length} left</Text>
-            </View>
-            {guests.map(([n, st]) => (
-              <View key={n} style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-                <AHRing name={n} size={36} label={false} quiet={n === 'New key'} />
-                <Text style={{flex: 1, fontFamily: ahFonts.sansSemi, fontSize: 15, color: ah.text}}>{n}</Text>
-                <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 12, color: st === 'KEY ACCEPTED' ? ah.ok : ah.mute}}>{sentence(st)}</Text>
-              </View>
-            ))}
-            <AHPill variant="ghost" block small disabled={guests.length >= 3} onPress={() => setExtraKey(true)} label="Cut a new key" />
+          <PlanWithNova key={svc} room="penthouse-floor" topic="appointment" title={`Penthouse · ${S[1]}`} label={`Ask for: ${S[1].toLowerCase()}`}
+            placeholder={`What would you like from the ${S[1].toLowerCase()}?`} acc={ah.rose} withWhen />
+          <AHCard style={{gap: 6}}>
+            <AHEyebrow>Keys to your floor</AHEyebrow>
+            <Text style={s.small}>Guest keys open soon. Until then your floor is yours alone — no one else can see it, and a key will never open your Vault.</Text>
           </AHCard>
-          <SampleNote>SAMPLE FLOOR · ROOMS ARE REQUESTS TO THE CONCIERGE · KEYS GIVE ACCESS TO YOUR FLOOR ONLY, NEVER YOUR VAULT</SampleNote>
+          <SampleNote>LIVE · NOVA DRAFTS A PLAN · NO SERVICE PARTNER IS CONNECTED, SO NOTHING IS BOOKED UNTIL YOU ARRANGE IT</SampleNote>
         </Animated.View>
       ) : (
         <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-          <AHCard pad={16} style={{flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: 'rgba(126,226,184,0.3)'}}>
-            <AHLiveDot color={ah.ok} />
+          <AHCard pad={16} style={{flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: 'rgba(255,207,110,0.3)'}}>
+            <AHLiveDot color={ah.warn} pulse={false} />
             <View style={{flex: 1, gap: 2}}>
-              <AHEyebrow color={ah.ok}>Preview · service partner not live yet</AHEyebrow>
-              <Text style={s.small}>Fix anything, day or night — once the service partner is live. The pros below are samples.</Text>
+              <AHEyebrow color={ah.warn}>Service partner not connected</AHEyebrow>
+              <Text style={s.small}>No pro can be dispatched from Finesse yet. Nova drafts what to do and who to call; you arrange it.</Text>
             </View>
           </AHCard>
           <SectionHead>What needs fixing?</SectionHead>
@@ -133,7 +119,7 @@ export function PenthouseFloor() {
             {JOBS.map(([k, label, ic]) => {
               const on = k === job;
               return (
-                <Pressable key={k} onPress={() => { setJob(k); setSent(false); }} accessibilityRole="button" accessibilityState={{selected: on}}
+                <Pressable key={k} onPress={() => setJob(k)} accessibilityRole="button" accessibilityState={{selected: on}}
                   style={({pressed}) => ({width: '31.5%', minHeight: 80, alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 18, borderWidth: 1, borderColor: on ? 'rgba(232,180,160,0.55)' : ah.line, backgroundColor: on ? 'rgba(183,110,121,0.14)' : ah.ink2, opacity: pressed ? 0.85 : 1})}>
                   <Icon name={ic} size={20} color={on ? ah.rose : ah.mute} />
                   <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11.5, color: on ? ah.text : ah.mute, textAlign: 'center'}}>{label}</Text>
@@ -141,27 +127,64 @@ export function PenthouseFloor() {
               );
             })}
           </View>
-          <AHInput value={note} onChangeText={(v) => setNote(v.slice(0, 140))} placeholder="Tell us what happened (optional)" accessibilityLabel="What happened" />
-          <AHEyebrow style={{marginTop: 4}}>When</AHEyebrow>
-          <Chips options={['Now', 'Tonight', 'Tomorrow AM']} value={when} onChange={(v) => { setWhen(v); setSent(false); }} />
-          {sent ? (
-            <Animated.View entering={FadeInDown.duration(300)}>
-              <AHCard pad={16} style={{flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: 'rgba(232,180,160,0.4)'}}>
-                <AHRing name={P[0]} size={44} label={false} />
-                <View style={{flex: 1, gap: 2}}>
-                  <AHEyebrow color={ah.ok}>{when === 'Now' ? 'Preview · no one dispatched' : `Preview · not booked · ${when}`}</AHEyebrow>
-                  <Text style={{fontFamily: ahFonts.serif, fontSize: 21, color: ah.text}}>{P[0]}</Text>
-                  <Text style={s.small}>{P[1]}</Text>
-                </View>
-              </AHCard>
-            </Animated.View>
-          ) : null}
-          <ActionBar color={sent ? ah.white : ah.rose} label={sent ? `Preview · not sent · ${J[1]}` : `Send a pro · ${J[1]}`} onPress={() => setSent((x) => !x)} />
-          <SampleNote>PREVIEW · NO ONE IS DISPATCHED UNTIL THE SERVICE PARTNER IS LIVE · YOU APPROVE ANY QUOTE BEFORE WORK STARTS</SampleNote>
+          <PlanWithNova key={job} room="penthouse-handyman" topic="appointment" title={`Handyman · ${J[1]}`} label={`Get help · ${J[1].toLowerCase()}`}
+            placeholder="Tell Nova what happened" acc={ah.rose} withWhen />
+          <SampleNote>LIVE · NO ONE IS DISPATCHED UNTIL A SERVICE PARTNER IS CONNECTED · YOU APPROVE ANY QUOTE BEFORE WORK STARTS</SampleNote>
         </Animated.View>
       )}
       </View>
     </View>
+  );
+}
+
+/** The inner circle — VIP posts, as the web /vip room shows them (RLS keeps it VIP-only). */
+function VipFeed() {
+  const {live, reload} = useLive<{posts: VipPost[]; me: string}>(null, readVipFeed);
+  const [draft, setDraft] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const post = async () => {
+    if (!draft.trim()) return;
+    setBusy(true); setMsg(null);
+    const r = await postVip(draft);
+    setBusy(false);
+    if (!r.ok) { setMsg({ok: false, text: r.status === 403 ? 'Only VIP key holders can post in the inner circle. Nothing was posted.' : failure(r.status, r.body, 'Nothing was posted.')}); return; }
+    setDraft('');
+    void reload(true);
+  };
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
+      <AHCard style={{gap: 10}}>
+        <AHEyebrow color={ah.rose}>Say something to the inner circle</AHEyebrow>
+        <AHInput value={draft} onChangeText={(v) => setDraft(v.slice(0, 1000))} placeholder="Only key holders see this" multiline style={{minHeight: 64, paddingTop: 12}} accessibilityLabel="Post to the inner circle" />
+        <AHPill block small label={busy ? 'Posting…' : 'Post'} onPress={() => void post()} disabled={busy || !draft.trim()} />
+        <Status msg={msg} />
+      </AHCard>
+      <LiveGate live={live} reload={() => void reload()} what="the inner circle">
+        {(d) => d.posts.length === 0 ? (
+          <AHCard><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>The inner circle is quiet.</Text><Text style={[s.small, {marginTop: 6}]}>Nothing posted yet — or your VIP key isn’t active. Only key holders see this feed.</Text></AHCard>
+        ) : (
+          <View style={{gap: 12}}>
+            {d.posts.map((p) => {
+              const name = p.author?.display_name || p.author?.username || 'A key holder';
+              return (
+                <AHCard key={p.id} pad={18} style={{gap: 10}}>
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
+                    {p.author?.avatar_url ? <Image source={{uri: p.author.avatar_url}} style={{width: 40, height: 40, borderRadius: 20}} accessibilityLabel={name} /> : <AHRing name={name} size={40} label={false} />}
+                    <View style={{flex: 1}}>
+                      <Text style={{fontFamily: ahFonts.sansBold, fontSize: 15, color: ah.text}}>{name}</Text>
+                      <Text style={{fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{new Date(p.created_at).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}{p.author?.vibe ? ` · ${p.author.vibe}` : ''}</Text>
+                    </View>
+                  </View>
+                  {p.content ? <Text style={{fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.text}}>{p.content}</Text> : null}
+                  {p.media_urls?.[0] ? <Image source={{uri: p.media_urls[0]}} style={{width: '100%', aspectRatio: 4 / 3, borderRadius: 14}} resizeMode="cover" accessibilityLabel="Attached photo" /> : null}
+                </AHCard>
+              );
+            })}
+          </View>
+        )}
+      </LiveGate>
+    </Animated.View>
   );
 }
 
