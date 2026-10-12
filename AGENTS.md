@@ -19,7 +19,9 @@ Finesse is a luxury social-connection / lifestyle platform — a 1920s grand-hot
 |---|---|---|
 | Frontend **and** API | Next.js 16 App Router at repo root (`src/`) — ALL live logic, including every `/api/*` route | Vercel `ardan-edge-capital/finesselife` → **`finesselife.vip`** (`finesselife.app` is NOT serving — verified 2026-07-14) |
 | Deploys | **CLI only:** `npm run deploy` (`vercel deploy --prod --yes`). The Vercel GitHub webhook is broken — `git push` does NOT deploy | — |
-| Database + Auth | Supabase | **`zcqcgqsovrjlxxiipuzg`** (Sean's org). Migrate via `npm run db:migrate <file>` — NOT `supabase db push` (pooler URL doesn't resolve) |
+| Database | Neon Postgres (via Cloudflare Hyperdrive) | Migrations in `db/migrations/` (plain Postgres). Supabase is being retired — see ADR-0002 |
+| Auth | WorkOS (AuthKit, passkeys + step-up) | Worker verifies WorkOS JWTs and sets Postgres session claims |
+| API | Cloudflare Worker (Hono) `workers/api` → `api.finesselife.vip` | Queues for outbox relay, R2 for files |
 | Object storage | Cloudflare R2, bucket `finesse-life` (storage only; DNS is Porkbun) | — |
 | AI | Anthropic Claude via Vercel AI Gateway (Nova / Stylist concierge) | — |
 | Backend | `backend/` FastAPI on Railway — **DORMANT**, built but not deployed (ADR-0001). Do not build on it unless deliberately activating it | — |
@@ -29,7 +31,10 @@ Finesse-Life-/
 ├── src/app/            Next.js App Router — ACTIVE. (auth)/ (hotel)/ rooms, api/ (all live server logic)
 ├── src/components/     UI — Payload shell (rails, tiles) + hotel skin
 ├── backend/            FastAPI — DORMANT, not deployed (ADR-0001)
-├── supabase/           SQL migrations (run via npm run db:migrate)
+├── db/migrations/      Postgres (Neon) migrations — canonical
+├── workers/api/        Cloudflare Worker API (Hono)
+├── finesse-mobile/     Expo app
+├── supabase/           legacy Supabase migrations (source for the port; do not edit)
 ├── docs/
 │   ├── STATE.md        current built/wired/live state (read at session start)
 │   ├── decisions/      ADRs
