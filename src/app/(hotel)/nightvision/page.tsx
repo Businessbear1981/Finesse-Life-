@@ -868,37 +868,19 @@ export default function NightvisionPage() {
   const handleConnectInstagram = () => {
     const hasEnv = !!process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
     if (!hasEnv) {
-      showToast('Instagram OAuth · wiring in progress');
-      // Optimistically mark connected for demo flow
-      setSources((p) => ({...p, instagram: true}));
+      // Not connected until the provider confirms; never mark a source connected without OAuth.
+      showToast('Instagram is not available yet');
       return;
     }
     window.location.href = '/api/auth/instagram';
   };
 
-  const handleConnectSnapchat = () => {
-    showToast('Snapchat OAuth · wiring in progress');
-    setSources((p) => ({...p, snapchat: true}));
-  };
+  // Snapchat and Plaid have no backend integration yet (Plaid is financial data: needs Sean's sign-off given
+  // the "no financial data" rule for standing). Never show them as connected.
+  const handleConnectSnapchat = () => showToast('Snapchat is not available yet');
+  const handleConnectPlaid = () => showToast('Bank connections are not available');
 
-  const handleConnectPlaid = async () => {
-    try {
-      const res = await fetch('/api/plaid/link', {method: 'POST'});
-      if (!res.ok) throw new Error('not configured');
-      const data = (await res.json()) as {link_token?: string};
-      if (data.link_token) {
-        showToast('Plaid Link initializing...');
-        setSources((p) => ({...p, plaid: true}));
-      }
-    } catch {
-      showToast('Plaid · wiring in progress');
-      setSources((p) => ({...p, plaid: true}));
-    }
-  };
-
-  const handleConnectSpotify = () => {
-    window.location.href = '/api/auth/spotify';
-  };
+  const handleConnectSpotify = () => showToast('Spotify is not available yet');
 
   // ── questionnaire handlers ──
   function handleSingleSelect(qId: keyof Answers, value: string) {

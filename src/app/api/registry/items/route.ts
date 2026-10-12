@@ -93,8 +93,7 @@ export async function POST(req: Request) {
     const body = parsed.data;
 
     if (!user) {
-      // Allow unauthenticated in demo — return a synthetic id
-      return NextResponse.json({ success: true, id: `demo_${Date.now()}` });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Real schema (registry_items): name/image_url, not title/photo_url; no

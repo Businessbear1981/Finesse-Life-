@@ -314,7 +314,7 @@ function FantasyTab() {
             Find your League ID + Team ID in the Yahoo Fantasy URL.
           </p>
           <p className="font-body text-[10px] mb-6" style={{color: `rgba(255,169,107,0.4)`}}>
-            Demo mode — OAuth2 coming in phase 2
+            First time? You&apos;ll be asked to sign in to Yahoo (read-only).
           </p>
 
           <div className="space-y-3 mb-5">

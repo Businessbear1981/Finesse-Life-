@@ -166,7 +166,7 @@ export default function PerDiemPage() {
         }
       }
     } catch {
-      /* keep demo plan on error */
+      /* keep the current plan on error */
     } finally {
       setGenerating(false);
     }
