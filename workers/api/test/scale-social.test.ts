@@ -1,3 +1,4 @@
+import { strikePenaltyBps } from '../src/policy';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pgDatabase, type Tx } from '../src/db';
 import { createCampaign, decline, openCampaign, pledge, tick, updateShipment, withdraw, campaignView } from '../src/scale/service';
@@ -19,6 +20,10 @@ describe('scale forecast (Model v1)', () => {
   it('raises an early warning when the goal looks unlikely', () => {
     expect(forecast({ unitGoal: 800, committed: 100, unitsPerDay: 5, daysLeft: 10, waitlist: 160 }).earlyWarning).toBe(true);
   });
+  it('strike ladder escalates from a free warning to full penalty', () => {
+    expect([1, 2, 3, 4, 5, 9].map(strikePenaltyBps)).toEqual([0, 2500, 5000, 10000, 10000, 10000]);
+  });
+
   it('orders the waitlist FCFS with strike/card penalties and same-hour Patron priority', () => {
     const t = (m: number) => new Date(Date.UTC(2026, 9, 1, 10, m));
     const out = orderWaitlist([
@@ -104,6 +109,9 @@ run('scale + social against Postgres', () => {
     expect(shipping.orders).toHaveLength(4);
     const strikes = (await svc((tx) => tx.query<{ reason: string }>('select reason from scale.strikes order by created_at'))).rows.map((r) => r.reason);
     expect(strikes).toEqual(['declined_in_window', 'charge_failed']);
+    // first strike for each member: warning only (0 bps), expires on the rolling 12-month window
+    const sk = (await svc((tx) => tx.query<{ penalty_bps: number; days: number }>("select penalty_bps, round(extract(epoch from expires_at - created_at) / 86400)::int days from scale.strikes"))).rows;
+    expect(sk.every((r) => r.penalty_bps === 0 && r.days === 365)).toBe(true);
     const paid = (await svc((tx) => tx.query<{ amount_cents: string }>("select amount_cents from scale.pledges where status = 'paid'"))).rows;
     expect(paid.every((p) => Number(p.amount_cents) === 12000)).toBe(true);
     // idempotent: re-running the tick charges nobody twice
@@ -150,6 +158,11 @@ run('scale + social against Postgres', () => {
     // friend can see their referral row; others cannot
     const seen = await db.tx('app_user', { uid: users[2]!, sub: 'x' }, async (tx) => (await tx.query('select status from social.referrals')).rows);
     expect(seen).toEqual([{ status: 'signed_up' }].map(() => ({ status: 'credited' })));
+    // post-payout refund: default policy keeps the credit; confirmed fraud claws it back
+    await svc((tx) => proRefunded(tx, users[2]!));
+    expect((await svc((tx) => tx.query('select status from social.referral_payouts'))).rows).toEqual([{ status: 'pending_partner' }]);
+    await svc((tx) => proRefunded(tx, users[2]!, { fraud: true }));
+    expect((await svc((tx) => tx.query('select status, clawback_reason from social.referral_payouts'))).rows).toEqual([{ status: 'clawback_pending', clawback_reason: 'fraud' }]);
   });
 
   it('standing recompute writes bands with reasons and respects rating rules', async () => {

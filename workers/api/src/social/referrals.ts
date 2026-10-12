@@ -1,10 +1,11 @@
 // "Refer a friend, get $75" (Workflow §6). Paid once the friend's first Pro payment clears and the
 // refund hold passes. A marketing expense loaded via the card partner; Finesse holds no member funds.
 import type { Tx } from '../db';
+import { REFERRAL_POLICY } from '../policy';
 
-export const PAYOUT_CENTS = 7500;
-export const HOLD_DAYS = 30;            // assumption pending Sean
-export const ANNUAL_PAYOUT_CAP = 20;    // assumption pending Sean: max credited referrals per member per year
+export const PAYOUT_CENTS = REFERRAL_POLICY.payoutCents;
+export const HOLD_DAYS = REFERRAL_POLICY.holdDays;
+export const ANNUAL_PAYOUT_CAP = REFERRAL_POLICY.annualPayoutCap;
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export function newCode(rand: () => number = Math.random): string {
@@ -52,8 +53,15 @@ export async function proPaymentCleared(tx: Tx, friend: string, paidAt = new Dat
 }
 
 /** Billing webhook: Pro plan refunded inside the hold → void. */
-export async function proRefunded(tx: Tx, friend: string) {
+export async function proRefunded(tx: Tx, friend: string, opts: { fraud?: boolean } = {}) {
   await tx.query("update social.referrals set status = 'void', void_reason = 'friend refunded', updated_at = now() where friend_id = $1 and status in ('signed_up','held')", [friend]);
+  // After payout: claw back only when policy says so, or always for confirmed fraud.
+  if (!REFERRAL_POLICY.clawbackAfterPayout && !opts.fraud) return;
+  const rows = (await tx.query<{ id: string; referral_id: string; amount_cents: number }>(
+    `update social.referral_payouts p set status = 'clawback_pending', clawback_reason = $2
+       from social.referrals r where r.id = p.referral_id and r.friend_id = $1 and r.status = 'credited' and p.status in ('pending_partner','credited')
+     returning p.id, p.referral_id, p.amount_cents`, [friend, opts.fraud ? 'fraud' : 'friend refunded after payout'])).rows;
+  for (const p of rows) await tx.query("select orch.emit('referral.clawback', $1::jsonb, 'social')", [{ payout_id: p.id, referral_id: p.referral_id, amount_cents: p.amount_cents }]);
 }
 
 /** Cron: credit referrals whose hold has passed, within the per-member annual cap. */

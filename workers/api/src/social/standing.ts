@@ -1,15 +1,16 @@
 // Standing (social score) per the Engines Spec. Not a credit score: Finesse activity and accounts the
 // member connected on purpose only; no financial data; output sets priority and perks only.
 import type { Tx } from '../db';
+import { SOCIAL_POLICY } from '../policy';
 
 export const FACTORS = ['interactions', 'positive_content', 'brand_ambassadorship', 'helping_others', 'outing_feedback', 'campaign_participation'] as const;
 export type Factor = (typeof FACTORS)[number];
-export const WEIGHTS: Record<Factor, number> = { interactions: 20, positive_content: 15, brand_ambassadorship: 20, helping_others: 15, outing_feedback: 20, campaign_participation: 10 };
-export const VERSION = 1;
-export const HALF_LIFE_DAYS = 90;
-export const STRIKE_POINTS = 4, STRIKE_CAP = 20;
-export const MIN_RATERS = 5;
-export const BUILDING_DAYS = 14, BUILDING_SIGNALS = 30;
+export const WEIGHTS: Record<Factor, number> = SOCIAL_POLICY.weights;
+export const VERSION = SOCIAL_POLICY.version;
+export const HALF_LIFE_DAYS = SOCIAL_POLICY.halfLifeDays;
+export const STRIKE_POINTS = SOCIAL_POLICY.strikePoints, STRIKE_CAP = SOCIAL_POLICY.strikeCap;
+export const MIN_RATERS = SOCIAL_POLICY.minRaters;
+export const BUILDING_DAYS = SOCIAL_POLICY.buildingDays, BUILDING_SIGNALS = SOCIAL_POLICY.buildingSignals;
 export type Band = 'Arrival' | 'Resident' | 'Regular' | 'Patron' | 'Ambassador';
 
 export const LABELS: Record<Factor, string> = {

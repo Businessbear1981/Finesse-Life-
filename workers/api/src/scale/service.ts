@@ -1,5 +1,6 @@
 import type { Tx } from '../db';
 import type { PaymentGateway, ShippingProvider } from './adapters';
+import { SCALE_POLICY, strikePenaltyBps } from '../policy';
 import { BAR_AT_STRIKES, defaultWaitlistSize, forecast, orderWaitlist, type WaitlistEntry } from './forecast';
 
 export class ScaleError extends Error { constructor(public code: 400 | 403 | 404 | 409, msg: string) { super(msg); } }
@@ -21,7 +22,7 @@ export async function createCampaign(tx: Tx, c: CampaignInput, by: string): Prom
     `insert into scale.campaigns(title, edition, product, retail_cents, unit_goal, waitlist_size, max_per_member, closes_at, decline_window_hours, rebate_bps, wholesale, fulfilment, created_by)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) returning id`,
     [c.title, c.edition ?? 'both', c.product ?? {}, c.retail_cents, c.unit_goal, c.waitlist_size ?? defaultWaitlistSize(c.unit_goal),
-     c.max_per_member ?? 5, c.closes_at, c.decline_window_hours ?? 12, c.rebate_bps ?? 0, c.wholesale ?? {}, c.fulfilment ?? {}, by])).rows[0]!.id;
+     c.max_per_member ?? 5, c.closes_at, c.decline_window_hours ?? SCALE_POLICY.declineWindowHours, c.rebate_bps ?? 0, c.wholesale ?? {}, c.fulfilment ?? {}, by])).rows[0]!.id;
   for (const t of c.tiers) await tx.query('insert into scale.tiers(campaign_id, min_units, unit_price_cents, unit_cost_cents) values ($1,$2,$3,$4)', [id, t.min_units, t.unit_price_cents, t.unit_cost_cents ?? null]);
   return id;
 }
@@ -99,8 +100,15 @@ async function promoteBackups(tx: Tx, id: string, freed: number, now: Date): Pro
 }
 
 async function strike(tx: Tx, uid: string, campaignId: string, pledgeId: string, reason: 'declined_in_window' | 'charge_failed') {
-  await tx.query('insert into scale.strikes(user_id, campaign_id, pledge_id, reason) values ($1,$2,$3,$4)', [uid, campaignId, pledgeId, reason]);
-  await emit(tx, 'strike.issued', { campaign_id: campaignId, pledge_id: pledgeId, reason, user_id: uid });
+  const n = (await openStrikes(tx, uid)) + 1;
+  const bps = strikePenaltyBps(n);
+  const pledgeCents = (await tx.query<{ c: number }>('select (p.quantity * c.retail_cents)::int c from scale.pledges p join scale.campaigns c on c.id = p.campaign_id where p.id = $1', [pledgeId])).rows[0]?.c ?? 0;
+  const penalty = Math.round(pledgeCents * bps / 10000);
+  await tx.query(
+    `insert into scale.strikes(user_id, campaign_id, pledge_id, reason, expires_at, penalty_bps, penalty_cents, policy_version)
+     values ($1,$2,$3,$4, now() + make_interval(days => $5), $6, $7, $8)`,
+    [uid, campaignId, pledgeId, reason, SCALE_POLICY.strikeExpiryDays, bps, penalty, SCALE_POLICY.version]);
+  await emit(tx, 'strike.issued', { campaign_id: campaignId, pledge_id: pledgeId, reason, user_id: uid, strike_number: n, penalty_bps: bps, penalty_cents: penalty, charge: SCALE_POLICY.chargePenalties && penalty > 0 });
 }
 
 export async function decline(tx: Tx, id: string, uid: string, now = new Date()) {

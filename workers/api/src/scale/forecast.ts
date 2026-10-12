@@ -30,13 +30,11 @@ export function forecast(i: ForecastInput): Forecast {
 }
 const round = (x: number) => Math.round(x * 1000) / 1000;
 
-export const defaultWaitlistSize = (unitGoal: number) => Math.ceil(unitGoal * 0.2);
+import { SCALE_POLICY } from '../policy';
+export { strikePenaltyBps } from '../policy';
+export const defaultWaitlistSize = (unitGoal: number) => Math.ceil(unitGoal * SCALE_POLICY.waitlistShare);
 
-/** Strike ladder from the Workflow doc (pending Sean's confirmation): penalty share of the pledge, 5th strike bars. */
-export function strikePenaltyBps(openStrikes: number): number {
-  return openStrikes <= 1 ? 0 : openStrikes === 2 ? 2500 : openStrikes === 3 ? 5000 : 10000;
-}
-export const BAR_AT_STRIKES = 5;
+export const BAR_AT_STRIKES = SCALE_POLICY.barAtStrikes;
 
 export interface WaitlistEntry { id: string; created_at: Date; open_strikes: number; card_failing: boolean; band?: string | null }
 
