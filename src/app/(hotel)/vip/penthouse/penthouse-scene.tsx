@@ -1,41 +1,76 @@
 'use client';
 
-import {useEffect, useState} from 'react';
-import Link from 'next/link';
+// The Penthouse, After Hours: the top of the house at night. Purely presentational over the gate in
+// page.tsx (VIP entitlement + a live private-lift session); the only action here is closing the lift.
+
+import {useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {motion, useReducedMotion} from 'framer-motion';
+import {AHCard, AHChip, AHDisplay, AHEyebrow, AHIndex, AHPill, AHSection, useLocalPref, type IndexItem} from '@/components/after-hours';
 import {trackFromGender, type Track} from '@/lib/rooms/registry';
+import './penthouse.css';
 
-const ARRIVAL: Record<Track, {gradient: string; accent: string; lines: string[]}> = {
-  finesse: {
-    gradient: 'linear-gradient(180deg, rgba(255,77,125,0.22) 0%, rgba(201,169,97,0.12) 35%, #080406 75%)',
-    accent: '#FF4D7D',
-    lines: ['Private care', 'Styling by appointment', 'The inner circle'],
-  },
-  carpe_diem: {
-    gradient: 'linear-gradient(180deg, rgba(255,169,107,0.22) 0%, rgba(107,80,40,0.2) 35%, #080406 75%)',
-    accent: '#FFA96B',
-    lines: ['Tables held', 'Travel and access', 'The inner circle'],
-  },
+const ARRIVAL: Record<Track, {lines: string[]}> = {
+  finesse: {lines: ['Private care', 'Styling by appointment', 'The inner circle']},
+  carpe_diem: {lines: ['Tables held', 'Travel and access', 'The inner circle']},
 };
 
-const SUITES = [
-  {href: '/vip', label: 'The Inner Room', note: 'Private feed, exclusives and Telegram line — live'},
-  {href: '/concierge', label: 'Nova, after hours', note: 'Concierge requests routed with VIP context — live'},
-  {href: '/backstage', label: 'Backstage', note: 'Your private profile, behind its own KeyLock — live'},
-  {href: '/stylist', label: 'The Stylist', note: 'Human edit layer — preview'},
+// Honest labels: what is wired today vs. a preview.
+const SUITES: IndexItem[] = [
+  {href: '/vip', name: 'The Inner Room', sub: 'Private feed, exclusives and the Telegram line', tag: 'Live', tagTone: 'live'},
+  {href: '/concierge', name: 'Nova, after hours', sub: 'Concierge requests routed with VIP context', tag: 'Live', tagTone: 'live'},
+  {href: '/backstage', name: 'Backstage', sub: 'Your private profile, behind its own KeyLock', tag: 'Live', tagTone: 'live'},
+  {href: '/stylist', name: 'The Stylist', sub: 'Human edit layer', tag: 'Preview'},
 ];
+
+/* A deterministic night skyline (no randomness at render). */
+type Tower = {x: number; w: number; h: number; lit: [number, number][]};
+const TOWERS: Tower[] = (() => {
+  let seed = 23;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const out: Tower[] = [];
+  let x = -6;
+  while (x < 1200) {
+    const w = 14 + Math.round(rnd() * 26);
+    const tall = rnd() > 0.82;
+    const h = tall ? 120 + Math.round(rnd() * 70) : 40 + Math.round(rnd() * 80);
+    const lit: [number, number][] = [];
+    for (let row = 8; row < h - 6; row += 7) {
+      for (let col = 4; col < w - 4; col += 5) if (rnd() > 0.86) lit.push([col, row]);
+    }
+    out.push({x, w, h, lit});
+    x += w + 2 + Math.round(rnd() * 4);
+  }
+  return out;
+})();
+
+function Skyline() {
+  return (
+    <svg className="ph-skyline" viewBox="0 0 1200 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="ph-tower" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#141218" />
+          <stop offset="1" stopColor="#050506" />
+        </linearGradient>
+      </defs>
+      {TOWERS.map((t, i) => (
+        <g key={i} transform={`translate(${t.x} ${220 - t.h})`}>
+          <rect width={t.w} height={t.h} fill="url(#ph-tower)" />
+          <rect width={t.w} height="0.6" fill="rgba(255,255,255,.18)" />
+          {t.lit.map(([cx, cy], j) => (
+            <rect key={j} x={cx} y={cy} width="1.6" height="2.2" className={j % 3 === 0 ? 'ph-win ph-win-warm' : 'ph-win'} />
+          ))}
+        </g>
+      ))}
+    </svg>
+  );
+}
 
 export function PenthouseScene({expiresAt}: {expiresAt: string}) {
   const reduce = useReducedMotion();
   const router = useRouter();
-  const [track, setTrack] = useState<Track>('finesse');
+  const track = useLocalPref<Track>('finesse_gender', trackFromGender, 'finesse');
   const [closing, setClosing] = useState(false);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- read client-only side preference
-    setTrack(trackFromGender(localStorage.getItem('finesse_gender')));
-  }, []);
 
   const a = ARRIVAL[track];
   const until = new Date(expiresAt).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
@@ -47,50 +82,60 @@ export function PenthouseScene({expiresAt}: {expiresAt: string}) {
   };
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#080406] text-cream">
+    <main className="ah-room ph" data-track={track}>
+      {/* The view: night sky, skyline, floor-to-ceiling glass. Opens from the centre like the lift doors. */}
       <motion.div
-        className="pointer-events-none absolute inset-0"
-        style={{background: a.gradient}}
+        className="ph-view"
         initial={reduce ? false : {clipPath: 'inset(0 50% 0 50%)'}}
         animate={{clipPath: 'inset(0 0% 0 0%)'}}
         transition={{duration: 0.9, ease: [0.16, 1, 0.3, 1]}}
         aria-hidden="true"
-      />
-      {/* Skyline window: stepped Deco mullions */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[55vh] opacity-60" aria-hidden="true"
-        style={{background: 'repeating-linear-gradient(90deg, transparent 0 calc(12.5% - 1px), rgba(201,169,97,0.25) calc(12.5% - 1px) 12.5%)'}} />
+      >
+        <div className="ph-sky" />
+        <Skyline />
+        <div className="ph-glass" />
+        <div className="ph-fade" />
+      </motion.div>
 
-      <div className="relative mx-auto flex max-w-3xl flex-col items-center px-6 pb-24 pt-20 text-center">
-        <p className="font-label text-[11px] uppercase tracking-[0.6em] text-brass">Floor 17 · P</p>
-        <h1 className="mt-4 font-display text-5xl italic tracking-[0.08em] text-brass-highlight sm:text-6xl">The Penthouse</h1>
-        <p className="mt-3 font-body text-lg italic text-cream/80">The lift remembers you.</p>
-        <div className="mt-6 flex items-center gap-3" aria-hidden="true">
-          <span className="h-px w-16 bg-brass/50" /><span className="h-2 w-2 rotate-45" style={{background: a.accent}} /><span className="h-px w-16 bg-brass/50" />
-        </div>
-        <ul className="mt-6 flex flex-wrap justify-center gap-x-6 gap-y-2 font-label text-[10px] uppercase tracking-[0.35em] text-cream/70">
-          {a.lines.map((l) => <li key={l}>{l}</li>)}
-        </ul>
+      <div className="ah-wrap ph-wrap">
+        <header className="ph-top">
+          <span className="ah-mark">FINESSE</span>
+          <span className="ph-floor" aria-label="Floor 17, Penthouse">
+            <span>17</span>
+            <i aria-hidden="true" />
+            <span>P</span>
+          </span>
+        </header>
 
-        <nav aria-label="Penthouse suites" className="mt-12 grid w-full gap-3 sm:grid-cols-2">
-          {SUITES.map((s) => (
-            <Link key={s.href} href={s.href} className="group min-h-20 border border-brass/30 bg-ink/70 p-5 text-left transition hover:border-brass/70">
-              <span className="block font-display text-xl text-cream group-hover:text-brass-highlight">{s.label}</span>
-              <span className="mt-1 block font-body text-sm italic text-cream/60">{s.note}</span>
-            </Link>
-          ))}
-        </nav>
+        <section className="ph-hero">
+          <AHEyebrow>Floor 17 · The top of the house</AHEyebrow>
+          <AHDisplay size="xl" style={{marginTop: 12}}>The<br />Penthouse.</AHDisplay>
+          <p className="ah-serif-i" style={{margin: '14px 0 0', fontSize: 22, lineHeight: 1.2, color: 'var(--ah-text)'}}>
+            The lift remembers you.
+          </p>
+          <ul className="ph-lines">
+            {a.lines.map((l) => <li key={l}>{l}</li>)}
+          </ul>
+        </section>
 
-        <p className="mt-10 font-body text-xs italic text-cream/50">
-          Lift session held until {until}. Arriving here is access, not a purchase.
-        </p>
-        <button
-          type="button"
-          onClick={() => void lock()}
-          disabled={closing}
-          className="mt-4 min-h-11 border border-brass/40 px-5 py-3 font-label text-[10px] uppercase tracking-[0.4em] text-brass hover:bg-brass/10 disabled:opacity-50"
-        >
-          {closing ? 'Descending…' : 'Close the lift'}
-        </button>
+        <AHSection title="On this floor" style={{marginTop: 44}}>
+          <nav aria-label="Penthouse suites">
+            <AHIndex items={SUITES} />
+          </nav>
+        </AHSection>
+
+        <AHCard glass className="ph-session">
+          <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
+            <AHChip><i className="ah-live-dot" />Lift held</AHChip>
+            <span className="ah-num" style={{fontSize: 13, color: 'var(--ah-mute)'}} suppressHydrationWarning>until {until}</span>
+          </div>
+          <p style={{margin: '14px 0 16px', fontSize: 13, lineHeight: 1.5, color: 'var(--ah-mute)'}}>
+            Your lift session is held for a while. Arriving here is access, not a purchase.
+          </p>
+          <AHPill variant="ghost" block onClick={() => void lock()} disabled={closing}>
+            {closing ? 'Descending…' : 'Close the lift'}
+          </AHPill>
+        </AHCard>
       </div>
     </main>
   );

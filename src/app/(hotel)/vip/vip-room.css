@@ -1,0 +1,143 @@
+/* The Inner Room (VIP), After Hours. Builds on src/components/after-hours/after-hours.css. */
+
+.vip-room .ah-room-glow {
+  height: 640px;
+  background:
+    radial-gradient(70% 50% at 80% 0%, rgba(183, 110, 121, 0.3), transparent 70%),
+    radial-gradient(45% 40% at 5% 18%, rgba(185, 188, 194, 0.1), transparent 70%),
+    radial-gradient(60% 30% at 50% 100%, rgba(142, 75, 85, 0.12), transparent 70%);
+}
+
+.vip-line {
+  overflow: hidden;
+  border-color: rgba(232, 180, 160, 0.18);
+  background:
+    radial-gradient(80% 60% at 100% 0%, rgba(183, 110, 121, 0.22), transparent 70%),
+    rgba(18, 16, 17, 0.75);
+}
+.vip-line-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--ah-line);
+}
+.vip-linked {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--ah-text);
+}
+
+/* Feed */
+.vip-feed { display: flex; flex-direction: column; gap: 14px; }
+.vip-post {
+  overflow: hidden;
+  border-radius: 24px;
+  background: var(--ah-ink-2);
+  border: 1px solid var(--ah-line);
+}
+.vip-post-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 12px; }
+.vip-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 1.5px;
+  background: conic-gradient(from 200deg, #f4f4f2, #b76e79, #e8b4a0, #8e9298, #f4f4f2);
+}
+.vip-avatar > span, .vip-avatar > img {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--ah-ink-2);
+  background: #1b1b1f;
+  object-fit: cover;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+}
+.vip-post-name { margin: 0; font-family: var(--ah-serif); font-size: 20px; line-height: 1.1; color: var(--ah-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vip-post-vibe { margin: 2px 0 0; font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ah-rose); }
+.vip-post-time { flex: none; font-size: 12px; color: var(--ah-faint); }
+.vip-post-media { position: relative; aspect-ratio: 16 / 10; margin: 0 10px; border-radius: 16px; overflow: hidden; background: #111; }
+.vip-post-media img { width: 100%; height: 100%; object-fit: cover; }
+.vip-post-body { margin: 0; padding: 12px 16px 4px; font-size: 15px; line-height: 1.55; color: rgba(237, 235, 231, 0.86); white-space: pre-wrap; overflow-wrap: anywhere; }
+.vip-post-foot { display: flex; align-items: center; gap: 6px; padding: 10px 16px 16px; font-size: 12px; color: var(--ah-mute); }
+.vip-post-foot svg { color: var(--ah-rose); }
+
+.vip-empty {
+  padding: 40px 20px;
+  border-radius: 24px;
+  border: 1px dashed var(--ah-line-2);
+  text-align: center;
+}
+
+/* Post button + sheet */
+.vip-fab {
+  position: fixed;
+  right: 72px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--ah-rose-grad);
+  color: #2a1014;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset, 0 0 28px rgba(183, 110, 121, 0.45), 0 10px 24px rgba(0, 0, 0, 0.6);
+  transition: transform 0.15s ease;
+}
+.vip-fab:active { transform: scale(0.95); }
+.vip-fab:focus-visible, .vip-sheet-x:focus-visible { outline: 2px solid var(--ah-rose); outline-offset: 3px; }
+.vip-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: rgba(0, 0, 0, 0.7);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.vip-sheet {
+  width: 100%;
+  max-width: 34rem;
+  border-radius: 28px;
+  padding: 20px;
+  background: rgba(20, 20, 22, 0.92);
+  border: 1px solid var(--ah-line-2);
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6), 0 0 60px rgba(183, 110, 121, 0.12);
+  font-family: var(--ah-sans);
+  color: var(--ah-text);
+}
+.vip-sheet-x {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -8px 0 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ah-mute);
+  cursor: pointer;
+}
+.vip-sheet textarea { resize: none; min-height: 120px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .vip-fab { transition: none; }
+}

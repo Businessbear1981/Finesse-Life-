@@ -1,10 +1,13 @@
 'use client';
 
 import {useActionState, useRef, useState} from 'react';
+import Link from 'next/link';
+import {AHDisplay, AHEyebrow, AHRoom, AHTopBar} from '@/components/after-hours';
 import {enterDemo} from './actions';
 
 const initialState = {error: null as string | null};
 
+/** Demo entry by access code (After Hours). Same server action and behaviour as before. */
 export default function DemoPage() {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
@@ -27,107 +30,20 @@ export default function DemoPage() {
   );
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{background: '#0A0406'}}
-    >
-      {/* Chandelier glow */}
-      <div
-        className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[420px] h-[360px]"
-        style={{
-          background:
-            'radial-gradient(ellipse at top, rgba(201,169,97,0.10) 0%, rgba(74,25,34,0.06) 45%, transparent 70%)',
-          animation: 'chandelier-pulse 4s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="pointer-events-none absolute bottom-0 left-0 right-0 h-[40%]"
-        style={{
-          background: 'linear-gradient(to top, rgba(74,25,34,0.08) 0%, transparent 70%)',
-        }}
-      />
+    <AHRoom>
+      <AHTopBar right={<Link href="/login" className="ah-pill ah-pill-ghost" style={{minHeight: 38, fontSize: 13}}>Member sign in</Link>} />
 
-      <div className="relative z-10 w-full max-w-[420px] px-6 py-10">
-        {/* Chandelier ornament */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-px h-8"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(201,169,97,0.5), rgba(201,169,97,0.15))',
-            }}
-          />
-          <div
-            className="w-3 h-3 rotate-45 border mb-1"
-            style={{
-              borderColor: 'rgba(201,169,97,0.45)',
-              boxShadow: '0 0 12px rgba(201,169,97,0.2)',
-            }}
-          />
-          <div
-            className="w-10 h-2 border-x border-b"
-            style={{
-              borderColor: 'rgba(201,169,97,0.22)',
-              background: 'rgba(201,169,97,0.04)',
-            }}
-          />
-          <div
-            className="w-16 h-2 border-x border-b"
-            style={{
-              borderColor: 'rgba(201,169,97,0.12)',
-              background: 'rgba(201,169,97,0.02)',
-            }}
-          />
-        </div>
+      <div style={{maxWidth: 400, margin: '0 auto', paddingTop: 18}}>
+        <AHEyebrow>Demo · By invitation only</AHEyebrow>
+        <AHDisplay size="l" style={{marginTop: 8}}>A look inside.</AHDisplay>
+        <p style={{margin: '12px 0 26px', fontSize: 15, lineHeight: 1.5, color: 'var(--ah-mute)'}}>
+          Private lifestyle intelligence. Curated experiences. Zero noise. Enter the access code your host gave you.
+        </p>
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1
-            className="font-display italic tracking-[0.22em] text-3xl"
-            style={{
-              color: '#E8C87A',
-              textShadow: '0 0 30px rgba(201,169,97,0.2), 0 2px 4px rgba(0,0,0,0.9)',
-            }}
-          >
-            FINESSE
-          </h1>
-          <div className="flex items-center justify-center gap-3 mt-2 mb-4">
-            <div className="w-12 h-px" style={{background: 'rgba(201,169,97,0.2)'}} />
-            <span
-              className="font-label text-[7px] tracking-[0.5em] uppercase"
-              style={{color: 'rgba(201,169,97,0.35)'}}
-            >
-              by invitation only
-            </span>
-            <div className="w-12 h-px" style={{background: 'rgba(201,169,97,0.2)'}} />
-          </div>
-          <p
-            className="font-body text-sm leading-relaxed"
-            style={{color: 'rgba(244,232,208,0.4)'}}
-          >
-            Private lifestyle intelligence.
-            <br />
-            Curated experiences. Zero noise.
-          </p>
-        </div>
-
-        {/* Form card */}
-        <div
-          className="border p-7"
-          style={{
-            borderColor: 'rgba(201,169,97,0.12)',
-            background: 'rgba(10,4,6,0.8)',
-            boxShadow: '0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
-          }}
-        >
-          <form action={formAction} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="accessCode"
-                className="font-label text-[9px] tracking-[0.3em] uppercase"
-                style={{color: 'rgba(201,169,97,0.45)'}}
-              >
-                Access Code
-              </label>
+        <div className="ah-card ah-card-glass" style={{padding: 22}}>
+          <form action={formAction} style={{display: 'grid', gap: 18}}>
+            <div style={{display: 'grid', gap: 8}}>
+              <label htmlFor="accessCode" className="ah-eyebrow">Access code</label>
               <input
                 ref={inputRef}
                 id="accessCode"
@@ -142,28 +58,22 @@ export default function DemoPage() {
                   setCode(e.target.value);
                   if (error) setError('');
                 }}
-                className="w-full px-4 py-3 border bg-transparent font-label text-sm tracking-[0.25em] uppercase focus:outline-none transition-colors duration-200"
+                className={`ah-input ah-num${shake ? ' demo-shake' : ''}`}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? 'accessCode-error' : undefined}
                 style={{
-                  borderColor: error ? 'rgba(220,80,80,0.5)' : 'rgba(201,169,97,0.15)',
-                  color: error ? 'rgba(220,80,80,0.9)' : '#F4E8D0',
-                  caretColor: '#C9A961',
-                  animation: shake ? 'shake 0.4s ease-in-out' : 'none',
-                }}
-                onFocus={(e) => {
-                  if (!error)
-                    e.currentTarget.style.borderColor = 'rgba(201,169,97,0.45)';
-                }}
-                onBlur={(e) => {
-                  if (!error)
-                    e.currentTarget.style.borderColor = 'rgba(201,169,97,0.15)';
+                  minHeight: 54,
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.32em',
+                  fontSize: 17,
+                  fontWeight: 600,
+                  ...(error ? {borderColor: 'rgba(255,138,160,0.6)', color: '#ff8aa0'} : null),
                 }}
                 placeholder="——————"
               />
               {error && (
-                <p
-                  className="font-body text-xs italic mt-0.5"
-                  style={{color: 'rgba(220,80,80,0.85)'}}
-                >
+                <p id="accessCode-error" role="alert" style={{margin: '2px 0 0', fontSize: 14, color: '#ff8aa0', textAlign: 'center'}}>
                   {error}
                 </p>
               )}
@@ -172,69 +82,21 @@ export default function DemoPage() {
             <button
               type="submit"
               disabled={loading || !code.trim()}
-              className="w-full py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-40"
-              style={{
-                borderColor: 'rgba(201,169,97,0.35)',
-                color: '#E8C87A',
-                background: 'rgba(201,169,97,0.04)',
-                textShadow: '0 0 8px rgba(201,169,97,0.3)',
-              }}
-              onMouseEnter={(e) => {
-                if (!loading && code.trim()) {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(201,169,97,0.10)';
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    'rgba(201,169,97,0.55)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  'rgba(201,169,97,0.04)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  'rgba(201,169,97,0.35)';
-              }}
+              className="ah-pill ah-pill-solid ah-pill-block"
+              style={{minHeight: 50, marginTop: 4}}
             >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" />
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse"
-                    style={{animationDelay: '150ms'}}
-                  />
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse"
-                    style={{animationDelay: '300ms'}}
-                  />
-                </span>
-              ) : (
-                'Enter'
-              )}
+              {loading ? 'Checking the list…' : 'Enter'}
             </button>
           </form>
         </div>
 
-        {/* Footer note */}
-        <div className="flex flex-col items-center mt-7 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
-            <div className="w-1 h-1 rotate-45" style={{background: 'rgba(201,169,97,0.15)'}} />
-            <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
-          </div>
-          <p
-            className="font-body text-xs text-center"
-            style={{color: 'rgba(244,232,208,0.25)'}}
-          >
-            Requesting access? Contact your host.
-          </p>
-        </div>
+        <p style={{margin: '22px 0 0', textAlign: 'center', fontSize: 14, color: 'var(--ah-mute)'}}>
+          Requesting access? Contact your host.
+        </p>
       </div>
 
-      <style jsx>{`
-        @keyframes chandelier-pulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-        @keyframes shake {
+      <style>{`
+        @keyframes demo-shake {
           0%, 100% { transform: translateX(0); }
           15% { transform: translateX(-6px); }
           30% { transform: translateX(6px); }
@@ -243,7 +105,9 @@ export default function DemoPage() {
           75% { transform: translateX(-2px); }
           90% { transform: translateX(2px); }
         }
+        .demo-shake { animation: demo-shake 0.4s ease-in-out; }
+        @media (prefers-reduced-motion: reduce) { .demo-shake { animation: none; } }
       `}</style>
-    </div>
+    </AHRoom>
   );
 }

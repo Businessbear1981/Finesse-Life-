@@ -2,242 +2,55 @@
 
 import {useActionState} from 'react';
 import Link from 'next/link';
+import {AHDisplay, AHEyebrow, AHRoom, AHTopBar} from '@/components/after-hours';
 import {signIn} from './actions';
 
 const initialState = {error: null as string | null};
 
+/** Member sign-in (After Hours). Same server action and fields as before. */
 export default function LoginPage() {
   const [state, formAction, pending] = useActionState(signIn, initialState);
 
   return (
-    <div
-      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
-      style={{background: '#0A0406'}}
-    >
-      {/* Chandelier glow */}
-      <div
-        className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-[420px] h-[360px]"
-        style={{
-          background:
-            'radial-gradient(ellipse at top, rgba(201,169,97,0.10) 0%, rgba(74,25,34,0.06) 45%, transparent 70%)',
-          animation: 'chandelier-pulse 4s ease-in-out infinite',
-        }}
-      />
-      {/* Floor warmth */}
-      <div
-        className="pointer-events-none absolute bottom-0 left-0 right-0 h-[40%]"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(74,25,34,0.08) 0%, transparent 70%)',
-        }}
-      />
+    <AHRoom>
+      <AHTopBar right={<Link href="/signup" className="ah-pill ah-pill-ghost" style={{minHeight: 38, fontSize: 13}}>Request an invitation</Link>} />
 
-      <div className="relative z-10 w-full max-w-[360px] px-6 py-10">
-        {/* Chandelier ornament */}
-        <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-px h-8"
-            style={{
-              background: 'linear-gradient(to bottom, rgba(201,169,97,0.5), rgba(201,169,97,0.15))',
-            }}
-          />
-          <div
-            className="w-3 h-3 rotate-45 border mb-1"
-            style={{
-              borderColor: 'rgba(201,169,97,0.45)',
-              boxShadow: '0 0 12px rgba(201,169,97,0.2)',
-            }}
-          />
-          <div
-            className="w-10 h-2 border-x border-b"
-            style={{
-              borderColor: 'rgba(201,169,97,0.22)',
-              background: 'rgba(201,169,97,0.04)',
-            }}
-          />
-          <div
-            className="w-16 h-2 border-x border-b"
-            style={{
-              borderColor: 'rgba(201,169,97,0.12)',
-              background: 'rgba(201,169,97,0.02)',
-            }}
-          />
-        </div>
+      <div style={{maxWidth: 400, margin: '0 auto', paddingTop: 18}}>
+        <AHEyebrow>Members · The door</AHEyebrow>
+        <AHDisplay size="l" style={{marginTop: 8}}>Welcome back.</AHDisplay>
+        <p style={{margin: '12px 0 26px', fontSize: 15, lineHeight: 1.5, color: 'var(--ah-mute)'}}>
+          Sign in to the house. Your table, your card and your concierge are where you left them.
+        </p>
 
-        {/* Hotel nameplate */}
-        <div className="text-center mb-8">
-          <h1
-            className="font-display italic tracking-[0.22em] text-3xl"
-            style={{
-              color: '#E8C87A',
-              textShadow: '0 0 30px rgba(201,169,97,0.2), 0 2px 4px rgba(0,0,0,0.9)',
-            }}
-          >
-            FINESSE
-          </h1>
-          <div className="flex items-center justify-center gap-3 mt-2">
-            <div className="w-8 h-px" style={{background: 'rgba(201,169,97,0.2)'}} />
-            <span
-              className="font-label text-[7px] tracking-[0.5em] uppercase"
-              style={{color: 'rgba(201,169,97,0.22)'}}
-            >
-              member entrance
-            </span>
-            <div className="w-8 h-px" style={{background: 'rgba(201,169,97,0.2)'}} />
-          </div>
-        </div>
-
-        {/* Form card */}
-        <div
-          className="border p-7"
-          style={{
-            borderColor: 'rgba(201,169,97,0.12)',
-            background: 'rgba(10,4,6,0.8)',
-            boxShadow:
-              '0 0 40px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.3)',
-          }}
-        >
-          {/* Top deco line */}
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-brass/20 to-transparent" />
-
-          <form action={formAction} className="flex flex-col gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="email"
-                className="font-label text-[9px] tracking-[0.3em] uppercase"
-                style={{color: 'rgba(201,169,97,0.45)'}}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="w-full px-4 py-3 border bg-transparent font-body text-sm focus:outline-none transition-colors duration-200"
-                style={{
-                  borderColor: 'rgba(201,169,97,0.15)',
-                  color: '#F4E8D0',
-                  caretColor: '#C9A961',
-                }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.45)')
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.15)')
-                }
-              />
+        <div className="ah-card ah-card-glass" style={{padding: 22}}>
+          <form action={formAction} style={{display: 'grid', gap: 18}}>
+            <div style={{display: 'grid', gap: 8}}>
+              <label htmlFor="email" className="ah-eyebrow">Email</label>
+              <input id="email" name="email" type="email" autoComplete="email" required className="ah-input" />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="password"
-                className="font-label text-[9px] tracking-[0.3em] uppercase"
-                style={{color: 'rgba(201,169,97,0.45)'}}
-              >
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="w-full px-4 py-3 border bg-transparent font-body text-sm focus:outline-none transition-colors duration-200"
-                style={{
-                  borderColor: 'rgba(201,169,97,0.15)',
-                  color: '#F4E8D0',
-                  caretColor: '#C9A961',
-                }}
-                onFocus={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.45)')
-                }
-                onBlur={(e) =>
-                  (e.currentTarget.style.borderColor = 'rgba(201,169,97,0.15)')
-                }
-              />
+            <div style={{display: 'grid', gap: 8}}>
+              <label htmlFor="password" className="ah-eyebrow">Password</label>
+              <input id="password" name="password" type="password" autoComplete="current-password" required className="ah-input" />
             </div>
 
             {state.error && (
-              <p
-                className="font-body text-sm italic text-center"
-                style={{color: 'rgba(255,77,125,0.85)'}}
-              >
-                {state.error}
-              </p>
+              <p role="alert" style={{margin: 0, fontSize: 14, color: '#ff8aa0', textAlign: 'center'}}>{state.error}</p>
             )}
 
-            <button
-              type="submit"
-              disabled={pending}
-              className="relative w-full py-3.5 border font-label text-[10px] tracking-[0.4em] uppercase transition-all duration-300 disabled:opacity-40"
-              style={{
-                borderColor: 'rgba(201,169,97,0.35)',
-                color: '#E8C87A',
-                background: 'rgba(201,169,97,0.04)',
-                textShadow: '0 0 8px rgba(201,169,97,0.3)',
-              }}
-              onMouseEnter={(e) => {
-                if (!pending) {
-                  (e.currentTarget as HTMLButtonElement).style.background =
-                    'rgba(201,169,97,0.10)';
-                  (e.currentTarget as HTMLButtonElement).style.borderColor =
-                    'rgba(201,169,97,0.55)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.background =
-                  'rgba(201,169,97,0.04)';
-                (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  'rgba(201,169,97,0.35)';
-              }}
-            >
-              {pending ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" style={{animationDelay: '150ms'}} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-brass/60 animate-pulse" style={{animationDelay: '300ms'}} />
-                </span>
-              ) : (
-                'Enter'
-              )}
+            <button type="submit" disabled={pending} className="ah-pill ah-pill-solid ah-pill-block" style={{minHeight: 50, marginTop: 4}}>
+              {pending ? 'Opening the door…' : 'Sign in'}
             </button>
           </form>
         </div>
 
-        {/* Bottom ornament + link */}
-        <div className="flex flex-col items-center mt-7 gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
-            <div className="w-1 h-1 rotate-45" style={{background: 'rgba(201,169,97,0.15)'}} />
-            <div className="w-6 h-px" style={{background: 'rgba(201,169,97,0.1)'}} />
-          </div>
-          <p className="font-body text-sm" style={{color: 'rgba(244,232,208,0.3)'}}>
-            Not a member?{' '}
-            <Link
-              href="/signup"
-              className="transition-colors duration-200"
-              style={{color: 'rgba(201,169,97,0.55)'}}
-              onMouseEnter={(e) =>
-                ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(201,169,97,0.85)')
-              }
-              onMouseLeave={(e) =>
-                ((e.currentTarget as HTMLAnchorElement).style.color = 'rgba(201,169,97,0.55)')
-              }
-            >
-              Request membership
-            </Link>
-          </p>
-        </div>
+        <p style={{margin: '22px 0 0', textAlign: 'center', fontSize: 14, color: 'var(--ah-mute)'}}>
+          Not on the list?{' '}
+          <Link href="/signup" style={{color: 'var(--ah-rose)', textDecoration: 'none', display: 'inline-block', padding: '12px 0'}}>
+            Request an invitation
+          </Link>
+        </p>
       </div>
-
-      <style jsx>{`
-        @keyframes chandelier-pulse {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; }
-        }
-      `}</style>
-    </div>
+    </AHRoom>
   );
 }
