@@ -1,6 +1,6 @@
 import {NextResponse} from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 
 const client = new Anthropic({apiKey: process.env.ANTHROPIC_API_KEY});
 
@@ -61,10 +61,10 @@ Return ONLY valid JSON with these exact keys:
 
     // Persist style_dna to the caller's profile if authenticated
     try {
-      const supabase = await createClient();
-      const {data: {user}} = await supabase.auth.getUser();
+      const dbc = await createClient();
+      const {data: {user}} = await dbc.auth.getUser();
       if (user) {
-        await supabase
+        await dbc
           .from('profiles')
           .update({style_dna: result})
           .eq('id', user.id);

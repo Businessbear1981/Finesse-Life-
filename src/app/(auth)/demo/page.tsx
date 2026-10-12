@@ -2,14 +2,8 @@
 
 import {useState, useRef} from 'react';
 import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
+import {demoSignIn} from './actions';
 
-const DEMO_CODES: Record<string, {email: string; password: string}> = {
-  FINESSE2026: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  INVESTOR: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  ARDENEDGE: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-  PREVIEW: {email: 'demo@finesselife.vip', password: 'Demo2026!'},
-};
 
 export default function DemoPage() {
   const router = useRouter();
@@ -22,9 +16,8 @@ export default function DemoPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = code.trim().toUpperCase();
-    const creds = DEMO_CODES[trimmed];
 
-    if (!creds) {
+    if (!trimmed) {
       setError('Invalid access code.');
       setShake(true);
       setTimeout(() => setShake(false), 500);
@@ -35,11 +28,7 @@ export default function DemoPage() {
     setError('');
     setLoading(true);
 
-    const supabase = createClient();
-    const {error: authError} = await supabase.auth.signInWithPassword({
-      email: creds.email,
-      password: creds.password,
-    });
+    const {error: authError} = await demoSignIn(trimmed);
 
     if (authError) {
       setError('Invalid access code.');

@@ -3,7 +3,7 @@
 import {useState, useEffect, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -521,8 +521,8 @@ export default function StylistPage() {
 
     try {
       // Get userId
-      const supabase = createClient();
-      const {data: {user}} = await supabase.auth.getUser();
+      const dbc = createClient();
+      const {data: {user}} = await dbc.auth.getUser();
 
       const formData = new FormData();
       formData.append('file', fileInputRef.current.files[0]);

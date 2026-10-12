@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, SERVICE_ROLE, createClient} from '@/lib/data/compat';
+import {createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 
 const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai/v1';
@@ -8,17 +8,17 @@ const HIGGSFIELD_KEY_ID = '1388eeb1-9dfc-465a-b52a-dd117280e845';
 const HIGGSFIELD_SECRET = '892fa0dc7fea9d01e452296801a1355b759f6d25d06161ef472258e5d083eb81';
 
 const serviceClient = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  FINESSE_API,
+  SERVICE_ROLE,
 );
 
 export async function GET(req: Request) {
   try {
     // Auth check
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll() { return cookieStore.getAll(); },
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
         },
       },
     );
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await dbc.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

@@ -19,7 +19,7 @@
 // orchestration) goes to your agent layer. The module's job is logging +
 // gating.
 
-import {createClient as createSupa} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient as createDb} from '@/lib/data/compat';
 import {complete} from './ai';
 
 export type Tier = 'db' | 'web' | 'self_consistency' | 'multi_model' | 'depscope' | 'cove';
@@ -56,9 +56,9 @@ export type VerifyOpts = {
 };
 
 function admin() {
-  return createSupa(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  return createDb(
+    FINESSE_API,
+    SERVICE_ROLE,
     {auth: {persistSession: false}},
   );
 }

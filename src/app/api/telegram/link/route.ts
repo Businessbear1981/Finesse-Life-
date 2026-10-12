@@ -1,16 +1,16 @@
 import {NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
-import {createServiceClient} from '@/lib/supabase/service';
+import {createClient} from '@/lib/data/server';
+import {createServiceClient} from '@/lib/data/service';
 
 const BOT_USERNAME =
   process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? 'FinesseVIPBot';
 
 export async function POST(req: Request): Promise<NextResponse> {
   // Auth check
-  const supabase = await createClient();
+  const dbc = await createClient();
   const {
     data: {user},
-  } = await supabase.auth.getUser();
+  } = await dbc.auth.getUser();
 
   if (!user) {
     return NextResponse.json({error: 'Unauthorized'}, {status: 401});

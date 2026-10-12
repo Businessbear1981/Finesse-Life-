@@ -483,8 +483,8 @@ export default function Scale() {
     const g = localStorage.getItem('finesse_gender');
     setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
 
-    // Load real deals from Supabase — no mock fallback
-    import('@/lib/supabase/client').then(async ({ createClient }) => {
+    // Load real deals from database — no mock fallback
+    import('@/lib/data/client').then(async ({ createClient }) => {
       try {
         const sb = createClient();
         const { data } = await sb.from('scale_deals')

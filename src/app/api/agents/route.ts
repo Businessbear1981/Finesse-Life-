@@ -12,7 +12,7 @@ import {
   type ScoutResult,
 } from '@/lib/agents';
 import { emit } from '@/lib/intelligence';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 
 interface AgentRequest {
   agent: 'scout' | 'stylist' | 'outing-planner' | 'procurement' | 'price-hunter';
@@ -30,8 +30,8 @@ export async function POST(req: Request) {
   const {agent, payload} = body;
 
   // Emit agent_query signal (non-blocking)
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
   if (user) {
     void emit({
       user_id: user.id,

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+const dbc = createClient(
+  FINESSE_API,
+  SERVICE_ROLE,
 );
 
 function getSeason(date: Date): string {
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
     const season = getSeason(new Date());
 
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('scrapbook_entries')
       .insert({
         user_id,

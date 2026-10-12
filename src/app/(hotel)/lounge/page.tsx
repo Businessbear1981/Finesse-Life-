@@ -5,7 +5,7 @@ import { motion, AnimatePresence, useAnimationFrame } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Users, Zap } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 import { PostCard, type Post } from './post-card';
 import { PostComposer } from './post-composer';
 
@@ -438,12 +438,12 @@ export default function LoungePage() {
 
   // ── Auth + my profile
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(async ({ data }) => {
+    const dbc = createClient();
+    dbc.auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id || null;
       setUserId(uid);
       if (uid) {
-        const { data: profile } = await supabase
+        const { data: profile } = await dbc
           .from('profiles')
           .select('vibe, city, interests')
           .eq('id', uid)
@@ -459,8 +459,8 @@ export default function LoungePage() {
   const fetchMembers = useCallback(async () => {
     setMembersLoading(true);
     try {
-      const supabase = createClient();
-      const { data } = await supabase
+      const dbc = createClient();
+      const { data } = await dbc
         .from('profiles')
         .select('id, display_name, username, avatar_url, vibe, city, interests, check_in')
         .limit(20);

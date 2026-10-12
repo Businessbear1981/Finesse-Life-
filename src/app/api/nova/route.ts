@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';
 import {generateText, tool, stepCountIs} from 'ai';
 import {model} from '@/lib/ai';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {buildBehavioralProfile, predictNextAction, generatePersonalizedRecs, emit} from '@/lib/intelligence';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
@@ -18,13 +18,13 @@ const novaRequestSchema = z.object({
 function buildNovaTools(userId: string | null) {
   return {
     check_vault_balance: tool({
-      description: "Read the authenticated user's Finesse Vault balance from Supabase.",
+      description: "Read the authenticated user's Finesse Vault balance from database.",
       inputSchema: z.object({}),
       execute: async () => {
         if (!userId) return {balance_cents: null, balance_display: 'unavailable', error: 'Not authenticated'};
         try {
-          const supabase = await createClient();
-          const {data} = await supabase
+          const dbc = await createClient();
+          const {data} = await dbc
             .from('vault_accounts')
             .select('balance')
             .eq('user_id', userId)
@@ -107,8 +107,8 @@ export async function POST(req: Request) {
   let profileContext = '';
   let userId: string | null = null;
   try {
-    const supabase = await createClient();
-    const {data: {user}} = await supabase.auth.getUser();
+    const dbc = await createClient();
+    const {data: {user}} = await dbc.auth.getUser();
     if (user) {
       userId = user.id;
       const profile = await Promise.race([

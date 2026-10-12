@@ -2,7 +2,7 @@
 
 import {useState, useEffect, useRef, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
 import Link from 'next/link';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -224,7 +224,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const supabase = createClient();
+  const dbc = createClient();
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'public' | 'private'>('public');
@@ -279,14 +279,14 @@ export default function EditProfilePage() {
     const load = async () => {
       const {
         data: {user},
-      } = await supabase.auth.getUser();
+      } = await dbc.auth.getUser();
       if (!user) {
         router.replace('/login');
         return;
       }
       setUserId(user.id);
 
-      const {data} = await supabase
+      const {data} = await dbc
         .from('profiles')
         .select(
           'display_name, bio, city, vibe, telegram_handle, avatar_url, public_photos, public_links, is_vip, vip_expires_at, private_display_name, private_bio, private_vibe, private_avatar_url, private_photos, has_private_profile',
@@ -338,7 +338,7 @@ export default function EditProfilePage() {
       setLoading(false);
     };
     load();
-  }, [supabase, router]);
+  }, [dbc, router]);
 
   // ── Upload helpers ─────────────────────────────────────────────────────────
   const uploadFile = useCallback(

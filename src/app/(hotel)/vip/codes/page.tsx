@@ -1,17 +1,17 @@
 import {redirect} from 'next/navigation';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {VipCodesAdmin} from './vip-codes-admin';
 
 export default async function VipCodesPage() {
-  const supabase = await createClient();
+  const dbc = await createClient();
   const {
     data: {user},
-  } = await supabase.auth.getUser();
+  } = await dbc.auth.getUser();
 
   if (!user) redirect('/login');
 
   // Server-side admin check
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('username')
     .eq('id', user.id)

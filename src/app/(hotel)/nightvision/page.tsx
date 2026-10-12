@@ -3,7 +3,7 @@
 import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -767,8 +767,8 @@ export default function NightvisionPage() {
   // ── auth ──
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({data}) => {
+    const dbc = createClient();
+    dbc.auth.getUser().then(({data}) => {
       setUserId(data?.user?.id ?? null);
     });
   }, []);
@@ -960,7 +960,7 @@ export default function NightvisionPage() {
         generated_at: new Date().toISOString(),
       };
 
-      // Save to Supabase
+      // Save to database
       await fetch('/api/nightvision/profile', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},

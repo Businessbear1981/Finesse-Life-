@@ -1,9 +1,9 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 import {stripe, STRIPE_WEBHOOK_SECRET} from '@/lib/stripe';
 
 // Stripe webhook. Verifies signature, idempotency-checks against stripe_events,
-// upserts the relevant subscription/payment rows. Service-role Supabase client
+// upserts the relevant subscription/payment rows. Service-role database client
 // is used so RLS doesn't block server-only writes.
 //
 // Wire your endpoint URL in Stripe Dashboard → Developers → Webhooks:
@@ -14,8 +14,8 @@ import {stripe, STRIPE_WEBHOOK_SECRET} from '@/lib/stripe';
 export const runtime = 'nodejs';   // Stripe SDK + raw body needs Node, not Edge
 
 const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  FINESSE_API,
+  SERVICE_ROLE,
   {auth: {persistSession: false}},
 );
 

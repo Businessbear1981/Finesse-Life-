@@ -1,5 +1,5 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
 // Generic media-vendor webhook receiver.
 //
@@ -11,8 +11,8 @@ import {createClient} from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 
 const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  FINESSE_API,
+  SERVICE_ROLE,
   {auth: {persistSession: false}},
 );
 

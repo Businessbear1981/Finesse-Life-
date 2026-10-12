@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, SERVICE_ROLE, createServerClient} from '@/lib/data/compat';
 import {cookies} from 'next/headers';
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/I/1 confusion
@@ -14,8 +14,8 @@ async function getClients() {
   const cookieStore = await cookies();
 
   const serviceSupabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
@@ -24,9 +24,9 @@ async function getClients() {
     },
   );
 
-  const anonSupabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const memberDb = createServerClient(
+    FINESSE_API,
+    MEMBER_ROLE,
     {
       cookies: {
         getAll: () => cookieStore.getAll(),
@@ -35,16 +35,16 @@ async function getClients() {
     },
   );
 
-  return {serviceSupabase, anonSupabase};
+  return {serviceSupabase, memberDb};
 }
 
-async function checkAdmin(anonSupabase: ReturnType<typeof createServerClient>) {
+async function checkAdmin(memberDb: ReturnType<typeof createServerClient>) {
   const {
     data: {user},
-  } = await anonSupabase.auth.getUser();
+  } = await memberDb.auth.getUser();
   if (!user) return {user: null, isAdmin: false};
 
-  const {data: profile} = await anonSupabase
+  const {data: profile} = await memberDb
     .from('profiles')
     .select('username')
     .eq('id', user.id)
@@ -60,8 +60,8 @@ async function checkAdmin(anonSupabase: ReturnType<typeof createServerClient>) {
 // ── GET — list all codes ──────────────────────────────────────────────────
 export async function GET() {
   try {
-    const {serviceSupabase, anonSupabase} = await getClients();
-    const {isAdmin} = await checkAdmin(anonSupabase);
+    const {serviceSupabase, memberDb} = await getClients();
+    const {isAdmin} = await checkAdmin(memberDb);
 
     if (!isAdmin) {
       return NextResponse.json({error: 'Forbidden.'}, {status: 403});
@@ -102,8 +102,8 @@ export async function GET() {
 // ── POST — generate codes ────────────────────────────────────────────────
 export async function POST(req: Request) {
   try {
-    const {serviceSupabase, anonSupabase} = await getClients();
-    const {user, isAdmin} = await checkAdmin(anonSupabase);
+    const {serviceSupabase, memberDb} = await getClients();
+    const {user, isAdmin} = await checkAdmin(memberDb);
 
     if (!isAdmin || !user) {
       return NextResponse.json({error: 'Forbidden.'}, {status: 403});

@@ -503,8 +503,8 @@ export default function EmbassyPage() {
   const [brandsLoading, setBrandsLoading] = useState(true);
 
   useEffect(() => {
-    // ── 1. Load scale_deals from Supabase ──────────────────────────────────
-    import('@/lib/supabase/client').then(async ({ createClient }) => {
+    // ── 1. Load scale_deals from database ──────────────────────────────────
+    import('@/lib/data/client').then(async ({ createClient }) => {
       try {
         const sb = createClient();
         const { data } = await sb.from('scale_deals')

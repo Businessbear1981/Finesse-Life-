@@ -2,7 +2,7 @@
 // Ingests a behavioral signal from any app surface.
 // Fire-and-forget from the client — always returns 202.
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import { emit } from '@/lib/intelligence';
 import type { Signal, SignalKind } from '@/lib/intelligence';
 
@@ -33,8 +33,8 @@ export async function POST(req: Request) {
   }
 
   // Resolve user from auth session
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
 
   if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });

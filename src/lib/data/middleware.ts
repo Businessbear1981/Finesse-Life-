@@ -1,30 +1,16 @@
-import {createServerClient} from '@supabase/ssr';
+import {authkit} from '@workos-inc/authkit-nextjs';
 import {NextResponse, type NextRequest} from 'next/server';
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({request});
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({name, value}) => request.cookies.set(name, value));
-          supabaseResponse = NextResponse.next({request});
-          cookiesToSet.forEach(({name, value, options}) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-
-  // IMPORTANT: do not put logic between client creation and getUser().
-  const {data: {user}} = await supabase.auth.getUser();
+  // WorkOS AuthKit: reads/refreshes the encrypted session cookie and returns headers to forward.
+  const {session, headers: authkitHeaders} = await authkit(request);
+  const user = session.user ? {id: session.user.id} : null;
+  const next = () => {
+    const res = NextResponse.next({request: {headers: authkitHeaders}});
+    authkitHeaders.forEach((v, k) => { if (k.toLowerCase() === 'set-cookie') res.headers.append(k, v); });
+    return res;
+  };
+  const response = next();
 
   const pathname = request.nextUrl.pathname;
 
@@ -74,24 +60,16 @@ export async function updateSession(request: NextRequest) {
   // Authenticated but non-VIP users are redirected to /profile?upgrade=true.
   const isVipRoute = pathname.startsWith('/vip');
 
-  if (isVipRoute && user) {
-    const profileRes = await fetch(
-      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_vip,vip_expires_at`,
-      {
-        headers: {
-          apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!}`,
-          Accept: 'application/json',
-        },
-        cache: 'no-store',
-      },
-    );
+  if (isVipRoute && user && session.accessToken) {
+    const profileRes = await fetch(`${process.env.FINESSE_API_URL ?? 'https://api.finesselife.vip'}/v1/data`, {
+      method: 'POST',
+      headers: {Authorization: `Bearer ${session.accessToken}`, 'Content-Type': 'application/json'},
+      body: JSON.stringify({table: 'profiles', op: 'select', columns: 'is_vip,vip_expires_at', filters: [], limit: 1}),
+      cache: 'no-store',
+    }).catch(() => null);
 
-    if (profileRes.ok) {
-      const profiles = (await profileRes.json()) as Array<{
-        is_vip: boolean;
-        vip_expires_at: string | null;
-      }>;
+    if (profileRes?.ok) {
+      const profiles = ((await profileRes.json()) as {data: Array<{is_vip: boolean; vip_expires_at: string | null}> | null}).data ?? [];
       const profile = profiles[0];
       const isVip =
         profile?.is_vip === true &&
@@ -120,5 +98,5 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  return supabaseResponse;
+  return response;
 }

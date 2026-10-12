@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 
 type Edition = 'finesse' | 'carpe_diem';
 type TabId = 'closet' | 'feed' | 'wishlist';
@@ -97,8 +97,8 @@ export default function WardrobePage() {
   }, []);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    const dbc = createClient();
+    dbc.auth.getUser().then(({ data }) => {
       setUserId(data?.user?.id ?? null);
     });
   }, []);

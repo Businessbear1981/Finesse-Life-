@@ -373,9 +373,9 @@ export default function ArchivePage() {
   useEffect(() => {
     async function initAuth() {
       try {
-        const { createClient } = await import('@/lib/supabase/client');
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { createClient } = await import('@/lib/data/client');
+        const dbc = createClient();
+        const { data: { user } } = await dbc.auth.getUser();
         if (user) setUserId(user.id);
       } catch {
         // no-op — unauthenticated
@@ -388,9 +388,9 @@ export default function ArchivePage() {
     if (!userId) { setLoading(false); return; }
     setLoading(true);
     try {
-      const { createClient } = await import('@/lib/supabase/client');
-      const supabase = createClient();
-      const { data } = await supabase
+      const { createClient } = await import('@/lib/data/client');
+      const dbc = createClient();
+      const { data } = await dbc
         .from('scrapbook_entries')
         .select('*')
         .eq('user_id', userId)

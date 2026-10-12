@@ -1,3 +1,4 @@
+import {FINESSE_API, SERVICE_ROLE} from '@/lib/data/compat';
 // Procurement: when a registry item is funded, finds the best purchase path
 // Knows about partner programs (Carvana for cars, Airbnb for trips, etc.)
 
@@ -52,10 +53,10 @@ async function getServiceClient() {
   // Dynamically imported so both branches below (partner + scale) can share
   // one client without a module-level import (kept consistent with this
   // file's existing lazy-import style).
-  const {createClient} = await import('@supabase/supabase-js');
+  const {createClient} = await import('@/lib/data/compat');
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
   );
 }
 
@@ -70,9 +71,9 @@ async function persistToken(params: {
   item: {title: string; category: string};
   savingsCents: number;
 }): Promise<void> {
-  const supabase = await getServiceClient();
+  const dbc = await getServiceClient();
   const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString();
-  await supabase.from('procurement_tokens').insert({
+  await dbc.from('procurement_tokens').insert({
     user_id: params.userId,
     token: params.token,
     method: params.method,
@@ -114,9 +115,9 @@ export async function findProcurementPath(
   // Check if Scale has a deal for this category (inline lightweight check)
   // Real schema (20260611_vault_exchange_scale.sql): group_price_cents,
   // status open|met|closed|cancelled. No purchase_url column — link to /scale.
-  const supabase = await getServiceClient();
+  const dbc = await getServiceClient();
 
-  const {data} = await supabase
+  const {data} = await dbc
     .from('scale_deals')
     .select('id,title,group_price_cents')
     .eq('status', 'open')

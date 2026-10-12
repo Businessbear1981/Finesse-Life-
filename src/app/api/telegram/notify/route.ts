@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createServiceClient} from '@/lib/supabase/service';
+import {createServiceClient} from '@/lib/data/service';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
@@ -53,8 +53,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   // Look up telegram_chat_id
-  const supabase = createServiceClient();
-  const {data: profile} = await supabase
+  const dbc = createServiceClient();
+  const {data: profile} = await dbc
     .from('profiles')
     .select('telegram_chat_id')
     .eq('id', user_id)

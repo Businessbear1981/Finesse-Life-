@@ -1,6 +1,6 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient as createSupa} from '@supabase/supabase-js';
-import {createClient} from '@/lib/supabase/server';
+import {FINESSE_API, SERVICE_ROLE, createClient as createDb} from '@/lib/data/compat';
+import {createClient} from '@/lib/data/server';
 
 export const runtime = 'nodejs';
 // Allow long runs — every integration is tested in parallel but some may take 10s+.
@@ -15,10 +15,10 @@ type CheckResult = {
 };
 
 async function requireAdmin() {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return null;
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
   }
 
   const origin = new URL(req.url).origin;
-  const admin = createSupa(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  const admin = createDb(
+    FINESSE_API,
+    SERVICE_ROLE,
     {auth: {persistSession: false}},
   );
 
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({summary, checks: all});
 }
 
-// Critical path stub — proves Supabase auth round-trip works.
+// Critical path stub — proves database auth round-trip works.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function criticalPathAuthRoundtrip(admin: any): Promise<CheckResult> {
   const start = Date.now();

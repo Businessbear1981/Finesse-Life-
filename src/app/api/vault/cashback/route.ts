@@ -1,5 +1,5 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {createHmac} from 'crypto';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
@@ -12,8 +12,8 @@ const cashbackSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
   const parsed = await parseBody(req, cashbackSchema);
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const cipher = createHmac('sha256', secret).update(cipherInput).digest('hex');
 
   // Upsert vault account (ensure it exists before writing transactions)
-  await supabase.from('vault_accounts').upsert(
+  await dbc.from('vault_accounts').upsert(
     {user_id: user.id, updated_at: new Date().toISOString()},
     {onConflict: 'user_id', ignoreDuplicates: true},
   );
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   // direction only allows 'debit'/'credit'. cipher column added in
   // 20260801_vault_transactions_cipher.sql — run that migration before this
   // will succeed against a database that predates it.
-  const {error: debitError} = await supabase.from('vault_transactions').insert({
+  const {error: debitError} = await dbc.from('vault_transactions').insert({
     user_id: user.id,
     merchant,
     amount_cents: -Math.abs(amount_cents),
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Record the cashback credit as a separate transaction line.
-  const {error: creditError} = await supabase.from('vault_transactions').insert({
+  const {error: creditError} = await dbc.from('vault_transactions').insert({
     user_id: user.id,
     merchant: `1% back — ${merchant}`,
     amount_cents: cashback_cents,
@@ -69,14 +69,14 @@ export async function POST(req: NextRequest) {
   }
 
   // Fetch current balances then increment atomically via update
-  const {data: acct} = await supabase
+  const {data: acct} = await dbc
     .from('vault_accounts')
     .select('balance_cents, cashback_earned_cents')
     .eq('user_id', user.id)
     .single();
 
   if (acct) {
-    await supabase.from('vault_accounts').update({
+    await dbc.from('vault_accounts').update({
       balance_cents: acct.balance_cents + cashback_cents,
       cashback_earned_cents: acct.cashback_earned_cents + cashback_cents,
       updated_at: new Date().toISOString(),

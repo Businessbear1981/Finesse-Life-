@@ -1,7 +1,7 @@
 // Scout: given text description OR image URL/base64, searches for matching items
-// Sources: Scale campaigns (Supabase), Embassy deals (Supabase), Nova AI web knowledge
+// Sources: Scale campaigns (database), Embassy deals (database), Nova AI web knowledge
 
-import {createClient} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
 export interface ScoutResult {
   title: string;
@@ -16,8 +16,8 @@ export interface ScoutResult {
 
 function getServiceClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
   );
 }
 
@@ -32,15 +32,15 @@ async function callNova(systemPrompt: string, userPrompt: string, image?: string
   return data.text ?? '';
 }
 
-// ─── Supabase queries ────────────────────────────────────────────────────────
+// ─── database queries ────────────────────────────────────────────────────────
 
 async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
-  const supabase = getServiceClient();
+  const dbc = getServiceClient();
   // Full text search on title + brand; fall back to ilike if no ts vector
   // Real schema (20260611_vault_exchange_scale.sql): original_price_cents /
   // group_price_cents, status open|met|closed|cancelled. No purchase_url column
   // exists on this table — deals are joined in-app via /scale, not an outbound link.
-  const {data, error} = await supabase
+  const {data, error} = await dbc
     .from('scale_deals')
     .select('id,title,brand,group_price_cents,image_url,category,status')
     .eq('status', 'open')
@@ -69,11 +69,11 @@ async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
 }
 
 async function queryEmbassyDeals(query: string): Promise<ScoutResult[]> {
-  const supabase = getServiceClient();
+  const dbc = getServiceClient();
   // Real schema (20260609_embassy.sql): item / retail_price_cents /
   // members_price_cents / tier, status pending|review|live|rejected.
   // No image_url or purchase_url columns on this table.
-  const {data, error} = await supabase
+  const {data, error} = await dbc
     .from('embassy_deals')
     .select('id,brand,item,members_price_cents,category,tier')
     .eq('status', 'live')

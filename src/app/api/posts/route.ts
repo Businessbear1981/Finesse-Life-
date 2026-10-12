@@ -1,14 +1,14 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  const dbc = await createClient();
   const {searchParams} = new URL(request.url);
   const page = parseInt(searchParams.get('page') || '1');
   const limit = 20;
   const from = (page - 1) * limit;
 
-  const {data, error} = await supabase
+  const {data, error} = await dbc
     .from('posts')
     .select(`
       id, content, media_urls, likes_count, created_at,
@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
   if (error) return NextResponse.json({error: error.message}, {status: 500});
 
   // If user is authenticated, get their likes for this page
-  const {data: {user}} = await supabase.auth.getUser();
+  const {data: {user}} = await dbc.auth.getUser();
   let likedIds: string[] = [];
   if (user && data?.length) {
     const postIds = data.map((p: any) => p.id);
-    const {data: likes} = await supabase
+    const {data: likes} = await dbc
       .from('post_likes')
       .select('post_id')
       .eq('user_id', user.id)
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
 
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({error: 'Max 500 characters'}, {status: 400});
   }
 
-  const {data, error} = await supabase
+  const {data, error} = await dbc
     .from('posts')
     .insert({author_id: user.id, content: content.trim(), media_urls: media_urls || []})
     .select(`

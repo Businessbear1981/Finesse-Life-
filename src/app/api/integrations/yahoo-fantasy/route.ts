@@ -1,12 +1,12 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient as createAdmin} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient as createAdmin} from '@/lib/data/compat';
 
 export const runtime = 'nodejs';
 
 function admin() {
   return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
     {auth: {persistSession: false}},
   );
 }

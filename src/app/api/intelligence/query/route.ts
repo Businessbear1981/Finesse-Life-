@@ -2,7 +2,7 @@
 // Main engine query endpoint. Accepts any IntelligenceIntent.
 // Auth required. Audit-logged for every call.
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import { query } from '@/lib/intelligence';
 import type { IntelligenceQuery, IntelligenceIntent } from '@/lib/intelligence';
 
@@ -18,8 +18,8 @@ const VALID_INTENTS = new Set<IntelligenceIntent>([
 ]);
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
 
   if (!user) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });

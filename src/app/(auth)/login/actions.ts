@@ -1,7 +1,8 @@
 'use server';
 
 import {redirect} from 'next/navigation';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
+import {signInWithPassword} from '@/lib/data/auth';
 
 export async function signIn(
   _prevState: {error: string | null},
@@ -14,8 +15,8 @@ export async function signIn(
     return {error: 'Email and password are required.'};
   }
 
-  const supabase = await createClient();
-  const {error} = await supabase.auth.signInWithPassword({email, password});
+  const {error} = await signInWithPassword(email, password);
+  const dbc = await createClient();
 
   if (error) {
     return {error: error.message};
@@ -24,10 +25,10 @@ export async function signIn(
   // Check profile for intake completion
   const {
     data: {user},
-  } = await supabase.auth.getUser();
+  } = await dbc.auth.getUser();
 
   if (user) {
-    const {data: profile} = await supabase
+    const {data: profile} = await dbc
       .from('profiles')
       .select('intake_complete')
       .eq('id', user.id)

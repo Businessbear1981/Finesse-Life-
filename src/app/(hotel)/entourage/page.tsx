@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -136,10 +136,10 @@ function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void
   useEffect(() => {
     async function fetchCrew() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const dbc = createClient();
+        const { data: { user } } = await dbc.auth.getUser();
         const currentId = user?.id ?? '';
-        const { data } = await supabase
+        const { data } = await dbc
           .from('profiles')
           .select('id, display_name, avatar_url, city, vibe_tags')
           .neq('id', currentId)
@@ -164,7 +164,7 @@ function CrewTab({ edition, goToFind }: { edition: Edition; goToFind: () => void
           setCrew(mapped);
         }
       } catch {
-        // Supabase error — show empty state
+        // database error — show empty state
       } finally {
         setLoading(false);
       }
@@ -392,10 +392,10 @@ function InviteTab({ edition }: { edition: Edition }) {
   useEffect(() => {
     const run = async () => {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const dbc = createClient();
+        const { data: { user } } = await dbc.auth.getUser();
         if (user) {
-          const { data: profile } = await supabase
+          const { data: profile } = await dbc
             .from('profiles')
             .select('display_name')
             .eq('id', user.id)

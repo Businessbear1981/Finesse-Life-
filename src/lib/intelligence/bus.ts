@@ -2,7 +2,7 @@
 // Non-blocking event tracker. Every user action that teaches the engine
 // gets emitted here. Fire-and-forget — never blocks the calling request.
 
-import { createServiceClient } from '@/lib/supabase/service';
+import { createServiceClient } from '@/lib/data/service';
 import type { Signal, SignalKind } from './types';
 
 export async function emit(signal: Signal): Promise<void> {

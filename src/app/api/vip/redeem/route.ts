@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, SERVICE_ROLE, createServerClient} from '@/lib/data/compat';
 import {cookies} from 'next/headers';
 
 export async function POST(req: Request) {
@@ -14,9 +14,9 @@ export async function POST(req: Request) {
 
     // ── Service-role client (bypasses RLS on vip_codes) ──
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      SERVICE_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -26,9 +26,9 @@ export async function POST(req: Request) {
     );
 
     // Anon client to get the current user from the session cookie
-    const anonSupabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const memberDb = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -39,14 +39,14 @@ export async function POST(req: Request) {
 
     const {
       data: {user},
-    } = await anonSupabase.auth.getUser();
+    } = await memberDb.auth.getUser();
 
     if (!user) {
       return NextResponse.json({error: 'Not authenticated.'}, {status: 401});
     }
 
     // ── 1. Look up code ──
-    const {data: vipCode, error: lookupErr} = await supabase
+    const {data: vipCode, error: lookupErr} = await dbc
       .from('vip_codes')
       .select('id, use_count, max_uses, expires_at, is_active, used_by')
       .eq('code', normalised)
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     // ── 2. Increment use_count ──
-    const {error: updateCodeErr} = await supabase
+    const {error: updateCodeErr} = await dbc
       .from('vip_codes')
       .update({
         use_count: vipCode.use_count + 1,
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const vipExpiresAt = new Date();
     vipExpiresAt.setFullYear(vipExpiresAt.getFullYear() + 1);
 
-    const {error: profileErr} = await supabase
+    const {error: profileErr} = await dbc
       .from('profiles')
       .update({
         is_vip: true,
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     }
 
     // ── 4. Upsert subscription record ──
-    const {error: subErr} = await supabase.from('subscriptions').insert({
+    const {error: subErr} = await dbc.from('subscriptions').insert({
       user_id: user.id,
       status: 'active',
       plan: 'vip_code',

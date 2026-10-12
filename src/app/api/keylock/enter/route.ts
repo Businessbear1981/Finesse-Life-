@@ -1,17 +1,17 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {createHmac, randomBytes} from 'crypto';
 
 // KeyLock: entry timestamp + user_id → HMAC-SHA256 session cipher
 // The moment you walk through the door IS the key. No timestamp = no access.
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
   // Check VIP status
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('is_vip, vip_expires_at')
     .eq('id', user.id)
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 
   // Store session in DB (expires in 8 hours)
   const expiresAt = new Date(entryTs + 8 * 60 * 60 * 1000).toISOString();
-  const {error: insertError} = await supabase
+  const {error: insertError} = await dbc
     .from('backstage_sessions')
     .insert({
       user_id: user.id,

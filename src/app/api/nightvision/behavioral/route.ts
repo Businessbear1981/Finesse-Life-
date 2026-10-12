@@ -1,14 +1,14 @@
 import {NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {buildBehavioralProfile} from '@/lib/intelligence/behavioral';
 import {getSignalCounts} from '@/lib/intelligence/bus';
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const dbc = await createClient();
     const {
       data: {user},
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});

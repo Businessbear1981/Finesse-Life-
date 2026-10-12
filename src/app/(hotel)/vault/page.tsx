@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 
 type Edition = 'finesse' | 'carpe_diem';
 
@@ -85,10 +85,10 @@ export default function VaultPage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const dbc = createClient();
+        const { data: { user } } = await dbc.auth.getUser();
         if (!user) { setIsVip(false); return; }
-        const { data: profile } = await supabase
+        const { data: profile } = await dbc
           .from('profiles')
           .select('display_name, is_vip')
           .eq('id', user.id)
@@ -100,7 +100,7 @@ export default function VaultPage() {
           setIsVip(false);
         }
       } catch {
-        // Supabase not wired yet — show demo mode
+        // database not wired yet — show demo mode
         setIsVip(true);
         setDisplayName('DEMO MEMBER');
       }

@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createServiceClient} from '@/lib/supabase/service';
+import {createServiceClient} from '@/lib/data/service';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
@@ -52,8 +52,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   const telegramUserId = message.from?.id;
 
   // Look up profile by telegram_chat_id
-  const supabase = createServiceClient();
-  const {data: profile} = await supabase
+  const dbc = createServiceClient();
+  const {data: profile} = await dbc
     .from('profiles')
     .select('id, username, telegram_handle, telegram_chat_id')
     .eq('telegram_chat_id', String(chatId))
@@ -63,7 +63,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (text.startsWith('/link ')) {
     const userId = text.slice(6).trim();
     if (userId && telegramUserId) {
-      const {error} = await supabase
+      const {error} = await dbc
         .from('profiles')
         .update({
           telegram_chat_id: String(chatId),
@@ -111,7 +111,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/vip') {
-    const {data: vipData} = await supabase
+    const {data: vipData} = await dbc
       .from('profiles')
       .select('is_vip, vip_expires_at, display_name')
       .eq('id', profile.id)
@@ -131,7 +131,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/vault') {
-    const {data: vault} = await supabase
+    const {data: vault} = await dbc
       .from('vault_accounts')
       .select('balance')
       .eq('user_id', profile.id)
@@ -143,7 +143,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/registry') {
-    const {count} = await supabase
+    const {count} = await dbc
       .from('registry_items')
       .select('id', {count: 'exact', head: true})
       .eq('user_id', profile.id)

@@ -1,15 +1,15 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient as createSupa} from '@supabase/supabase-js';
-import {createClient} from '@/lib/supabase/server';
+import {FINESSE_API, SERVICE_ROLE, createClient as createDb} from '@/lib/data/compat';
+import {createClient} from '@/lib/data/server';
 import {getConfig, IntegrationDisabledError} from '@/lib/config';
 
 export const runtime = 'nodejs';
 
 async function requireAdmin() {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return null;
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -39,9 +39,9 @@ export async function POST(_req: NextRequest, ctx: {params: Promise<{vendor: str
     result.latency_ms = Date.now() - start;
 
     // Persist outcome on the integrations row + audit log
-    const admin = createSupa(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    const admin = createDb(
+      FINESSE_API,
+      SERVICE_ROLE,
       {auth: {persistSession: false}},
     );
     await admin.from('integrations').update({
@@ -75,10 +75,9 @@ export async function POST(_req: NextRequest, ctx: {params: Promise<{vendor: str
 // One real call per vendor — auth-cheap endpoint that proves the key works.
 async function runTest(vendor: string, cfg: Record<string, string>): Promise<TestResult> {
   switch (vendor) {
-    case 'supabase': {
-      const admin = createSupa(cfg.url, cfg.service_role_key, {auth: {persistSession: false}});
-      const {error} = await admin.from('profiles').select('id').limit(1);
-      if (error) return {vendor, status: 'fail', latency_ms: 0, message: error.message};
+    case 'finesse_api': {
+      const r = await fetch(`${cfg.url ?? process.env.FINESSE_API_URL}/health`).catch(() => null);
+      if (!r?.ok) return {vendor, status: 'fail', latency_ms: 0, message: `health ${r?.status ?? 'unreachable'}`};
       return {vendor, status: 'ok', latency_ms: 0, message: 'connected'};
     }
     case 'cloudflare_r2': {

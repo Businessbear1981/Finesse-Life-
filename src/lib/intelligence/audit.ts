@@ -4,7 +4,7 @@
 // Human review queue for high-risk / low-confidence calls.
 
 import { createHash } from 'crypto';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createServiceClient } from '@/lib/data/service';
 import type { AuditRecord, IntelligenceQuery } from './types';
 
 function hashInput(input: unknown): string {
