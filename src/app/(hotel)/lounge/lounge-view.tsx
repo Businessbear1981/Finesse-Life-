@@ -315,6 +315,15 @@ export function LoungeRoom({
         <LoungeHeader />
 
         <div className="mx-auto max-w-2xl px-4 pb-20">
+          {/* The live city map */}
+          <Link
+            href="/lounge/map"
+            className="mt-8 flex min-h-11 items-center justify-between rounded-sm border border-[rgba(0,200,255,0.35)] bg-[rgba(0,20,40,0.55)] px-5 py-4 transition-colors hover:border-[rgba(0,200,255,0.7)]"
+          >
+            <span className="font-body text-[17px] italic text-[var(--brass-50)]">The city, tonight</span>
+            <span className="font-label text-[10px] uppercase tracking-[0.3em] text-[#5fdcff]">Live map →</span>
+          </Link>
+
           {/* House rules */}
           <div className="mt-10">
             <HouseRules />
