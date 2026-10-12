@@ -1,5 +1,6 @@
 'use client';
 
+import {CARD_FINISHES, CARD_FINISH_ORDER, DEFAULT_CARD_FINISH, isCardFinish, type CardFinish} from '@/lib/card-finishes';
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -70,6 +71,25 @@ export default function VaultPage() {
   const [accessIssue, setAccessIssue] = useState<'signed_out' | 'error' | null>(null);
   const [showFundModal, setShowFundModal] = useState(false);
   const [cardFlipped, setCardFlipped] = useState(false);
+  // Card finish is a member preference (Nano Black / Platinum / Rose Gold), kept on this device
+  // until the card partner is live and the choice is sent with the card order.
+  const [finish, setFinish] = useState<CardFinish>(() => {
+    if (typeof window === 'undefined') return DEFAULT_CARD_FINISH;
+    try {
+      const saved = window.localStorage.getItem('finesse_card_finish');
+      return isCardFinish(saved) ? saved : DEFAULT_CARD_FINISH;
+    } catch {
+      return DEFAULT_CARD_FINISH;
+    }
+  });
+  const chooseFinish = (f: CardFinish) => {
+    setFinish(f);
+    try {
+      window.localStorage.setItem('finesse_card_finish', f);
+    } catch {
+      /* private mode — choice still applies for this visit */
+    }
+  };
 
   // Vault data
   const [vaultData, setVaultData] = useState<VaultBalance | null>(null);
@@ -169,10 +189,10 @@ export default function VaultPage() {
   const accentColor = edition === 'finesse' ? '#FF4D7D' : '#69C9D0';
   const cardLabel = edition === 'finesse' ? 'FINESSE' : 'CARPE DIEM';
 
-  const cardGradient =
-    edition === 'finesse'
-      ? 'linear-gradient(135deg, #C9A961 0%, #8B6914 40%, #C9A961 70%, #F4E8D0 100%)'
-      : 'linear-gradient(135deg, #1A3A3A 0%, #0D2525 40%, #1E4A4A 70%, #69C9D0 100%)';
+  const cardFinish = CARD_FINISHES[finish];
+  const cardGradient = cardFinish.face;
+  const ink = cardFinish.ink;
+  const inkSoft = cardFinish.inkSoft;
 
   // Still loading VIP status
   if (isVip === null) {
@@ -364,9 +384,9 @@ export default function VaultPage() {
                   <span
                     className="font-label text-[11px] tracking-[0.4em] uppercase"
                     style={{
-                      color: edition === 'finesse' ? '#2A0A12' : '#F4E8D0',
+                      color: ink,
                       fontWeight: 700,
-                      textShadow: edition === 'finesse' ? '0 1px 4px rgba(255,255,255,0.3)' : 'none',
+                      textShadow: 'none',
                     }}
                   >
                     {cardLabel}
@@ -378,12 +398,12 @@ export default function VaultPage() {
                   style={{
                     bottom: 52,
                     left: 24,
-                    color: edition === 'finesse' ? 'rgba(30,10,16,0.85)' : 'rgba(244,232,208,0.9)',
+                    color: ink,
                     letterSpacing: '0.22em',
                     fontSize: 15,
                   }}
                 >
-                  **** &nbsp;**** &nbsp;**** &nbsp;8421
+                  •••• &nbsp;•••• &nbsp;•••• &nbsp;••••
                 </div>
                 {/* Member name + expiry */}
                 <div
@@ -393,13 +413,13 @@ export default function VaultPage() {
                   <div>
                     <div
                       className="font-label text-[7px] tracking-[0.3em] uppercase mb-0.5"
-                      style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.45)' : 'rgba(244,232,208,0.4)' }}
+                      style={{ color: inkSoft }}
                     >
                       CARD HOLDER
                     </div>
                     <div
                       className="font-label text-[11px] tracking-[0.15em] uppercase"
-                      style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.85)' : 'rgba(244,232,208,0.9)' }}
+                      style={{ color: ink }}
                     >
                       {displayName}
                     </div>
@@ -407,15 +427,15 @@ export default function VaultPage() {
                   <div className="text-right">
                     <div
                       className="font-label text-[7px] tracking-[0.3em] uppercase mb-0.5"
-                      style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.45)' : 'rgba(244,232,208,0.4)' }}
+                      style={{ color: inkSoft }}
                     >
                       EXPIRES
                     </div>
                     <div
                       className="font-mono text-[12px]"
-                      style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.85)' : 'rgba(244,232,208,0.9)' }}
+                      style={{ color: ink }}
                     >
-                      12/28
+                      ••/••
                     </div>
                   </div>
                 </div>
@@ -427,11 +447,11 @@ export default function VaultPage() {
                   <div
                     className="font-label text-[18px] tracking-tight italic"
                     style={{
-                      color: edition === 'finesse' ? 'rgba(30,10,16,0.55)' : 'rgba(244,232,208,0.55)',
+                      color: inkSoft,
                       fontStyle: 'italic',
                     }}
                   >
-                    VISA
+                    {cardFinish.label}
                   </div>
                 </div>
                 {/* Holographic circle decoration */}
@@ -473,30 +493,54 @@ export default function VaultPage() {
                 <div className="relative mt-6 text-center px-8">
                   <div
                     className="font-label text-[8px] tracking-[0.35em] uppercase mb-2"
-                    style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.5)' : 'rgba(244,232,208,0.4)' }}
+                    style={{ color: inkSoft }}
                   >
                     12% CASHBACK ON ALL FINESSE PURCHASES
                   </div>
                   <div
                     className="font-mono text-[10px] tracking-widest"
-                    style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.7)' : 'rgba(244,232,208,0.7)' }}
+                    style={{ color: ink }}
                   >
                     CVV: ***
                   </div>
                 </div>
                 <div
                   className="absolute bottom-4 font-label text-[7px] tracking-[0.3em] uppercase"
-                  style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.4)' : 'rgba(244,232,208,0.35)' }}
+                  style={{ color: inkSoft }}
                 >
-                  finesselife.app &middot; PREPAID CARD
+                  finesselife.vip &middot; CARD PREVIEW
                 </div>
               </div>
             </motion.div>
           </div>
         </motion.div>
 
-        <div className="text-center mb-8">
-          <span className="font-label text-[8px] tracking-[0.3em] text-cream/20 uppercase">tap card to flip</span>
+        <div className="text-center mb-4">
+          <span className="font-label text-[8px] tracking-[0.3em] text-cream/20 uppercase">tap card to flip · preview — your card is issued once the card partner is live</span>
+        </div>
+
+        {/* ── Finish picker ── */}
+        <div className="flex justify-center gap-3 mb-8" role="radiogroup" aria-label="Card finish">
+          {CARD_FINISH_ORDER.map((f) => (
+            <button
+              key={f}
+              type="button"
+              role="radio"
+              aria-checked={finish === f}
+              onClick={() => chooseFinish(f)}
+              className="flex items-center gap-2 px-3 py-2 border transition-colors"
+              style={{
+                borderColor: finish === f ? '#C9A961' : 'rgba(201,169,97,0.2)',
+                background: finish === f ? 'rgba(201,169,97,0.08)' : 'transparent',
+              }}
+            >
+              <span
+                className="inline-block rounded-full"
+                style={{ width: 12, height: 12, background: CARD_FINISHES[f].swatch, boxShadow: '0 0 0 1px rgba(201,169,97,0.45)' }}
+              />
+              <span className="font-label text-[9px] tracking-[0.25em] uppercase text-cream/70">{CARD_FINISHES[f].label}</span>
+            </button>
+          ))}
         </div>
 
         {/* ── Balance + Cashback Stats ── */}

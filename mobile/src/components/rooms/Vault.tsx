@@ -1,4 +1,4 @@
-// The Vault — the Finesse card in gun metal, rose gold or platinum, tap-to-reveal balance and the
+// The Vault — the Finesse card in Nano Black, Platinum or Rose Gold (member's choice of finish), tap-to-reveal balance and the
 // ledger drawers (from the design). Live figures come from /api/vault/balance; when the ledger can't be
 // read, a clearly labelled sample is shown instead of a guessed balance. The full card number is never
 // rendered — only the last four. Funding stays paused until the card partner signs off.
@@ -8,18 +8,22 @@ import Animated, {FadeIn, useAnimatedStyle, withTiming} from 'react-native-reani
 import Svg, {Circle, Defs, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
 import {Link} from 'expo-router';
 import {api} from '@/lib/api';
+import {secureStorage} from '@/lib/secure-storage';
 import {deco, easeCine, fonts, track, type Side} from '@/lib/deco';
 import {useAvailableWidth} from '@/lib/layout';
 import {ActionBar, SampleNote, Segmented, s} from './shared';
 
 type Tx = {id: string; merchant: string; amount_cents: number; cashback_cents: number; direction: string; created_at: string};
 type Balance = {balance_cents: number; cashback_earned_cents: number; transactions: Tx[]};
-type Tier = 'gunmetal' | 'rosegold' | 'platinum';
+// Finishes, not tiers: the founder's three card colours (keep in sync with web src/lib/card-finishes.ts).
+type Tier = 'nano_black' | 'platinum' | 'rose_gold';
 const TIERS: Record<Tier, {label: string; stops: string[]; ink: string; name: string}> = {
-  gunmetal: {label: 'GUN METAL', stops: ['#5A5E66', '#2A2D33', '#44484F', '#1A1C20'], ink: '#E8E6E0', name: 'MEMBER'},
-  rosegold: {label: 'ROSE GOLD', stops: ['#F2C9B8', '#B76E79', '#E8B4A0', '#8E4B55'], ink: '#2A1014', name: 'VIP'},
-  platinum: {label: 'PLATINUM', stops: ['#F4F4F2', '#B9BCC2', '#E6E7E9', '#8E9298'], ink: '#1A1C20', name: 'PENTHOUSE'},
+  nano_black: {label: 'NANO BLACK', stops: ['#2B2B2E', '#0B0B0D', '#1C1C1F', '#050506'], ink: '#E8E6E0', name: 'NANO BLACK'},
+  platinum: {label: 'PLATINUM', stops: ['#F4F4F2', '#B9BCC2', '#E6E7E9', '#8E9298'], ink: '#1A1C20', name: 'PLATINUM'},
+  rose_gold: {label: 'ROSE GOLD', stops: ['#F2C9B8', '#B76E79', '#E8B4A0', '#8E4B55'], ink: '#2A1014', name: 'ROSE GOLD'},
 };
+const FINISH_KEY = 'finesse_card_finish';
+const isTier = (v: unknown): v is Tier => v === 'nano_black' || v === 'platinum' || v === 'rose_gold';
 type State = 'SETTLED' | 'PENDING' | 'HELD';
 const STATE: Record<State, [string, string]> = {SETTLED: [deco.brassHighlight, '#140E08'], PENDING: ['#3A2A1A', deco.cream], HELD: ['#5A1A26', '#FFB8C8']};
 type Drawer = [string, string, Array<[string, string, State | null]>];
@@ -74,7 +78,14 @@ function Card({tier, open, name, number, onPress}: {tier: Tier; open: boolean; n
 
 export function Vault({side}: {side: Side}) {
   const acc = track[side].acc;
-  const [tier, setTier] = useState<Tier>('gunmetal');
+  const [tier, setTierState] = useState<Tier>('nano_black');
+  useEffect(() => {
+    secureStorage.getItem(FINISH_KEY).then((v) => { if (isTier(v)) setTierState(v); }).catch(() => {});
+  }, []);
+  const setTier = (t: Tier) => {
+    setTierState(t);
+    secureStorage.setItem(FINISH_KEY, t).catch(() => {});
+  };
   const [open, setOpen] = useState(false);
   const [drawer, setDrawer] = useState<number | null>(null);
   const [live, setLive] = useState<{kind: 'loading' | 'signed_out' | 'offline' | 'error'} | {kind: 'ok'; data: Balance}>({kind: 'loading'});
@@ -137,7 +148,7 @@ export function Vault({side}: {side: Side}) {
       <ActionBar label="FUND THE VAULT" color={acc} disabled />
       <Text style={s.small}>Adding funds opens once our card partner signs off. Finesse never holds member money itself.</Text>
       {live.kind === 'signed_out' ? <Link href="/sign-in" style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: deco.brassHighlight, textAlign: 'center', paddingVertical: 8}}>SIGN IN FOR YOUR REAL LEDGER</Link> : null}
-      {!isLive ? <SampleNote>{live.kind === 'loading' ? 'OPENING THE LEDGER…' : 'SAMPLE LEDGER · YOUR REAL BALANCE SHOWS WHEN THE LEDGER CAN BE READ · CARD TIERS FOLLOW YOUR MEMBERSHIP'}</SampleNote> : null}
+      {!isLive ? <SampleNote>{live.kind === 'loading' ? 'OPENING THE LEDGER…' : 'SAMPLE LEDGER · YOUR REAL BALANCE SHOWS WHEN THE LEDGER CAN BE READ · CHOOSE YOUR FINISH · CARD ISSUED ONCE THE PARTNER IS LIVE'}</SampleNote> : null}
     </View>
   );
 }
