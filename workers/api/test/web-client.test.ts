@@ -59,4 +59,27 @@ run('web query builder -> Worker -> Postgres', () => {
     // nothing member-specific is seeded
     expect((await client({ 'X-Service-Key': 'svc-secret-123' }).from('room_catalog').select('*', { count: 'exact', head: true }).in('kind', ['reservations', 'recent_orders', 'demo_listings', 'masc_brief'])).count).toBe(0);
   });
+
+  it('atlas rooms 24/28-31 tables are owner-isolated through the web client', async () => {
+    const ha = { Authorization: `Bearer ${await sign({ sub: 'user_w1' })}` };
+    const hb = { Authorization: `Bearer ${await sign({ sub: 'user_w2' })}` };
+    const me = ((await (await app.request('/v1/me', { headers: ha }, env)).json()) as any).user.id;
+    const a = client(ha), b = client(hb);
+    const rows: [string, Record<string, unknown>][] = [
+      ['diary_items', { day: '2026-10-12', title: 'Salon booked', status: 'needs_you' }],
+      ['closet_rotations', { week_start: '2026-10-12', looks: [{ day: 0, item_ids: [] }] }],
+      ['camera_scans', {}],
+      ['ballroom_proposals', { starts_at: '2026-10-20T19:00:00Z', venue: { name: 'Uchi' } }],
+      ['identity_projections', { public_card: { display_name: 'S' } }],
+    ];
+    for (const [t, v] of rows) {
+      const r = await a.from(t).insert({ ...v, user_id: me }).select('user_id').single();
+      expect(r.error, t + ' ' + JSON.stringify(r.error)).toBeNull();
+      expect((await b.from(t).select('*')).data, t).toEqual([]);
+      // cannot write as someone else
+      expect((await b.from(t).insert({ ...v, user_id: me })).error, t).not.toBeNull();
+    }
+    const appr = await a.from('diary_items').update({ status: 'approved' }).eq('title', 'Salon booked').select('status').single();
+    expect(appr.data).toEqual({ status: 'approved' });
+  });
 });

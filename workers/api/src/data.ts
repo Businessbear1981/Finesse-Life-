@@ -30,18 +30,30 @@ export type DataQuery = z.infer<typeof DataQuery>;
 export class DataError extends Error { constructor(public code: string, msg: string, public status = 400) { super(msg); } }
 
 const catalogue = new Map<string, Set<string>>();
+const jsonCols = new Map<string, Set<string>>();
 let loadedAt = 0;
 async function columnsOf(tx: Tx, table: string): Promise<Set<string>> {
   if (Date.now() - loadedAt > 300_000) { catalogue.clear(); loadedAt = Date.now(); }
   if (!catalogue.size) {
-    const { rows } = await tx.query<{ t: string; c: string }>("select table_name t, column_name c from information_schema.columns where table_schema = 'public'");
-    for (const r of rows) { if (!catalogue.has(r.t)) catalogue.set(r.t, new Set()); catalogue.get(r.t)!.add(r.c); }
+    const { rows } = await tx.query<{ t: string; c: string; ty: string }>("select table_name t, column_name c, data_type ty from information_schema.columns where table_schema = 'public'");
+    for (const r of rows) {
+      if (!catalogue.has(r.t)) { catalogue.set(r.t, new Set()); jsonCols.set(r.t, new Set()); }
+      catalogue.get(r.t)!.add(r.c);
+      if (r.ty === 'json' || r.ty === 'jsonb') jsonCols.get(r.t)!.add(r.c);
+    }
   }
   const cols = catalogue.get(table);
   if (!cols) throw new DataError('42P01', `relation "${table}" does not exist`, 404);
   return cols;
 }
-export const resetCatalogue = () => { catalogue.clear(); loadedAt = 0; };
+export const resetCatalogue = () => { catalogue.clear(); jsonCols.clear(); loadedAt = 0; };
+
+/** Bind a column value: objects always, and arrays only for json/jsonb columns, go as JSON text (arrays otherwise bind as Postgres arrays). */
+function bindValue(table: string, col: string, v: unknown): unknown {
+  if (v === null || typeof v !== 'object') return v;
+  if (!Array.isArray(v) || jsonCols.get(table)?.has(col)) return JSON.stringify(v);
+  return v;
+}
 
 const q = (s: string) => `"${s}"`;
 
@@ -108,7 +120,7 @@ export async function runData(tx: Tx, dq: DataQuery): Promise<{ data: unknown; c
     const rows = Array.isArray(dq.values) ? dq.values : dq.values ? [dq.values] : [];
     if (!rows.length) throw new DataError('PGRST100', 'no values');
     const keys = rowValues(rows, cols);
-    const tuples = rows.map((r) => `(${keys.map((k) => { if (!(k in r)) return 'default'; params.push(r[k] !== null && typeof r[k] === 'object' && !Array.isArray(r[k]) ? JSON.stringify(r[k]) : r[k]); return `$${params.length}`; }).join(', ')})`);
+    const tuples = rows.map((r) => `(${keys.map((k) => { if (!(k in r)) return 'default'; params.push(bindValue(dq.table, k, r[k])); return `$${params.length}`; }).join(', ')})`);
     let conflict = '';
     if (dq.op === 'upsert') {
       const target = (dq.onConflict ?? 'id').split(',').map((s) => s.trim());
@@ -120,7 +132,7 @@ export async function runData(tx: Tx, dq: DataQuery): Promise<{ data: unknown; c
   } else if (dq.op === 'update') {
     if (!dq.values || Array.isArray(dq.values)) throw new DataError('PGRST100', 'update needs one object');
     const keys = rowValues([dq.values], cols);
-    const sets = keys.map((k) => { const v = (dq.values as Record<string, unknown>)[k]; params.push(v !== null && typeof v === 'object' && !Array.isArray(v) ? JSON.stringify(v) : v); return `${q(k)} = $${params.length}`; });
+    const sets = keys.map((k) => { const v = (dq.values as Record<string, unknown>)[k]; params.push(bindValue(dq.table, k, v)); return `${q(k)} = $${params.length}`; });
     const w = where(dq, cols, params);
     if (!w) throw new DataError('21000', 'UPDATE requires a WHERE clause');
     sql = `update ${t} set ${sets.join(', ')}${w}${ret}`;
