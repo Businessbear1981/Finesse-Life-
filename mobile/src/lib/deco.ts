@@ -138,3 +138,50 @@ export function arcPath(cx: number, cy: number, r: number, a0: number, a1: numbe
   const p0 = polar(cx, cy, r, a0), p1 = polar(cx, cy, r, a1);
   return `M${p0.x.toFixed(2)} ${p0.y.toFixed(2)} A${r} ${r} 0 0 1 ${p1.x.toFixed(2)} ${p1.y.toFixed(2)}`;
 }
+
+/* ───────────── Continental materials (additive) ─────────────
+ * A members' club inside a 1920s grand hotel: black lacquer, polished brass and gold leaf, oxblood
+ * velvet, ivory card stock, black marble, smoked mirror. Each material is a small set of gradient stops
+ * so the kit in components/continental can draw it in SVG with a specular band, never as flat fill.
+ */
+export const continental = {
+  lacquer: '#07060A',
+  lacquerHi: '#1B1820',
+  lacquerEdge: '#2A2630',
+  marble: '#0C0B0D',
+  marbleVein: '#D9D2C3',
+  velvet: '#4A0C18',
+  velvetDeep: '#1C0409',
+  velvetHi: '#7A1A2C',
+  ivory: '#F3EAD6',
+  ivoryShade: '#DCCBA8',
+  ink: '#1A120C',
+  engrave: '#2A1C0E',
+  oxbloodInk: '#6B1424',
+  mirror: '#16161A',
+  goldLeaf: '#E9C46A',
+  goldLeafDeep: '#7A5414',
+  hairline: 'rgba(201,169,97,0.55)',
+  hairlineSoft: 'rgba(201,169,97,0.25)',
+} as const;
+
+/** Metal stop sets: [offset, colour]. Drawn top-left → bottom-right with a bright specular band. */
+export const metals = {
+  brass: [[0, '#5A3E14'], [0.18, '#C9A961'], [0.34, '#FFF1C2'], [0.46, '#D8B66A'], [0.7, '#8A6A2A'], [0.88, '#E8C87A'], [1, '#4A3416']],
+  goldLeaf: [[0, '#6E4A10'], [0.2, '#D4A846'], [0.38, '#FFF4C8'], [0.5, '#E9C46A'], [0.75, '#9A7020'], [0.9, '#F0D88A'], [1, '#5A3C0C']],
+  platinum: [[0, '#8E9298'], [0.2, '#D9DBDE'], [0.38, '#FBFBFA'], [0.52, '#C4C7CC'], [0.74, '#9EA2A8'], [0.9, '#E6E7E9'], [1, '#7A7E85']],
+  roseGold: [[0, '#7E4148'], [0.2, '#D8A08E'], [0.38, '#FBE1D3'], [0.52, '#E2AE98'], [0.74, '#A8646C'], [0.9, '#F2C9B8'], [1, '#6E3840']],
+  nanoBlack: [[0, '#050506'], [0.25, '#121215'], [0.42, '#26252A'], [0.55, '#0E0E10'], [0.8, '#08080A'], [1, '#18171B']],
+  gunmetal: [[0, '#1A1A1E'], [0.2, '#4A4A52'], [0.38, '#8A8A94'], [0.5, '#55555E'], [0.75, '#2A2A30'], [0.9, '#6A6A74'], [1, '#141418']],
+} as const satisfies Record<string, ReadonlyArray<readonly [number, string]>>;
+export type Metal = keyof typeof metals;
+
+/** Slow, weighty motion for the Continental rooms (vault door, lamp glow, foil sheen). */
+export const weighty = {
+  door: 1600,
+  bolts: 700,
+  wheel: 1100,
+  lamp: 4200,
+  sheen: 2600,
+  ease: Easing.bezier(0.65, 0, 0.25, 1),
+} as const;

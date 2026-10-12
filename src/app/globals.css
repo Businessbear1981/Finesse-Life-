@@ -340,3 +340,222 @@ h1, h2, h3, h4, h5, h6 {
 .animate-chandelier-pulse {
   animation: chandelierPulse 4s ease-in-out infinite;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CONTINENTAL — design tokens + material utilities (additive)
+   A members' club inside a 1920s grand hotel: lacquer, brass, oxblood
+   velvet, ivory card stock, Nero Marquina. Components live in
+   src/components/continental/. Everything here is prefixed `ct-` and
+   sits in @layer components so Tailwind utilities can still override.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --color-ivory: #f4ead5;
+  --color-lacquer: #08060a;
+  --color-velvet: #4a0f1c;
+  --font-engraved: var(--font-cinzel), 'Cinzel', 'Trajan Pro', serif;
+}
+
+:root {
+  /* Brass — from highlight to shadow. 400 is the house brass. */
+  --brass-50: #fff6dc;
+  --brass-100: #f7e6b4;
+  --brass-200: #ecd18c;
+  --brass-300: #dcbb6e;
+  --brass-400: #c9a961;
+  --brass-500: #a88743;
+  --brass-600: #86672e;
+  --brass-700: #6b5028;
+  --brass-800: #48351a;
+  --brass-900: #251a0b;
+  --brass-ink: #2c1f0b;           /* engraving cut into brass */
+
+  /* Lacquer — piano black with a warm undertone */
+  --lacquer: #08060a;
+  --lacquer-2: #0f0c11;
+  --lacquer-3: #18141b;
+  --lacquer-edge: #2a2430;
+
+  /* Oxblood velvet */
+  --oxblood-950: #14040a;
+  --oxblood-900: #22070f;
+  --oxblood-800: #330b17;
+  --oxblood-700: #4a1922;
+  --oxblood-600: #6b1e2e;
+  --oxblood-500: #8c2b3f;
+  --oxblood-300: #c46a7c;
+
+  /* Ivory card stock + ink */
+  --ivory: #f4ead5;
+  --ivory-2: #ebdfc4;
+  --ivory-3: #d9c9a6;
+  --ivory-ink: #1e140c;           /* letterpress ink on ivory (≈14:1) */
+  --ivory-ink-soft: #5b4630;      /* secondary ink on ivory (≈7:1) */
+
+  /* Text on dark (AA on --lacquer) */
+  --ct-text: #efe4cc;             /* ≈15:1 */
+  --ct-text-soft: #c8b994;        /* ≈9:1  */
+  --ct-text-mute: #9c8c6c;        /* ≈5.6:1 — smallest allowed body tone */
+
+  /* Marble — Nero Marquina */
+  --marble-ground: #0c0b0d;
+  --marble-cloud: #1b191c;
+  --marble-vein: rgb(236 230 218 / 55%);
+
+  /* Material gradients */
+  --ct-brass-metal: linear-gradient(180deg, #f6e4ae 0%, #dcbb6e 16%, #b08c45 38%, #8a6a2e 50%, #b8964f 62%, #e9cd88 80%, #9d7a36 100%);
+  --ct-brass-flat: linear-gradient(172deg, #eed49a 0%, #d2b067 24%, #b5904a 52%, #c9a75e 74%, #9b7838 100%);
+  --ct-gilt-text: linear-gradient(180deg, #fff3c9 0%, #f0d48e 28%, #c9a052 50%, #9c7531 56%, #e6c57c 78%, #fbe7b0 100%);
+  --ct-specular: linear-gradient(110deg, transparent 28%, rgb(255 250 228 / 55%) 44%, rgb(255 250 228 / 0%) 58%);
+
+  --ct-ease-weighty: cubic-bezier(0.22, 0.8, 0.18, 1);
+}
+
+@layer components {
+  /* Gold leaf lettering on dark — real highlight band, drop shadow not text-shadow
+     (text-shadow would paint over a background-clipped fill). */
+  .ct-gilt {
+    background-image: var(--ct-gilt-text);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+  }
+
+  /* Lettering cut into brass: dark cut, lit lower lip. */
+  .ct-engraved {
+    color: var(--brass-ink);
+    text-shadow: 0 1px 0 rgb(255 241 200 / 60%), 0 -1px 0 rgb(0 0 0 / 22%);
+  }
+
+  /* Lettering etched into black lacquer / smoked glass. */
+  .ct-etched {
+    color: var(--ct-text-soft);
+    text-shadow: 0 -1px 0 rgb(0 0 0 / 90%), 0 1px 0 rgb(255 255 255 / 6%);
+  }
+
+  .ct-signage {
+    font-family: var(--font-cinzel), 'Cinzel', serif;
+    text-transform: uppercase;
+    letter-spacing: 0.32em;
+  }
+
+  /* Hairline double keyline (use on any block). */
+  .ct-keyline {
+    border: 1px solid rgb(201 169 97 / 42%);
+    box-shadow: inset 0 0 0 3px var(--lacquer), inset 0 0 0 4px rgb(201 169 97 / 22%);
+  }
+
+  /* Brass plate material (brushed, bevelled). */
+  .ct-brass {
+    background-image:
+      var(--ct-specular),
+      var(--ct-brass-flat);
+    box-shadow:
+      inset 0 1px 0 rgb(255 246 214 / 75%),
+      inset 0 -1px 0 rgb(58 38 10 / 70%),
+      inset 1px 0 0 rgb(255 240 200 / 35%),
+      inset -1px 0 0 rgb(58 38 10 / 45%),
+      0 1px 0 rgb(0 0 0 / 60%),
+      0 6px 14px -4px rgb(0 0 0 / 70%);
+  }
+
+  /* Foil sheen sweep — slow, once every few seconds. */
+  .ct-sheen {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .ct-sheen::after {
+    content: '';
+    position: absolute;
+    inset: -20% -60%;
+    background: linear-gradient(105deg, transparent 40%, rgb(255 248 222 / 0%) 44%, rgb(255 248 222 / 38%) 50%, rgb(255 248 222 / 0%) 56%, transparent 60%);
+    transform: translateX(-60%);
+    animation: ct-sheen 7s var(--ct-ease-weighty) infinite;
+    animation-delay: var(--ct-sheen-delay, 1.2s);
+    pointer-events: none;
+    mix-blend-mode: screen;
+    z-index: 2;
+  }
+
+  .ct-lamp-flicker {
+    animation: ct-lamp 9s ease-in-out infinite;
+  }
+
+  .ct-rise {
+    animation: ct-rise 1s var(--ct-ease-weighty) both;
+    animation-delay: var(--ct-delay, 0s);
+  }
+
+  /* Vault door choreography (see components/continental/vault-door.tsx).
+     Base styles are the OPEN end state so reduced-motion lands there instantly. */
+  .ct-vault-dial { animation: ct-dial 1.5s cubic-bezier(0.5, 0, 0.2, 1) 0.3s both; }
+  .ct-vault-wheel { animation: ct-wheel 1.3s cubic-bezier(0.55, 0, 0.25, 1) 1.2s both; }
+  .ct-vault-bolt { animation: ct-bolt 0.55s cubic-bezier(0.6, 0, 0.3, 1) 2.3s both; }
+  .ct-vault-swing { animation: ct-swing 1.9s var(--ct-ease-weighty) 2.75s both; }
+  .ct-vault-reveal { animation: ct-reveal 1.4s var(--ct-ease-weighty) 3.1s both; }
+  .ct-vault-glow { animation: ct-glow 2.4s ease-out 2.8s both; }
+}
+
+@keyframes ct-sheen {
+  0% { transform: translateX(-60%); }
+  38%, 100% { transform: translateX(60%); }
+}
+
+@keyframes ct-lamp {
+  0%, 100% { opacity: 1; }
+  42% { opacity: 0.92; }
+  44% { opacity: 0.97; }
+  71% { opacity: 0.9; }
+}
+
+@keyframes ct-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ct-dial {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(250deg); }
+  70% { transform: rotate(110deg); }
+  100% { transform: rotate(320deg); }
+}
+
+@keyframes ct-wheel {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-200deg); }
+}
+
+@keyframes ct-bolt {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--ct-bolt-travel, -9%)); }
+}
+
+@keyframes ct-swing {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(var(--ct-door-open, -92deg)); }
+}
+
+@keyframes ct-reveal {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ct-glow {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ct-sheen::after { animation: none; opacity: 0; }
+  .ct-lamp-flicker,
+  .ct-rise,
+  .ct-vault-dial,
+  .ct-vault-wheel,
+  .ct-vault-swing,
+  .ct-vault-reveal,
+  .ct-vault-glow { animation: none; }
+  .ct-vault-bolt { animation: none; transform: translateX(var(--ct-bolt-travel, -9%)); }
+}
