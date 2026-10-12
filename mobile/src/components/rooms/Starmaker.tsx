@@ -170,7 +170,7 @@ export function Starmaker({side}: {side: Side}) {
     if (writing) return;
     setWriting(true);
     const prompt = `Genre: ${genre}. Mood: ${mood}. ${idea.trim() ? `Idea: ${idea.trim().slice(0, 300)}` : ''}`;
-    const r = await api<{text?: string}>('/api/nova', {method: 'POST', json: {prompt, system: SYSTEM}});
+    const r = await api<{text?: string}>('/api/nova', {method: 'POST', json: {prompt, persona: 'lyricist', system: SYSTEM}});
     setLyrics(r.ok && r.body.text ? r.body.text : r.status === 0 ? 'The house line is offline. Nova will write when we are connected.' : r.status === 401 ? 'Sign in and Nova will write with you.' : 'Nova is in another session. Try again in a moment.');
     setWriting(false);
   };

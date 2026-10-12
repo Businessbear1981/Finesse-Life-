@@ -2,16 +2,20 @@
 // ledger, one weekly order), SHOP (the house pan, pots & pans, the Finesse house line, add to Sunday's order
 // or check out separately), MASTERS (cook-along classes step by step with an optional chef voice, or book a
 // private chef) and THE RECIPE BOOK drawer (your book, and recipe trades with members).
-// Confirming the plan records an order *intent* via /api/kitchen/order-intent — nothing is placed or charged
-// until a grocery partner asks the member to authorise. Shop checkout and chef requests are previews.
+// PLAN is live when signed in: GET /api/kitchen/plan reads the week, POST /api/kitchen/compose saves it (the
+// member can start from the house menu and edit it), and only then does POST /api/kitchen/order-intent record
+// one order *intent* — nothing is placed or charged until a grocery partner asks the member to authorise.
+// Signed out, PLAN is a labelled sample. Shop checkout and chef requests are previews.
 import {useState} from 'react';
-import {Pressable, Text, View} from 'react-native';
+import {Pressable, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import {api} from '@/lib/api';
 import {deco, fonts, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
+import {failure, useLive} from '@/lib/live';
 import {ActionBar, SampleNote, Segmented, s} from './shared';
+import {LiveGate, OK_GREEN, RowBtn, Status} from './live';
 
 const OX = '#6B1424', INK = '#1A120C', SEPIA = '#5A4630';
 const KDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -91,11 +95,6 @@ function PickRow({init, name, sub, right, rightColor, on, onPress}: {init: strin
 export function Kitchen({side}: {side: Side}) {
   const acc = track[side].acc;
   const [tab, setTab] = useState<'PLAN' | 'SHOP' | 'MASTERS'>('PLAN');
-  // PLAN
-  const [kd, setKd] = useState(3);
-  const [ordered, setOrdered] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
   // SHOP
   const [cart, setCart] = useState<Record<string, boolean>>({});
   const [cartSent, setCartSent] = useState(false);
@@ -116,72 +115,15 @@ export function Kitchen({side}: {side: Side}) {
   const [give, setGive] = useState('r1');
   const [trades, setTrades] = useState<Record<string, string | null>>({});
 
-  const menu = MENU[kd % 2], total = menu.reduce((a, m) => a + m[2], 0);
   const all = [FEAT, ...COOK, ...MER], inCart = all.filter((i) => cart[i[0]]), cartN = inCart.length, cartTot = inCart.reduce((a, i) => a + i[3], 0);
   const toggle = (id: string) => { setCart((c) => ({...c, [id]: !c[id]})); setCartSent(false); setPaid(false); };
   const M = MASTERS.find((m) => m[0] === master);
-
-  const order = async () => {
-    if (busy) return;
-    setBusy(true);
-    const r = await api<{message?: string}>('/api/kitchen/order-intent', {method: 'POST', json: {weekStart: mondayISO(), cancel: ordered}});
-    setBusy(false);
-    if (r.ok) { setOrdered(!ordered); setNote(r.body.message ?? null); return; }
-    if (r.status === 409) { setOrdered(true); setNote('This week already has an order in progress.'); return; }
-    setNote(r.status === 0 ? 'The house line is offline. Nothing was ordered.' : r.status === 401 ? 'Sign in to place the week’s order. Nothing was ordered.' : r.status === 422 ? 'Your saved plan has no groceries yet, so there is nothing to order.' : 'The order could not be recorded just now. Nothing was charged.');
-  };
 
   return (
     <View style={{gap: 12}}>
       <Segmented options={[['PLAN', 'PLAN'], ['SHOP', 'SHOP'], ['MASTERS', 'MASTERS']]} value={tab} onChange={setTab} />
 
-      {tab === 'PLAN' ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-          <View style={{flexDirection: 'row', borderWidth: 1, borderColor: deco.brass}}>
-            {KDAYS.map((d, i) => {
-              const on = i === kd;
-              return (
-                <Pressable key={d} onPress={() => setKd(i)} accessibilityRole="button" accessibilityState={{selected: on}}
-                  style={{flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRightWidth: i < 6 ? 1 : 0, borderColor: 'rgba(201,169,97,0.3)', backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
-                  <Text style={{fontFamily: fonts.mono, fontSize: 9, color: on ? '#140E08' : deco.cream}}>{d}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Paper>
-            <Animated.View key={kd} entering={FadeIn.duration(300)}>
-              {menu.map(([when, dish, kcal]) => (
-                <View key={when} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.3)'}}>
-                  <View style={{flex: 1, gap: 1}}>
-                    <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{when}</Text>
-                    <Text style={{fontFamily: fonts.script, fontSize: 17, lineHeight: 20, color: INK}}>{dish}</Text>
-                  </View>
-                  <Text style={{fontFamily: fonts.mono, fontSize: 10, color: SEPIA}}>{kcal} KCAL</Text>
-                </View>
-              ))}
-            </Animated.View>
-          </Paper>
-          <View style={{gap: 4}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>CALORIE LEDGER</Text>
-              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>{total.toLocaleString()} / 1,900</Text>
-            </View>
-            <View style={{height: 8, borderWidth: 1, borderColor: deco.brass}}>
-              <Animated.View layout={LinearTransition.duration(500)} style={{height: '100%', width: `${Math.min(100, Math.round((total / 1900) * 100))}%`, overflow: 'hidden'}}>
-                <Svg width="100%" height="100%" preserveAspectRatio="none"><Defs><LinearGradient id="kled" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor={deco.brassMid} /><Stop offset="1" stopColor={deco.brassWhite} /></LinearGradient></Defs><Rect width="100%" height="100%" fill="url(#kled)" /></Svg>
-              </Animated.View>
-            </View>
-            <Text style={s.small}>Protein 112g · carbs 160g · fat 58g</Text>
-          </View>
-          <View style={{padding: 12, gap: 8, borderWidth: 2, borderColor: deco.brass}}>
-            <Text style={capsLabel}>ONE ORDER · 14 ITEMS</Text>
-            <Text style={[s.body, {fontSize: 12}]}>Everything for the week, from one grocer. Delivered Sunday 10–12.</Text>
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 22, color: deco.brassWhite}}>$186.40</Text>
-          </View>
-          <ActionBar label={busy ? 'RECORDING…' : ordered ? 'ORDERED · ARRIVES SUNDAY' : 'CONFIRM THE ORDER'} color={ordered ? deco.brass : acc} onPress={order} disabled={busy} />
-          {note ? <Text style={s.small} accessibilityLiveRegion="polite">{note}</Text> : null}
-        </Animated.View>
-      ) : null}
+      {tab === 'PLAN' ? <PlanTab acc={acc} /> : null}
 
       {tab === 'SHOP' ? (
         <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
@@ -338,6 +280,209 @@ export function Kitchen({side}: {side: Side}) {
         </Pressable>
       </View>
       <SampleNote>SAMPLE MENU, SHOP AND CLASSES · THE WEEKLY ORDER IS AN INTENT UNTIL YOUR GROCER AUTHORISES IT · SHOP CHECKOUT AND CHEF REQUESTS ARE PREVIEWS</SampleNote>
+    </View>
+  );
+}
+
+/* ─────────────── PLAN ─────────────── */
+type Slot = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+type Meal = {day: number; slot: Slot; name: string; kcal?: number | null};
+type Grocery = {item: string; qty: string};
+type PlanData = {weekStart: string; dailyKcalTarget: number | null; meals: Meal[]; dailyTotals: number[]; groceryList: Grocery[]; order: {id: string; state: string; partner: string | null; created_at: string} | null; stage: string};
+const SLOT_ORDER: Slot[] = ['breakfast', 'lunch', 'snack', 'dinner'];
+// The house's suggested week — offered to the member as a starting point, saved only when they choose it.
+const HOUSE_MEALS: Meal[] = Array.from({length: 7}, (_, day) => (day % 2
+  ? [['breakfast', 'Eggs, sourdough, avocado', 450], ['lunch', 'Chicken, farro, herbs', 610], ['dinner', 'Miso cod, greens', 520]]
+  : [['breakfast', 'Greek yogurt, figs, pistachio', 380], ['lunch', 'Seared salmon, fennel, lemon', 560], ['dinner', 'Dinner out', 700]]
+).map(([slot, name, kcal]) => ({day, slot: slot as Slot, name: name as string, kcal: kcal as number}))).flat();
+const HOUSE_GROCERIES: Grocery[] = [['Greek yogurt', '2 tubs'], ['Figs', '8'], ['Pistachios', '1 bag'], ['Salmon fillets', '4'], ['Fennel', '2 bulbs'], ['Lemons', '4'], ['Eggs', '1 dozen'], ['Sourdough', '1 loaf'], ['Avocados', '4'], ['Chicken breast', '1.5 lb'], ['Farro', '1 bag'], ['Fresh herbs', '2 bunches'], ['Black cod', '3 fillets'], ['Miso & greens', '1 each']].map(([item, qty]) => ({item, qty}));
+
+function Ledger({total, target}: {total: number; target: number | null}) {
+  const goal = target ?? 0;
+  return (
+    <View style={{gap: 4}}>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+        <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>CALORIE LEDGER</Text>
+        <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>{total.toLocaleString()}{goal ? ` / ${goal.toLocaleString()}` : ' · NO TARGET SET'}</Text>
+      </View>
+      <View style={{height: 8, borderWidth: 1, borderColor: deco.brass}}>
+        <Animated.View layout={LinearTransition.duration(500)} style={{height: '100%', width: `${goal ? Math.min(100, Math.round((total / goal) * 100)) : 0}%`, overflow: 'hidden'}}>
+          <Svg width="100%" height="100%" preserveAspectRatio="none"><Defs><LinearGradient id="kled" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor={deco.brassMid} /><Stop offset="1" stopColor={deco.brassWhite} /></LinearGradient></Defs><Rect width="100%" height="100%" fill="url(#kled)" /></Svg>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+function DayStrip({kd, setKd}: {kd: number; setKd: (n: number) => void}) {
+  return (
+    <View style={{flexDirection: 'row', borderWidth: 1, borderColor: deco.brass}}>
+      {KDAYS.map((d, i) => {
+        const on = i === kd;
+        return (
+          <Pressable key={d} onPress={() => setKd(i)} accessibilityRole="button" accessibilityState={{selected: on}}
+            style={{flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRightWidth: i < 6 ? 1 : 0, borderColor: 'rgba(201,169,97,0.3)', backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
+            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: on ? '#140E08' : deco.cream}}>{d}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function PlanTab({acc}: {acc: string}) {
+  const week = mondayISO();
+  const {live, reload} = useLive<PlanData>(`/api/kitchen/plan?week=${week}`);
+  // The status line lives here so it survives the plan re-reading (and remounting) after a save.
+  const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  return (
+    <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
+      <LiveGate live={live} reload={() => void reload()} what="your week in the Kitchen" signedOut={<SamplePlan />}>
+        {(data) => <LivePlan key={`${data.weekStart}:${data.stage}:${JSON.stringify(data.meals)}:${JSON.stringify(data.groceryList)}`} data={data} acc={acc} reload={() => reload(true)} setMsg={setMsg} />}
+      </LiveGate>
+      <Status msg={live.state === 'ready' ? msg : null} />
+    </Animated.View>
+  );
+}
+
+function SamplePlan() {
+  const [kd, setKd] = useState(3);
+  const menu = MENU[kd % 2], total = menu.reduce((a, m) => a + m[2], 0);
+  return (
+    <View style={{gap: 12, opacity: 0.9}}>
+      <DayStrip kd={kd} setKd={setKd} />
+      <Paper>
+        <Animated.View key={kd} entering={FadeIn.duration(300)}>
+          {menu.map(([when, dish, kcal]) => (
+            <View key={when} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.3)'}}>
+              <View style={{flex: 1, gap: 1}}>
+                <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{when}</Text>
+                <Text style={{fontFamily: fonts.script, fontSize: 17, lineHeight: 20, color: INK}}>{dish}</Text>
+              </View>
+              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: SEPIA}}>{kcal} KCAL</Text>
+            </View>
+          ))}
+        </Animated.View>
+      </Paper>
+      <Ledger total={total} target={1900} />
+      <ActionBar label="SIGN IN TO PLAN YOUR WEEK" color={deco.brass} disabled />
+      <SampleNote>SAMPLE MENU · NOT YOUR PLAN · NOTHING IS ORDERED</SampleNote>
+    </View>
+  );
+}
+
+function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; reload: () => Promise<void>; setMsg: (m: {ok: boolean; text: string} | null) => void}) {
+  const [kd, setKd] = useState(() => (new Date().getDay() + 6) % 7);
+  const [meals, setMeals] = useState<Meal[]>(data.meals);
+  const [groc, setGroc] = useState<Grocery[]>(data.groceryList);
+  const [newItem, setNewItem] = useState('');
+  const [busy, setBusy] = useState(false);
+  const dirty = JSON.stringify(meals) !== JSON.stringify(data.meals) || JSON.stringify(groc) !== JSON.stringify(data.groceryList);
+  const blank = data.stage === 'empty' && meals.length === 0;
+  const today = meals.map((m, i) => ({m, i})).filter(({m}) => m.day === kd).sort((a, b) => SLOT_ORDER.indexOf(a.m.slot) - SLOT_ORDER.indexOf(b.m.slot));
+  const total = today.reduce((a, {m}) => a + (m.kcal ?? 0), 0);
+  const order = data.order;
+  const intent = order?.state === 'intent';
+
+  const compose = async (nextMeals: Meal[], nextGroc: Grocery[], ok: string) => {
+    setBusy(true); setMsg(null);
+    const r = await api<{message?: string; error?: string}>('/api/kitchen/compose', {method: 'POST', json: {weekStart: data.weekStart, dailyKcal: data.dailyKcalTarget, meals: nextMeals.map((m) => ({day: m.day, slot: m.slot, name: m.name.trim() || 'Meal', kcal: m.kcal ?? null})), groceryList: nextGroc}});
+    setBusy(false);
+    if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'The plan was not saved.')}); return; }
+    setMsg({ok: true, text: ok});
+    void reload();
+  };
+  const orderIntent = async (cancel: boolean) => {
+    setBusy(true); setMsg(null);
+    const r = await api<{message?: string; error?: string; cancelled?: number}>('/api/kitchen/order-intent', {method: 'POST', json: {weekStart: data.weekStart, ...(cancel ? {cancel: true} : {})}});
+    setBusy(false);
+    if (r.ok) {
+      setMsg({ok: true, text: cancel ? (r.body.cancelled ? 'The order intent is withdrawn. Nothing was ordered.' : 'There was no open intent to withdraw.') : (r.body.message ?? 'Order intent recorded. Nothing has been charged.')});
+      void reload(); return;
+    }
+    setMsg({ok: false, text: r.status === 422 ? 'The saved plan has no groceries yet, so there is nothing to order.' : failure(r.status, r.body, 'Nothing was ordered or charged.')});
+    if (r.status === 409) void reload();
+  };
+
+  if (blank) {
+    return (
+      <View style={{gap: 12}}>
+        <Paper>
+          <View style={{padding: 16, gap: 6, alignItems: 'center'}}>
+            <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>WEEK OF {data.weekStart}</Text>
+            <Text style={{fontFamily: fonts.script, fontSize: 19, lineHeight: 24, color: INK, textAlign: 'center'}}>A blank menu. Nothing is planned for this week yet.</Text>
+          </View>
+        </Paper>
+        <Text style={s.small}>Start from the house menu — seven days, three plates a day and one grocery list — then change anything before you order.</Text>
+        <ActionBar label={busy ? 'SAVING…' : 'START FROM THE HOUSE MENU'} color={acc} onPress={() => compose(HOUSE_MEALS, HOUSE_GROCERIES, 'Your week is saved from the house menu. Edit any plate, then confirm the order.')} disabled={busy} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={{gap: 12}}>
+      <DayStrip kd={kd} setKd={setKd} />
+      <Paper>
+        <Animated.View key={kd} entering={FadeIn.duration(300)}>
+          {today.length === 0 ? <Text style={{padding: 14, fontFamily: fonts.script, fontSize: 17, color: SEPIA, textAlign: 'center'}}>Nothing planned this day.</Text> : today.map(({m, i}) => (
+            <View key={i} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.3)'}}>
+              <View style={{flex: 1, gap: 1}}>
+                <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{m.slot.toUpperCase()}</Text>
+                <TextInput value={m.name} onChangeText={(v) => setMeals((xs) => xs.map((x, j) => (j === i ? {...x, name: v.slice(0, 120)} : x)))} accessibilityLabel={`${m.slot} on ${KDAYS[kd]}`}
+                  style={{fontFamily: fonts.script, fontSize: 17, lineHeight: 20, color: INK, paddingVertical: 2}} />
+              </View>
+              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: SEPIA}}>{m.kcal != null ? `${m.kcal} KCAL` : '— KCAL'}</Text>
+              <Pressable onPress={() => setMeals((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${m.name}`} hitSlop={8} style={{width: 28, height: 28, alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{color: SEPIA, fontSize: 15}}>×</Text>
+              </Pressable>
+            </View>
+          ))}
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 10}}>
+            {SLOT_ORDER.filter((sl) => !today.some(({m}) => m.slot === sl)).map((sl) => (
+              <Pressable key={sl} onPress={() => setMeals((xs) => [...xs, {day: kd, slot: sl, name: '', kcal: null}])} accessibilityRole="button" style={{minHeight: 32, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(26,18,12,0.4)', justifyContent: 'center'}}>
+                <Text style={{fontFamily: fonts.capsBold, fontSize: 8.5, letterSpacing: 1.2, color: INK}}>+ {sl.toUpperCase()}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </Animated.View>
+      </Paper>
+      <Ledger total={total} target={data.dailyKcalTarget} />
+
+      <View style={{padding: 12, gap: 8, borderWidth: 2, borderColor: deco.brass}}>
+        <Text style={capsLabel}>ONE ORDER · {groc.length} ITEMS</Text>
+        {groc.map((g, i) => (
+          <View key={`${g.item}${i}`} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+            <Text style={[s.body, {flex: 1, fontSize: 12}]}>{g.item}</Text>
+            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{g.qty}</Text>
+            <Pressable onPress={() => setGroc((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${g.item}`} hitSlop={8} style={{width: 28, height: 28, alignItems: 'center', justifyContent: 'center'}}>
+              <Text style={{color: deco.brass, fontSize: 15}}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+        <View style={{flexDirection: 'row', gap: 6}}>
+          <TextInput value={newItem} onChangeText={(v) => setNewItem(v.slice(0, 80))} placeholder="Add to the list" placeholderTextColor="rgba(244,232,208,0.4)" accessibilityLabel="Add a grocery item"
+            onSubmitEditing={() => { if (newItem.trim()) { setGroc((xs) => [...xs, {item: newItem.trim(), qty: '1'}]); setNewItem(''); } }}
+            style={{flex: 1, minHeight: 40, paddingHorizontal: 8, borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)', fontFamily: fonts.body, fontSize: 12.5, color: deco.cream}} />
+          <RowBtn label="ADD" onPress={() => { if (newItem.trim()) { setGroc((xs) => [...xs, {item: newItem.trim(), qty: '1'}]); setNewItem(''); } }} disabled={!newItem.trim() || groc.length >= 80} />
+        </View>
+        <Text style={s.small}>Priced by the grocer once a partner is connected. Delivery is arranged with them, not here.</Text>
+      </View>
+
+      {dirty ? <ActionBar label={busy ? 'SAVING…' : 'SAVE THE PLAN'} color={acc} onPress={() => compose(meals, groc, 'The plan is saved.')} disabled={busy} /> : null}
+      {order && !intent ? (
+        <View style={{padding: 10, borderWidth: 1, borderColor: OK_GREEN}}><Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: OK_GREEN}}>ORDER {order.state.toUpperCase()}{order.partner ? ` · ${order.partner.toUpperCase()}` : ''}</Text></View>
+      ) : intent ? (
+        <View style={{gap: 8}}>
+          <View style={{padding: 10, gap: 3, borderWidth: 1, borderColor: deco.brassHighlight}}>
+            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: deco.brassHighlight}}>ORDER INTENT RECORDED · NOT PLACED · NOT CHARGED</Text>
+            <Text style={s.small}>A grocery partner will ask you to authorise before anything is ordered.</Text>
+          </View>
+          <RowBtn label={busy ? 'ONE MOMENT…' : 'WITHDRAW THE INTENT'} onPress={() => orderIntent(true)} disabled={busy} />
+        </View>
+      ) : (
+        <ActionBar label={busy ? 'RECORDING…' : dirty ? 'SAVE THE PLAN TO ORDER' : groc.length ? 'CONFIRM THE ORDER' : 'ADD GROCERIES TO ORDER'} color={acc} onPress={() => orderIntent(false)} disabled={busy || dirty || groc.length === 0} />
+      )}
+      <SampleNote>YOUR PLAN · CONFIRMING RECORDS AN INTENT ONLY · NOTHING IS PLACED OR CHARGED HERE</SampleNote>
     </View>
   );
 }

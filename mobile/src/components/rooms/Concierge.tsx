@@ -50,7 +50,7 @@ export function Concierge() {
     const prompt = ask.trim();
     if (!prompt || busy) return;
     setBusy(true);
-    const r = await api<{text?: string; error?: string}>('/api/nova', {method: 'POST', json: {prompt, system: SYSTEM}});
+    const r = await api<{text?: string; error?: string}>('/api/nova', {method: 'POST', json: {prompt, persona: 'concierge', system: SYSTEM}});
     // Only a 2xx with text is Nova's reply. A 502/503 carries {error, text} where text explains Nova is
     // unreachable — shown as an error, never as if she had answered.
     const failed = !(r.ok && r.body.text);

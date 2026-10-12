@@ -239,7 +239,7 @@ export default function VaultPage() {
         <div className="text-5xl mb-6">🔒</div>
         <h1 className="font-display text-3xl italic text-brass mb-3">The Vault</h1>
         <p className="font-body text-cream/50 text-lg mb-8 max-w-sm">
-          Vault access is reserved for VIP members. Upgrade to unlock your Finesse card. Cashback terms are being finalised.
+          Vault access is reserved for VIP members. Upgrade to unlock your prepaid Finesse card and 12% cashback.
         </p>
         <Link
           href="/profile?upgrade=true"
@@ -475,7 +475,7 @@ export default function VaultPage() {
                     className="font-label text-[8px] tracking-[0.35em] uppercase mb-2"
                     style={{ color: edition === 'finesse' ? 'rgba(30,10,16,0.5)' : 'rgba(244,232,208,0.4)' }}
                   >
-                    CASHBACK RATE · TO BE ANNOUNCED
+                    12% CASHBACK ON ALL FINESSE PURCHASES
                   </div>
                   <div
                     className="font-mono text-[10px] tracking-widest"
@@ -540,7 +540,7 @@ export default function VaultPage() {
                 ${(cashbackCents / 100).toFixed(2)}
               </div>
               <div className="font-label text-[7px] tracking-[0.25em] text-cream/25 uppercase mt-1.5">
-                Rate to be announced
+                12% on purchases
               </div>
             </div>
           </motion.div>

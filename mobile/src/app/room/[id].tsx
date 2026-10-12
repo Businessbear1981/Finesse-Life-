@@ -3,17 +3,13 @@ import {StyleSheet, Text, View} from 'react-native';
 import {roomById} from '@/lib/registry';
 import {deco, fonts} from '@/lib/deco';
 import {Panel, RoomPlate, plateText} from '@/components/plate/RoomPlate';
-import {Lounge} from '@/components/rooms/Lounge';
-import {Concierge} from '@/components/rooms/Concierge';
-import {Vault} from '@/components/rooms/Vault';
+import {INTERIORS} from '@/components/rooms/interiors';
 import {useSide} from '@/lib/session';
-import type {Side} from '@/lib/deco';
-
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault};
+import {hotelId, manifestId} from '@/lib/room-ids';
 
 export default function RoomDetail() {
   const {id} = useLocalSearchParams<{id: string}>();
-  const room = roomById(id ?? '');
+  const room = roomById(manifestId(id ?? '')); // accepts hotel ids (perdiem, profile) as well as manifest ids
   const side = useSide(); // hooks run before any early return
   if (!room) {
     return (
@@ -23,10 +19,10 @@ export default function RoomDetail() {
       </View>
     );
   }
-  const Built = BUILT[room.id];
+  const Built = INTERIORS[hotelId(room.id)];
   return (
     <RoomPlate room={room}>
-      {Built ? <Built side={side} /> : (
+      {Built ? <View style={{gap: 14}}><Built side={side} /></View> : (
         <>
           <Panel title="THE SCENE">
             <Text style={plateText.lead}>{room.sceneBlueprint.architecture}.</Text>

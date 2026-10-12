@@ -14,7 +14,7 @@
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
     "usage:obsidian": "node scripts/obsidian-sync-usage.mjs",
-    "test:db": "node tests/db/security-floor.mjs"
+    "test:db": "node tests/db/security-floor.mjs && node tests/db/account-lifecycle.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

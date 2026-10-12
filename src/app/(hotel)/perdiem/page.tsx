@@ -112,6 +112,14 @@ function GenderLock() {
 
 /* ─── Main Component ─── */
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 export default function PerDiemPage() {
   const [gender, setGender] = useState<Gender | null>(null);
   const [tab, setTab] = useState<Tab>('planner');
@@ -160,9 +168,17 @@ export default function PerDiemPage() {
         body: JSON.stringify({
           prompt: `Generate a ${vibe} date night itinerary with a ${budgetLabel}. Return ONLY a raw JSON array — no markdown, no explanation. Format: [{"id":"1","time":"7:00 PM","activity":"Black car pickup","venue":"Your location","cost_cents":4500,"category":"transport","booked":false}]. Categories: transport, dining, drinks, entertainment, experience. Include 4-6 stops. Total cost must fit within the budget.`,
           system: 'You are Nova, the AI concierge at Finesse — a members-only lifestyle platform for people who live well. Return only raw JSON arrays, never markdown fences or explanations.',
+          persona: 'date_planner',
         }),
       });
-      if (!res.ok) throw new Error('nova unavailable');
+      if (!res.ok) {
+        const limit = novaLimitMessage(res.status, (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null);
+        if (limit) {
+          setPlanError(`${limit} Nothing has been booked.`);
+          return;
+        }
+        throw new Error('nova unavailable');
+      }
       const {text} = (await res.json()) as {text?: string};
       const jsonMatch = text?.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('no itinerary');

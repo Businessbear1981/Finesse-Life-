@@ -18,3 +18,7 @@ export type {ProcurementPath} from './procurement';
 // PriceHunter: cross-source price intelligence
 export {huntPrice} from './price-hunter';
 export type {PriceResult} from './price-hunter';
+
+// Shared Nova call (direct runNova, no HTTP hop) and its failure type
+export {NovaUnavailableError} from './nova-call';
+export type {AgentCtx} from './nova-call';

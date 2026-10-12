@@ -42,7 +42,7 @@ From the 2026-06-23 line-by-line audit — `asserted` (predates the June/July ro
 | Scout & Price-Hunter | **Broken** — query columns/statuses that don't exist; return nothing |
 | `scale/join` | **Broken** — inserts columns absent from `scale_joins`; silent no-op |
 | Market/Exchange listings | **Mock** — `DEMO_LISTINGS` + `DEMO_PIN` in `src/app/page.tsx` and `(hotel)/market/page.tsx`, never calls the Exchange API (`verified` still present 2026-07-14) |
-| Vault rebate | **Wrong** — credits 12% with no funding source; prospectus economics are ~1% cashback. Fix, not feature |
+| Vault rebate | Rate **12%** by founder decision (ADR-0005, 2026-10-12). Writes frozen until card partner + funding source are signed |
 | Lab (Alpaca paper-trading connect) | **Real enough to matter** — stores account snapshot + truncated key → Finesse is NOT securities-free; legal read budgeted |
 
 ## Database
@@ -109,4 +109,20 @@ Deploy additions (principal approval): apply `20261009_security_floor.sql` after
 
 ### 2026-10-09 (second commit) — honest frontend pass
 
-Web + mobile fixes from `docs/FRONTEND_MAP.md` (summary at the top of that file). New env vars: `DEMO_ACCOUNT_EMAIL`, `DEMO_ACCOUNT_PASSWORD`, `DEMO_ACCESS_CODES` (without them `/demo` says access is closed — the old credentials were in the client bundle; rotate the demo password). Migration `20261009_security_floor.sql` §8 restricts VIP-feed inserts to active VIPs (dropped the OR'd `vip_posts_own_write`). Cashback copy no longer promises 12% (rate is an open owner decision). Verified: web `tsc`, 32 unit tests, `test:db` 35/35, `next build`, signed-out page smoke (`/terms`, `/lab`, `/departures` 200; `/vault` → `/login`); mobile `tsc` + Android export bundle. Not verified on a device.
+Web + mobile fixes from `docs/FRONTEND_MAP.md` (summary at the top of that file). New env vars: `DEMO_ACCOUNT_EMAIL`, `DEMO_ACCOUNT_PASSWORD`, `DEMO_ACCESS_CODES` (without them `/demo` says access is closed — the old credentials were in the client bundle; rotate the demo password). Migration `20261009_security_floor.sql` §8 restricts VIP-feed inserts to active VIPs (dropped the OR'd `vip_posts_own_write`). Cashback copy: superseded 2026-10-12 — 12% restored per ADR-0005. Verified: web `tsc`, 32 unit tests, `test:db` 35/35, `next build`, signed-out page smoke (`/terms`, `/lab`, `/departures` 200; `/vault` → `/login`); mobile `tsc` + Android export bundle. Not verified on a device.
+
+## 2026-10-12 — Build pass 3 (`sean/build-pass-3`, stacked on `sean/backend-security-floor` / PR #12)
+
+| Change | Where | Truth |
+|---|---|---|
+| Vault cashback rate **12%** (founder decision); copy restored; writes still frozen | ADR-0005, `vault-guard.ts`, vault + scale pages | decided |
+| AI routes require sign-in; per-member rate limit (text 30/10 min, 300/day; image 6/10 min, 40/day; `AI_RATE_*` overrides); fail closed | `src/lib/ai-rate-limit.ts`, `20261012_ai_rate_limit.sql` | wired — **apply migration before deploying or every AI call returns 429** |
+| Nova extracted to `runNova()`; internal callers (Telegram, agents, NightVision) call it directly; client `system` prompts ignored → fixed server personas; `/api/bernard` 410 | `src/lib/nova.ts`, `src/lib/agents/nova-call.ts` | wired |
+| Account deletion (password re-check, audit, anonymise financial rows, delete content + R2 objects, auth user) | `POST /api/account/delete`, `src/lib/account.ts`, `20261012_account_lifecycle.sql` | wired |
+| Lift PIN reset (password re-check, 3/day) | `POST /api/vip-keylock/pin-reset` | wired |
+| Signup username collisions fixed in `handle_new_user` | `20261012_account_lifecycle.sql` | wired |
+| IDOR fixes: alpaca / yahoo-fantasy use session user; upload prefix allowlisted + namespaced | routes | wired |
+| Web: `/account` (export, PIN reset, delete), public `/account/delete-info` (Play deletion URL); rails reach all 31 rooms, icon-only under 480px; Nova callers send personas, handle 401/429 | `finesse-layout.tsx`, `src/app/account` | wired |
+| Mobile: live Closet, Diary (+Calendar), Camera, Jazz Club, This Is You, Kitchen plan; delete account; id aliases | `mobile/src/components/rooms/*` | wired, not run on a device |
+
+Deploy order addition: `20261012_ai_rate_limit.sql`, `20261012_account_lifecycle.sql` (after 20261009). Verified: web tsc, 70 unit tests, `test:db` 35/35 + 40/40, eslint on new code, `next build`; mobile tsc + Android export.

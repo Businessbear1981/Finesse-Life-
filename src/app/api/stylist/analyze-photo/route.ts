@@ -2,52 +2,50 @@ import {NextResponse} from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import {createClient} from '@/lib/supabase/server';
 import {recordAiUsage} from '@/lib/ai-usage';
+import {guardAiCall} from '@/lib/ai-rate-limit';
 
 const client = new Anthropic({apiKey: process.env.ANTHROPIC_API_KEY});
 
-const FALLBACK = {
-  style_archetype: 'Dark Luxe Editorial',
-  style_labels: ['Dark luxury', 'Sculptural silhouette', 'Minimalist'],
-  similar_brands: ['The Row', 'Bottega Veneta', 'Toteme', 'Lemaire'],
-  price_range: '$800–$3,200',
-  buying_tendencies: ['designer ready-to-wear', 'luxury leather goods', 'fine jewelry', 'high-end skincare'],
+type StyleAnalysis = {
+  style_archetype: string;
+  style_labels: string[];
+  similar_brands: string[];
+  price_range: string;
+  buying_tendencies: string[];
 };
 
 const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const;
 const MAX_BYTES = 5 * 1024 * 1024;
 
-// Best-effort per-member throttle (per server instance) so one account cannot run up model spend.
-// A shared store (e.g. Upstash/Redis) is the durable fix; this caps bursts in the meantime.
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 5;
-const hits = new Map<string, number[]>();
-function throttled(userId: string) {
-  const now = Date.now();
-  const recent = (hits.get(userId) ?? []).filter((t) => now - t < WINDOW_MS);
-  if (recent.length >= MAX_PER_WINDOW) { hits.set(userId, recent); return true; }
-  recent.push(now);
-  hits.set(userId, recent);
-  return false;
-}
-
-// POST /api/stylist/analyze-photo — members only. Previously unauthenticated, which let anyone
-// call the model on our key.
+// POST /api/stylist/analyze-photo — members only, rate limited through the shared per-member
+// limiter (src/lib/ai-rate-limit.ts, 'image' bucket when a photo is attached). The previous
+// in-memory per-instance throttle (5/min) is replaced by the durable one.
+// → 200 analysis | 401 | 413 | 415 | 429 rate_limited | 502/503 (never a canned analysis)
 export async function POST(req: Request) {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401});
-  if (throttled(user.id)) {
-    return NextResponse.json({error: 'rate_limited', message: 'Give Nova a minute between looks.'}, {status: 429, headers: {'Retry-After': '60'}});
-  }
-  try {
-    const formData = await req.formData();
-    const entry = formData.get('file');
-    const file = entry instanceof File ? entry : null;
-    if (file && file.size > 0) {
-      if (!(ALLOWED as readonly string[]).includes(file.type)) return NextResponse.json({error: 'unsupported_type'}, {status: 415});
-      if (file.size > MAX_BYTES) return NextResponse.json({error: 'too_large'}, {status: 413});
-    }
+  const declared = Number(req.headers.get('content-length') ?? 0);
+  if (declared > MAX_BYTES + 64 * 1024) return NextResponse.json({error: 'too_large'}, {status: 413});
 
+  let file: File | null = null;
+  try {
+    const entry = (await req.formData()).get('file');
+    file = entry instanceof File ? entry : null;
+  } catch {
+    return NextResponse.json({error: 'invalid_form'}, {status: 400});
+  }
+  if (file && file.size > 0) {
+    if (!(ALLOWED as readonly string[]).includes(file.type)) return NextResponse.json({error: 'unsupported_type'}, {status: 415});
+    if (file.size > MAX_BYTES) return NextResponse.json({error: 'too_large'}, {status: 413});
+  }
+
+  const limited = await guardAiCall(user.id, file && file.size > 0 ? 'image' : 'nova');
+  if (limited) return limited;
+
+  const started = Date.now();
+  let modelAnswered = false;
+  try {
     let imageContent: Anthropic.ImageBlockParam | null = null;
 
     if (file && file.size > 0) {
@@ -80,15 +78,16 @@ Return ONLY valid JSON with these exact keys:
       },
     ];
 
-    const started = Date.now();
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 512,
       messages,
     });
+    modelAnswered = true;
     void recordAiUsage({
       feature: 'stylist.analyze_photo',
       model: response.model ?? 'claude-sonnet-4-6',
+      userId: user.id,
       latencyMs: Date.now() - started,
       inputTokens: response.usage?.input_tokens,
       outputTokens: response.usage?.output_tokens,
@@ -98,7 +97,7 @@ Return ONLY valid JSON with these exact keys:
 
     const raw = response.content[0].type === 'text' ? response.content[0].text : '';
     const cleaned = raw.replace(/```(?:json)?/gi, '').trim();
-    const result = JSON.parse(cleaned) as typeof FALLBACK;
+    const result = JSON.parse(cleaned) as StyleAnalysis;
 
     // Persist style_dna to the caller's own profile (RLS-scoped client).
     try {
@@ -109,6 +108,10 @@ Return ONLY valid JSON with these exact keys:
 
     return NextResponse.json(result);
   } catch {
-    return NextResponse.json(FALLBACK);
+    // Honest failure — previously returned a canned analysis (FALLBACK) as if Nova had read the photo.
+    if (!modelAnswered) {
+      void recordAiUsage({feature: 'stylist.analyze_photo', model: 'claude-sonnet-4-6', userId: user.id, latencyMs: Date.now() - started, ok: false});
+    }
+    return NextResponse.json({error: 'stylist_unavailable', message: "Nova couldn't read this photo just now. No analysis was produced."}, {status: modelAnswered ? 502 : 503});
   }
 }

@@ -72,6 +72,8 @@ Done on `sean/backend-security-floor` (not deployed, migration not applied):
 2. ✅ VIP code redemption works (atomic, service-role-only RPC); one admin rule.
 3. ✅ Telegram takeover + member-to-anyone messaging; media webhook auth; committed Higgsfield credentials removed; procurement single-use; CSPRNG codes/tokens.
 
+Done on `sean/build-pass-3` (2026-10-12): ✅ 5 (AI sign-in + rate limit + server personas), ✅ 7 (alpaca/yahoo IDOR, upload prefix; backstage_sessions still open), ✅ 10 (account deletion + lift PIN reset), ✅ handle_new_user collisions from 9.
+
 Next, in order:
 4. **Rotate secrets:** Supabase DB password (OPS.md history), Higgsfield key pair (was in `scrapbook/video-status`), and the demo account password (shipped in `(auth)/demo` — remove the page or the account).
 5. **Unbounded AI spend:** require sign-in + per-member rate limit on `/api/nova`, stylist, agents, intelligence/market; move internal callers (Telegram, agents, NightVision) to a server function instead of HTTP-calling public `/api/nova`; never return fabricated success.

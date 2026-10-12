@@ -308,6 +308,14 @@ function DealPipeline({ deals }: { deals: Deal[] }) {
   );
 }
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 // ─── Tab 2: Buying Trends ─────────────────────────────────────────────────────
 function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; trendsLoading: boolean; source: InsightSource }) {
   const [briefing, setBriefing] = useState<string | null>(null);
@@ -321,11 +329,11 @@ function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; tren
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle platform. Provide sharp, actionable deal sourcing recommendations based on member buying data.' }),
+        body: JSON.stringify({ prompt, system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle platform. Provide sharp, actionable deal sourcing recommendations based on member buying data.', persona: 'embassy' }),
       });
-      const data = (await res.json().catch(() => ({}))) as { text?: string };
+      const data = (await res.json().catch(() => ({}))) as { text?: string; retryAfterS?: unknown };
       if (!res.ok || !data.text) {
-        setBriefing('Intelligence feed unavailable. Check back shortly.');
+        setBriefing((!res.ok && novaLimitMessage(res.status, data)) || 'Intelligence feed unavailable. Check back shortly.');
         return;
       }
       setBriefing(data.text);
@@ -579,9 +587,12 @@ BrandName | Tier | Margin% | Opportunity note here
 
 Focus on what's actually moving in luxury streetwear, handbags, footwear, fragrance, and menswear right now.`,
         system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle group-buying platform. Provide sharp, structured market intelligence. Be specific about brand names, percentages, and actionable opportunities. Always follow the exact format requested.',
+        persona: 'embassy',
       }),
     })
       .then(async (res) => {
+        // Background load: on 401 (signed out) / 429 (rate limited) / any failure the
+        // labelled sample trends stay up; the member-initiated briefing surfaces the reason.
         if (!res.ok) throw new Error('nova unavailable');
         return (await res.json()) as { text?: string };
       })

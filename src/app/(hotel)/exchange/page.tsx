@@ -558,7 +558,7 @@ function SellTab({ accent }: { accent: string }) {
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, persona: 'concierge' }),
       });
       const json = await res.json();
       const match = String(json.text ?? '').match(/[\d,]+(\.\d{1,2})?/);

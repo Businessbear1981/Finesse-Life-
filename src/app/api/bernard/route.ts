@@ -1,18 +1,12 @@
 import {NextResponse} from 'next/server';
-import {complete} from '@/lib/ai';
 
-export async function POST(req: Request) {
-  const {prompt, system} = await req.json();
-  try {
-    const text = await complete(prompt, {
-      system,
-      model: 'anthropic/claude-sonnet-4-6',
-      feature: 'bernard',
-    });
-    return NextResponse.json({text});
-  } catch {
-    return NextResponse.json({
-      text: "Consider it handled. I'll have that arranged shortly.",
-    });
-  }
+// POST /api/bernard — RETIRED (410 Gone).
+// It relayed any prompt and client `system` string straight to the model, had no in-app caller,
+// and returned a fabricated "Consider it handled" on failure. Use POST /api/nova with a `persona`
+// instead (members only, rate limited, server-owned prompts).
+export async function POST() {
+  return NextResponse.json(
+    {error: 'gone', message: '/api/bernard has been retired. Use POST /api/nova with a persona.'},
+    {status: 410, headers: {'Cache-Control': 'no-store'}},
+  );
 }

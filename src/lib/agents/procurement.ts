@@ -1,4 +1,5 @@
 import {randomInt} from 'crypto';
+import {orFilterSafe} from './nova-call';
 
 // Procurement: when a registry item is funded, finds the best purchase path
 // Knows about partner programs (Carvana for cars, Airbnb for trips, etc.)
@@ -122,7 +123,7 @@ export async function findProcurementPath(
     .from('scale_deals')
     .select('id,title,group_price_cents')
     .eq('status', 'open')
-    .or(`title.ilike.%${item.title}%,category.ilike.%${item.category}%`)
+    .or(`title.ilike.%${orFilterSafe(item.title) || '-'}%,category.ilike.%${orFilterSafe(item.category) || '-'}%`)
     .limit(1)
     .maybeSingle();
 

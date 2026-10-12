@@ -33,6 +33,7 @@ export default function RootLayout() {
         <Stack.Screen name="room/[id]" options={{title: 'THE ROOMS'}} />
         <Stack.Screen name="penthouse" options={{title: 'THE PRIVATE LIFT'}} />
         <Stack.Screen name="sign-in" options={{title: 'MEMBERS ONLY', presentation: 'modal'}} />
+        <Stack.Screen name="delete-account" options={{title: 'DELETE ACCOUNT'}} />
       </Stack>
     </>
   );

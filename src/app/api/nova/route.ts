@@ -1,217 +1,80 @@
 import {NextResponse} from 'next/server';
-import {generateText, tool, stepCountIs} from 'ai';
-import {model} from '@/lib/ai';
-import {fromSdkUsage, recordAiUsage} from '@/lib/ai-usage';
-import {createClient} from '@/lib/supabase/server';
-import {buildBehavioralProfile, predictNextAction, generatePersonalizedRecs, emit} from '@/lib/intelligence';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
+import {emit} from '@/lib/intelligence';
+import {guardAiCall} from '@/lib/ai-rate-limit';
+import {
+  MAX_HISTORY_TURNS,
+  MAX_IMAGES,
+  MAX_PROMPT_CHARS,
+  noteLegacySystem,
+  novaImageSchema,
+  novaTurnSchema,
+  resolvePersona,
+  runNova,
+} from '@/lib/nova';
 
-const novaRequestSchema = z.object({
-  prompt: z.string().min(1),
-  system: z.string().optional(),
-  image: z.string().optional(),
-  images: z.array(z.string()).max(6).optional(),
-});
+// POST /api/nova — members only, rate limited.
+// Body: {prompt, persona?, style?, images? (≤3), image? (legacy), history? (≤12)}
+// → 200 {text, tool_calls?} | 401 signed_out | 400 invalid | 413 too large | 429 rate_limited
+//   | 502 empty_response | 503 nova_unavailable (502/503 carry an honest `text`).
+// `system` is accepted for backward compatibility but NEVER used as instructions.
 
-// ─── Tool definitions ──────────────────────────────────────────────────────────
+const MAX_BODY_BYTES = 14 * 1024 * 1024;
 
-function buildNovaTools(userId: string | null) {
-  return {
-    check_vault_balance: tool({
-      description: "Read the authenticated user's Finesse Vault balance from Supabase.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (!userId) return {balance_cents: null, balance_display: 'unavailable', error: 'Not authenticated'};
-        try {
-          const supabase = await createClient();
-          const {data} = await supabase
-            .from('vault_accounts')
-            .select('balance_cents')
-            .eq('user_id', userId)
-            .maybeSingle();
-          const cents = data?.balance_cents ?? 0;
-          return {
-            balance_cents: cents,
-            balance_display: `$${(Number(cents) / 100).toFixed(2)}`,
-          };
-        } catch {
-          return {balance_cents: null, balance_display: 'unavailable', error: 'Query failed'};
-        }
-      },
-    }),
-
-    get_recommendations: tool({
-      description: 'Generate personalized luxury item recommendations for the user based on their behavioral profile.',
-      inputSchema: z.object({
-        category: z.string().optional().describe('Optional category filter (e.g. Fashion, Watches, Sneakers)'),
-        count: z.number().int().min(1).max(10).optional().describe('Number of recommendations to return (default 3)'),
-      }),
-      execute: async ({count}: {category?: string; count?: number}) => {
-        if (!userId) return {recommendations: [] as Array<{title: string; category: string; price_range: string; why: string}>, error: 'Not authenticated'};
-        try {
-          const recs = await generatePersonalizedRecs(userId, count ?? 3);
-          return {recommendations: recs};
-        } catch {
-          return {recommendations: [] as Array<{title: string; category: string; price_range: string; why: string}>, error: 'Could not generate recommendations'};
-        }
-      },
-    }),
-
-    get_next_action: tool({
-      description: "Predict the single most useful next action for the user based on their behavioral profile.",
-      inputSchema: z.object({}),
-      execute: async () => {
-        if (!userId) return {action: null as string | null, reason: 'Not authenticated', confidence: 0};
-        try {
-          const result = await predictNextAction(userId, {page: 'concierge'});
-          return result;
-        } catch {
-          return {action: null as string | null, reason: 'Could not predict next action', confidence: 0};
-        }
-      },
-    }),
-
-    log_intent: tool({
-      description: "Log a purchase intent signal to the intelligence bus.",
-      inputSchema: z.object({
-        intent: z.string().describe('The intent category, e.g. car_service, dining, travel'),
-        details: z.string().describe('Free-text description of the intent'),
-      }),
-      execute: async ({intent, details}: {intent: string; details: string}) => {
-        if (!userId) return {logged: false, intent: '', details: ''};
-        try {
-          await emit({
-            user_id: userId,
-            kind: 'purchase_intent',
-            payload: {intent, details},
-            context: {page: 'concierge'},
-          });
-          return {logged: true, intent, details};
-        } catch {
-          return {logged: false, intent, details};
-        }
-      },
-    }),
-  };
-}
-
-const NOVA_UNAVAILABLE_TEXT = "Nova couldn't be reached just now. Nothing has been arranged.";
-
-// ─── Route handler ─────────────────────────────────────────────────────────────
+const novaRequestSchema = z
+  .object({
+    prompt: z.string().trim().min(1).max(MAX_PROMPT_CHARS),
+    // Canonical ids: NOVA_PERSONAS in src/lib/nova.ts. Unknown/alias values resolve server-side (never a 400) so a
+    // caller sending a coarse name keeps working; see resolvePersona.
+    persona: z.string().trim().max(32).regex(/^[A-Za-z_-]+$/).optional(),
+    // Member style preferences (concierge avatar). Invalid or extra fields are dropped, not a 400.
+    style: z.record(z.string(), z.unknown()).optional(),
+    /** @deprecated ignored — send `persona`. */
+    system: z.string().max(8000).optional(),
+    image: novaImageSchema.optional(),
+    images: z.array(novaImageSchema).max(MAX_IMAGES).optional(),
+    history: z.array(novaTurnSchema).max(MAX_HISTORY_TURNS).optional(),
+  })
+  .refine((b) => (b.images?.length ?? 0) + (b.image ? 1 : 0) <= MAX_IMAGES, {message: `at most ${MAX_IMAGES} images`, path: ['images']});
 
 export async function POST(req: Request) {
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
+
+  const declared = Number(req.headers.get('content-length') ?? 0);
+  if (declared > MAX_BODY_BYTES) return NextResponse.json({error: 'too_large'}, {status: 413});
+
   const parsed = await parseBody(req, novaRequestSchema);
   if (parsed.error) return parsed.error;
-  const {prompt, system, image, images} = parsed.data;
+  const {prompt, persona, style, system, image, images, history} = parsed.data;
   const allImages = images && images.length > 0 ? images : image ? [image] : [];
 
-  // Pull user + behavioral profile context (non-blocking, 800ms cap)
-  let profileContext = '';
-  let userId: string | null = null;
-  try {
-    const supabase = await createClient();
-    const {data: {user}} = await supabase.auth.getUser();
-    if (user) {
-      userId = user.id;
-      const profile = await Promise.race([
-        buildBehavioralProfile(user.id),
-        new Promise<null>(r => setTimeout(() => r(null), 800)),
-      ]);
-      if (profile && typeof profile === 'object') {
-        const topCats = Object.keys(profile.category_affinities).slice(0, 3).join(', ');
-        const topBrands = Object.keys(profile.brand_affinities).slice(0, 3).join(', ');
-        profileContext = [
-          topCats   && `Member affinities: ${topCats}.`,
-          topBrands && `Brand preferences: ${topBrands}.`,
-          `Buying velocity: ${profile.buying_velocity}.`,
-          profile.style_signals.length && `Style signals: ${profile.style_signals.slice(0, 4).join(', ')}.`,
-        ].filter(Boolean).join(' ');
-      }
-      void emit({user_id: user.id, kind: 'agent_query', payload: {page: 'concierge', query_length: prompt.length}});
-    }
-  } catch {
-    // Non-blocking — Nova works without profile context
-  }
+  const resolved = resolvePersona({persona, style, system});
+  noteLegacySystem(resolved);
 
-  const enrichedSystem = profileContext
-    ? `${system ?? ''}\n\nMember intelligence: ${profileContext}`.trim()
-    : system;
+  const limited = await guardAiCall(user.id, allImages.length > 0 ? 'image' : 'nova');
+  if (limited) return limited;
 
-  const novaTools = buildNovaTools(userId);
-  const NOVA_MODEL = 'anthropic/claude-sonnet-4-6';
-  const started = Date.now();
+  void emit({user_id: user.id, kind: 'agent_query', payload: {page: 'concierge', persona: resolved.persona, query_length: prompt.length}});
 
-  try {
-    // Image path (Scout's product-photo analysis, NightVision's style-capture
-    // photos): send actual image(s) as multimodal content parts instead of
-    // embedding base64 text in the prompt — previously truncated to 200 chars,
-    // which sent the model nothing usable. Supports 1..6 images.
-    const result = await generateText(
-      allImages.length > 0
-        ? {
-            model: model(NOVA_MODEL),
-            system: enrichedSystem,
-            messages: [
-              {
-                role: 'user',
-                content: [
-                  {type: 'text', text: prompt},
-                  ...allImages.map((img) => ({type: 'image' as const, image: img})),
-                ],
-              },
-            ],
-            tools: novaTools,
-            stopWhen: stepCountIs(3),
-          }
-        : {
-            model: model(NOVA_MODEL),
-            system: enrichedSystem,
-            prompt,
-            tools: novaTools,
-            // Allow up to 3 steps: initial call + tool execution + follow-up prose
-            stopWhen: stepCountIs(3),
-          },
-    );
+  const result = await runNova({
+    userId: user.id,
+    prompt,
+    persona: resolved.persona,
+    style: resolved.style,
+    images: allImages,
+    history,
+    tools: true,
+  });
 
-    void recordAiUsage({
-      feature: allImages.length > 0 ? 'nova.vision' : 'nova',
-      model: NOVA_MODEL,
-      userId,
-      latencyMs: Date.now() - started,
-      ...fromSdkUsage(result.totalUsage),
-    });
-
-    // Collect all tool results across all steps
-    const toolCalls: Array<{name: string; result: unknown}> = [];
-    for (const step of result.steps) {
-      for (const tr of step.toolResults) {
-        toolCalls.push({
-          name: tr.toolName,
-          // v6: result property is 'output' on StaticToolResult
-          result: 'output' in tr ? tr.output : undefined,
-        });
-      }
-    }
-
-    // Never imply something was arranged when the model produced no reply.
-    if (!result.text) {
-      return NextResponse.json(
-        {error: 'empty_response', text: NOVA_UNAVAILABLE_TEXT, tool_calls: toolCalls.length > 0 ? toolCalls : undefined},
-        {status: 502},
-      );
-    }
-    const text = result.text;
-
-    return NextResponse.json({
-      text,
-      tool_calls: toolCalls.length > 0 ? toolCalls : undefined,
-    });
-  } catch {
-    void recordAiUsage({feature: 'nova', model: NOVA_MODEL, userId, latencyMs: Date.now() - started, ok: false});
+  if (!result.ok) {
     return NextResponse.json(
-      {error: 'nova_unavailable', text: NOVA_UNAVAILABLE_TEXT},
-      {status: 503},
+      {error: result.error, text: result.text, tool_calls: result.toolCalls},
+      {status: result.status},
     );
   }
+  return NextResponse.json({text: result.text, tool_calls: result.toolCalls});
 }

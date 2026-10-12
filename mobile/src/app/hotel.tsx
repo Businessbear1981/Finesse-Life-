@@ -13,25 +13,7 @@ import {supabase} from '@/lib/supabase';
 import {liftToken} from '@/lib/api';
 import {ContentWidth} from '@/lib/layout';
 import {DecoLobby} from '@/components/scenes/DecoLobby';
-import {Lounge} from '@/components/rooms/Lounge';
-import {Concierge} from '@/components/rooms/Concierge';
-import {Vault} from '@/components/rooms/Vault';
-import {Wardrobe} from '@/components/rooms/Wardrobe';
-import {Gym} from '@/components/rooms/Gym';
-import {Calendar} from '@/components/rooms/Calendar';
-import {Kitchen} from '@/components/rooms/Kitchen';
-import {Salon} from '@/components/rooms/Salon';
-import {Scrapbook} from '@/components/rooms/Scrapbook';
-import {Stylist} from '@/components/rooms/Stylist';
-import {Starmaker} from '@/components/rooms/Starmaker';
-import {Depart} from '@/components/rooms/Depart';
-import {Entourage} from '@/components/rooms/Entourage';
-import {Scale, Exchange, Embassy} from '@/components/rooms/Market';
-import {Bag, Registry, Lab, Switchboard} from '@/components/rooms/Social';
-import {NightVision, GameRoom, PerDiem} from '@/components/rooms/Lifestyle';
-import {Profile} from '@/components/rooms/Penthouse';
-import {CarpeDiem, Market, Ballroom} from '@/components/rooms/House';
-import {Club} from '@/components/rooms/Club';
+import {INTERIORS, LIVE_ROOMS} from '@/components/rooms/interiors';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -69,11 +51,10 @@ const D_R = [RM('exchange', 'Exchange', 'trendingup', 'PUBLIC FLOOR', 'Consign w
 const PROFILE = RM('profile', 'This Is You', 'user', 'PRIVATE LIFE', 'Portrait room. Your stats, how others see you, your traffic.', 'EDIT WHAT OTHERS SEE');
 const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
 // Rooms off the rails, reached from the Lobby directory.
-const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('club', 'The Club', 'briefcase', 'PUBLIC FLOOR')];
-const BUILT: Record<string, (p: {side: Side}) => React.JSX.Element> = {lounge: Lounge, concierge: Concierge, vault: Vault, wardrobe: Wardrobe, gym: Gym, calendar: Calendar, kitchen: Kitchen, salon: Salon, archive: Scrapbook, stylist: Stylist, starmaker: Starmaker, departures: Depart, entourage: Entourage, scale: Scale, exchange: Exchange, embassy: Embassy, bag: Bag, registry: Registry, lab: Lab, switchboard: Switchboard, nightvision: NightVision, clubhouse: GameRoom, perdiem: PerDiem, profile: Profile, 'carpe-diem': CarpeDiem, market: Market, ballroom: Ballroom, club: Club};
-// Rooms whose interiors make real server calls today. Only these get the green "ROOM ON" lamp;
-// every other interior is sample or local-only and says so.
-const LIVE_ROOMS = new Set(['lounge', 'concierge', 'vault', 'gym', 'stylist', 'starmaker']); // Kitchen calls order-intent but can't create the plan it needs (422), so it stays sample.
+const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('club', 'The Club', 'briefcase', 'PUBLIC FLOOR'),
+  RM('closet', 'The Closet', 'shirt', 'PRIVATE LIFE'), RM('diary', 'The Diary', 'bookopen', 'PRIVATE LIFE'), RM('camera', 'The Camera', 'camera', 'ORCHESTRATOR'), RM('jazz-club', 'Jazz Club', 'music', 'PUBLIC FLOOR')];
+// Interiors (and which of them are live) are registered in components/rooms/interiors.ts, shared with /room/[id].
+const BUILT = INTERIORS;
 const RAIL = 58;
 
 export default function HotelScreen() {
@@ -236,6 +217,11 @@ function AccountDesk() {
       <Pressable onPress={() => router.replace('/side')} accessibilityRole="button" accessibilityLabel={`Change side of the house to ${other}`} style={styles.deskBtn}>
         <Text style={styles.deskBtnText}>CHANGE SIDE OF THE HOUSE</Text>
       </Pressable>
+      {email ? (
+        <Pressable onPress={() => router.push('/delete-account')} accessibilityRole="button" accessibilityLabel="Delete account" style={[styles.deskBtn, {borderColor: 'rgba(255,143,169,0.6)'}]}>
+          <Text style={[styles.deskBtnText, {color: '#FF8FA9'}]}>DELETE ACCOUNT</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -260,6 +246,15 @@ function Interior({room, acc}: {room: RoomDef; acc: string}) {
     </View>
   );
 }
+
+const ALSO = [
+  {id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening', icon: 'sparkles'},
+  {id: 'club', label: 'The Club', note: 'News · money · cars · locker room', icon: 'briefcase'},
+  {id: 'closet', label: 'The Closet', note: 'The week, from pieces you own', icon: 'shirt'},
+  {id: 'diary', label: 'The Diary', note: 'The day on one page', icon: 'bookopen'},
+  {id: 'camera', label: 'The Camera', note: 'Private intake, with consent', icon: 'camera'},
+  {id: 'jazz-club', label: 'Jazz Club', note: 'Down the back stair', icon: 'music'},
+];
 
 function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
   const her = side === 'her';
@@ -292,9 +287,9 @@ function Lobby({side, onPick}: {side: Side; onPick: (id: string) => void}) {
         <Text style={{fontFamily: fonts.script, fontSize: 15, lineHeight: 20, color: '#1A120C'}}>Ring Nova from the request line and she will draft the evening for your approval.</Text>
       </Animated.View>
       <Text style={styles.section}>ALSO IN THE HOUSE</Text>
-      <View style={{flexDirection: 'row', gap: 8, marginHorizontal: 12, marginTop: 10}}>
-        {[{id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening', icon: 'sparkles'}, {id: 'club', label: 'The Club', note: 'News · money · cars · locker room', icon: 'briefcase'}].map((r) => (
-          <Pressable key={r.id} onPress={() => onPick(r.id)} accessibilityRole="button" style={{flex: 1, minHeight: 74, padding: 10, gap: 4, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(20,12,10,0.7)'}}>
+      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginHorizontal: 12, marginTop: 10}}>
+        {ALSO.map((r) => (
+          <Pressable key={r.id} onPress={() => onPick(r.id)} accessibilityRole="button" style={{width: '48.5%', flexGrow: 1, minHeight: 74, padding: 10, gap: 4, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(20,12,10,0.7)'}}>
             <Icon name={r.icon} size={18} color={t.acc} />
             <Text style={{fontFamily: fonts.label, fontSize: 14, color: deco.cream}}>{r.label}</Text>
             <Text style={{fontFamily: fonts.body, fontSize: 10.5, color: 'rgba(244,232,208,0.6)'}}>{r.note}</Text>

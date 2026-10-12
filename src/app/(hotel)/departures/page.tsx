@@ -44,6 +44,14 @@ const RECENT_SEARCHES = [
   { route: "Uchi Restaurant", date: "Fri 9:00 PM", price: "2 guests", type: "dining" as const },
 ];
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 export default function Departures() {
   const [activeCategory, setActiveCategory] = useState<DepartureConnector["category"] | "all">("all");
   const [itinerary, setItinerary] = useState("");
@@ -68,11 +76,18 @@ export default function Departures() {
         body: JSON.stringify({
           prompt: `Draft a short trip plan for: ${request}`,
           system: "You are Nova, the Finesse travel concierge. Draft a concise day-by-day trip plan with neighbourhoods, dining and experience ideas. You cannot search live fares or book anything — never claim to have booked, reserved or held anything, and say prices are rough estimates.",
+          persona: "travel",
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { text?: string };
+      const data = (await res.json().catch(() => ({}))) as { text?: string; retryAfterS?: unknown };
       if (!res.ok || !data.text) {
-        setPlanError(res.status === 401 ? "Sign in to have Nova draft a plan. Nothing has been booked." : "Nova couldn't be reached just now. Nothing has been booked.");
+        setPlanError(
+          res.status === 401
+            ? "Sign in to have Nova draft a plan. Nothing has been booked."
+            : res.status === 429
+              ? `${novaLimitMessage(429, data)} Nothing has been booked.`
+              : "Nova couldn't be reached just now. Nothing has been booked.",
+        );
         return;
       }
       setPlan(data.text);

@@ -33,6 +33,13 @@ import {
   Plane,
   ChefHat,
   Dumbbell,
+  Gem,
+  Music,
+  Fingerprint,
+  Archive,
+  BookOpen,
+  Camera,
+  Sun,
 } from 'lucide-react';
 
 interface RoomDef {
@@ -40,6 +47,16 @@ interface RoomDef {
   label: string;
   icon: (props: {size: number; strokeWidth: number}) => ReactElement;
 }
+
+/*
+ * Rail labels are the registry names (src/lib/rooms/registry.ts) with the
+ * leading "The " dropped to fit the 72px tile. "Scrapbook" is kept for
+ * /archive because CONTEXT.md defines it; "Market" is not a registry room.
+ * Existing order is preserved; rooms that were reachable only from the Lobby
+ * directory are appended at the end of each rail. Every registry room except
+ * VIP Room (header crown) and Concierge (dock Nova) is on a rail or the dock
+ * on both sides.
+ */
 
 /* ─── LEFT RAIL: Style & Shopping ─── */
 const LEFT_ROOMS: RoomDef[] = [
@@ -52,6 +69,9 @@ const LEFT_ROOMS: RoomDef[] = [
   {path: '/salon',      label: 'Salon',       icon: p => <Sparkles {...p} />},
   {path: '/kitchen',    label: 'Kitchen',     icon: p => <ChefHat {...p} />},
   {path: '/gym',        label: 'Gym',         icon: p => <Dumbbell {...p} />},
+  {path: '/closet',     label: 'Closet',      icon: p => <Archive {...p} />},
+  {path: '/camera',     label: 'Camera',      icon: p => <Camera {...p} />},
+  {path: '/perdiem',    label: 'Per Diem',    icon: p => <Calendar {...p} />},
 ];
 
 const LEFT_ROOMS_MASC: RoomDef[] = [
@@ -61,9 +81,14 @@ const LEFT_ROOMS_MASC: RoomDef[] = [
   {path: '/perdiem',    label: 'Per Diem',    icon: p => <Calendar {...p} />},
   {path: '/nightvision',label: 'NightVision', icon: p => <Eye {...p} />},
   {path: '/market',     label: 'Market',      icon: p => <Store {...p} />},
-  {path: '/clubhouse',  label: 'Game Room',   icon: p => <Gamepad2 {...p} />},
+  {path: '/clubhouse',  label: 'Clubhouse',   icon: p => <Gamepad2 {...p} />},
   {path: '/kitchen',    label: 'Kitchen',     icon: p => <ChefHat {...p} />},
   {path: '/gym',        label: 'Gym',         icon: p => <Dumbbell {...p} />},
+  {path: '/registry',   label: 'Registry',    icon: p => <Gift {...p} />},
+  {path: '/stylist',    label: 'Stylist',     icon: p => <Scissors {...p} />},
+  {path: '/salon',      label: 'Salon',       icon: p => <Sparkles {...p} />},
+  {path: '/closet',     label: 'Closet',      icon: p => <Archive {...p} />},
+  {path: '/camera',     label: 'Camera',      icon: p => <Camera {...p} />},
 ];
 
 /* ─── RIGHT RAIL: Experience & Intel ─── */
@@ -73,9 +98,14 @@ const RIGHT_ROOMS: RoomDef[] = [
   {path: '/entourage',  label: 'Entourage',   icon: p => <Users {...p} />},
   {path: '/lab',        label: 'Lab',         icon: p => <FlaskConical {...p} />},
   {path: '/switchboard',label: 'Switchboard', icon: p => <Phone {...p} />},
-  {path: '/backstage',  label: 'Lair',        icon: p => <Monitor {...p} />},
-  {path: '/clubhouse',  label: 'Game Room',   icon: p => <Gamepad2 {...p} />},
-  {path: '/departures', label: 'Depart',      icon: p => <Plane {...p} />},
+  {path: '/backstage',  label: 'Backstage',   icon: p => <Monitor {...p} />},
+  {path: '/clubhouse',  label: 'Clubhouse',   icon: p => <Gamepad2 {...p} />},
+  {path: '/departures', label: 'Departures',  icon: p => <Plane {...p} />},
+  {path: '/ballroom',   label: 'Ballroom',    icon: p => <Gem {...p} />},
+  {path: '/jazz-club',  label: 'Jazz Club',   icon: p => <Music {...p} />},
+  {path: '/this-is-you',label: 'This Is You', icon: p => <Fingerprint {...p} />},
+  {path: '/diary',      label: 'Diary',       icon: p => <BookOpen {...p} />},
+  {path: '/carpe-diem', label: 'Carpe Diem',  icon: p => <Sun {...p} />},
 ];
 
 const RIGHT_ROOMS_MASC: RoomDef[] = [
@@ -84,9 +114,13 @@ const RIGHT_ROOMS_MASC: RoomDef[] = [
   {path: '/entourage',  label: 'Entourage',   icon: p => <Users {...p} />},
   {path: '/lab',        label: 'Lab',         icon: p => <FlaskConical {...p} />},
   {path: '/switchboard',label: 'Switchboard', icon: p => <Phone {...p} />},
-  {path: '/backstage',  label: 'Lair',        icon: p => <Monitor {...p} />},
+  {path: '/backstage',  label: 'Backstage',   icon: p => <Monitor {...p} />},
   {path: '/carpe-diem', label: 'Carpe Diem',  icon: p => <TrendingUp {...p} />},
-  {path: '/departures', label: 'Depart',      icon: p => <Plane {...p} />},
+  {path: '/departures', label: 'Departures',  icon: p => <Plane {...p} />},
+  {path: '/ballroom',   label: 'Ballroom',    icon: p => <Gem {...p} />},
+  {path: '/jazz-club',  label: 'Jazz Club',   icon: p => <Music {...p} />},
+  {path: '/this-is-you',label: 'This Is You', icon: p => <Fingerprint {...p} />},
+  {path: '/diary',      label: 'Diary',       icon: p => <BookOpen {...p} />},
 ];
 
 /* ─── BOTTOM DOCK: Commerce ─── */
@@ -149,7 +183,10 @@ function RailTile({room, active}: {room: RoomDef; active: boolean}) {
   return (
     <Link
       href={room.path}
-      className="relative flex flex-col items-center gap-0.5 px-2.5 py-2 border transition-all duration-300 w-full overflow-hidden"
+      aria-label={room.label}
+      aria-current={active ? 'page' : undefined}
+      title={room.label}
+      className="relative flex flex-col items-center gap-0.5 px-2.5 py-2 border transition-all duration-300 w-full shrink-0 overflow-hidden max-[479px]:px-1"
       style={{
         borderColor: active ? 'rgba(0,255,136,0.35)' : 'rgba(201,169,97,0.04)',
         background: active
@@ -166,7 +203,8 @@ function RailTile({room, active}: {room: RoomDef; active: boolean}) {
       >
         {room.icon({size: 22, strokeWidth: active ? 2.2 : 1.5})}
       </div>
-      <span className="relative z-10 font-label text-[8px] tracking-[0.08em] uppercase leading-tight text-center"
+      {/* Labels drop below 480px: the rail stays, icon + LED only. */}
+      <span className="relative z-10 font-label text-[8px] tracking-[0.08em] uppercase leading-tight text-center max-[479px]:hidden"
         style={{color: active ? '#00FF88bb' : 'rgba(244,232,208,0.11)'}}
       >
         {room.label}
@@ -211,6 +249,21 @@ function DockTile({room, active}: {room: RoomDef; active: boolean}) {
     </Link>
   );
 }
+
+/** Active for the room itself and any nested route (e.g. /profile/edit). */
+function isActivePath(pathname: string | null, path: string) {
+  if (!pathname) return false;
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+/*
+ * Rails: 72px at every width ≥480px. Below 480px they collapse to a 44px
+ * icon-only strip (same tiles, LEDs and glow — labels hidden) so content
+ * gets ~312px instead of ~256px on a 400px phone. Rails scroll vertically
+ * when the room list is taller than the viewport.
+ */
+const RAIL_CLASS =
+  'fixed top-[64px] bottom-[70px] z-40 w-[72px] max-[479px]:w-[44px] flex flex-col items-center py-1 gap-0 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden';
 
 /* ─── Main Layout ─── */
 export function FinesseLayout({children}: {children: ReactNode}) {
@@ -329,28 +382,28 @@ export function FinesseLayout({children}: {children: ReactNode}) {
       </div>
 
       {/* ═══ LEFT RAIL — Style & Shopping ═══ */}
-      <div className="fixed left-0 top-[64px] bottom-[70px] z-40 w-[72px] flex flex-col items-center py-1 gap-0 overflow-y-auto"
+      <nav aria-label="Left rail" className={`${RAIL_CLASS} left-0`}
         style={{
           background: 'linear-gradient(to right, rgba(10,4,6,0.98), rgba(10,4,6,0.88))',
           borderRight: '1px solid rgba(201,169,97,0.06)',
         }}
       >
         {leftRooms.map(room => (
-          <RailTile key={room.path} room={room} active={pathname === room.path} />
+          <RailTile key={room.path} room={room} active={isActivePath(pathname, room.path)} />
         ))}
-      </div>
+      </nav>
 
       {/* ═══ RIGHT RAIL — Experience & Intel ═══ */}
-      <div className="fixed right-0 top-[64px] bottom-[70px] z-40 w-[72px] flex flex-col items-center py-1 gap-0 overflow-y-auto"
+      <nav aria-label="Right rail" className={`${RAIL_CLASS} right-0`}
         style={{
           background: 'linear-gradient(to left, rgba(10,4,6,0.98), rgba(10,4,6,0.88))',
           borderLeft: '1px solid rgba(201,169,97,0.06)',
         }}
       >
         {rightRooms.map(room => (
-          <RailTile key={room.path} room={room} active={pathname === room.path} />
+          <RailTile key={room.path} room={room} active={isActivePath(pathname, room.path)} />
         ))}
-      </div>
+      </nav>
 
       {/* ═══ BOTTOM DOCK — Commerce ═══ */}
       <div className="fixed bottom-0 left-0 right-0 z-50 h-[70px] flex items-stretch"
@@ -397,7 +450,7 @@ export function FinesseLayout({children}: {children: ReactNode}) {
       </div>
 
       {/* Main content */}
-      <main className="pt-[68px] pl-[72px] pr-[72px] pb-[70px]">{children}</main>
+      <main className="pt-[68px] pl-[72px] pr-[72px] pb-[70px] max-[479px]:pl-[44px] max-[479px]:pr-[44px]">{children}</main>
     </div>
   );
 }

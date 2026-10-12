@@ -1,16 +1,22 @@
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
+import {guardAiCall} from '@/lib/ai-rate-limit';
+import {MAX_IMAGES, runNova} from '@/lib/nova';
+
+const answer = z.union([z.string().max(300), z.array(z.string().max(120)).max(12)]);
 
 const analyzeSchema = z.object({
-  answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])).default({}),
+  answers: z.record(z.string().max(40), answer).refine((a) => Object.keys(a).length <= 20, 'too many answers').default({}),
   sources: z.object({
     instagram: z.boolean(),
     snapchat: z.boolean(),
     plaid: z.boolean(),
     spotify: z.boolean(),
   }).default({instagram: false, snapchat: false, plaid: false, spotify: false}),
-  photos: z.array(z.object({url: z.string().url(), category: z.string()})).max(6).default([]),
+  // Up to 6 accepted (page contract); the first MAX_IMAGES are sent to the model.
+  photos: z.array(z.object({url: z.string().url().max(2048).startsWith('https://'), category: z.string().max(40)})).max(6).default([]),
 });
 
 interface NovaAnalysis {
@@ -119,47 +125,40 @@ function parseNovaJson(text: string): NovaAnalysis | null {
   }
 }
 
+// POST /api/nightvision/analyze — members only, rate limited. Calls Nova directly (runNova)
+// instead of HTTP-fetching /api/nova via NEXT_PUBLIC_SITE_URL (localhost in production).
+// → 200 NovaAnalysis | 401 | 400 | 429 | 502 analysis_unparseable | 503 nova_unavailable
 export async function POST(req: Request) {
-  try {
-    const parsed = await parseBody(req, analyzeSchema);
-    if (parsed.error) return parsed.error;
-    const {answers, sources, photos} = parsed.data;
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
 
-    const profileSummary = buildProfileSummary(answers, sources, photos);
+  const parsed = await parseBody(req, analyzeSchema);
+  if (parsed.error) return parsed.error;
+  const {answers, sources, photos} = parsed.data;
+  const modelPhotos = photos.slice(0, MAX_IMAGES);
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-    const novaRes = await fetch(`${siteUrl}/api/nova`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        prompt: profileSummary,
-        system: SYSTEM_PROMPT,
-        images: photos.length > 0 ? photos.map((p) => p.url) : undefined,
-      }),
-    });
+  const limited = await guardAiCall(user.id, modelPhotos.length > 0 ? 'image' : 'nova');
+  if (limited) return limited;
 
-    if (!novaRes.ok) {
-      throw new Error(`Nova returned ${novaRes.status}`);
-    }
+  const profileSummary = buildProfileSummary(answers, sources, modelPhotos);
+  const result = await runNova({
+    userId: user.id,
+    prompt: profileSummary,
+    instructions: SYSTEM_PROMPT,
+    images: modelPhotos.map((p) => p.url),
+    feature: modelPhotos.length > 0 ? 'nightvision.analyze_vision' : 'nightvision.analyze',
+    maxOutputTokens: 1200,
+  });
 
-    const novaData = (await novaRes.json()) as {text: string};
-    const analysis = parseNovaJson(novaData.text);
-
-    if (!analysis) {
-      // Graceful fallback — still return something
-      return NextResponse.json({
-        style_dna: 'Your intelligence file is being compiled. Nova has noted your profile and will refine your Style DNA as you connect more sources.',
-        brand_radar: ['Bottega Veneta', 'Jacquemus', 'The Row', 'Amina Muaddi', 'Toteme', 'Loro Piana', 'Staud', 'Khaite', 'Officine Générale', 'A.P.C.'],
-        style_tags: ['Luxury · Minimal · Curated'],
-      } satisfies NovaAnalysis);
-    }
-
-    return NextResponse.json(analysis);
-  } catch (err) {
-    console.error('[POST /api/nightvision/analyze]', err);
-    return NextResponse.json(
-      {error: 'Analysis failed. Check Nova connection.'},
-      {status: 500},
-    );
+  if (!result.ok) {
+    return NextResponse.json({error: result.error, message: 'Nova could not compile your Style DNA just now. Nothing was saved.'}, {status: result.status});
   }
+
+  const analysis = parseNovaJson(result.text);
+  if (!analysis) {
+    // Honest failure — previously returned a canned Style DNA as if Nova had written it.
+    return NextResponse.json({error: 'analysis_unparseable', message: 'Nova could not compile your Style DNA just now. Nothing was saved.'}, {status: 502});
+  }
+  return NextResponse.json(analysis);
 }
