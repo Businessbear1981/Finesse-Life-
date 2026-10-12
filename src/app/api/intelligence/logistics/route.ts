@@ -1,11 +1,15 @@
+import {NextResponse} from 'next/server';
 // POST /api/intelligence/logistics
 // Returns multi-carrier quotes and a smart recommendation.
 // No auth required — public rate calculator for Exchange listings.
 
+import {guardExpensive} from '@/lib/api-guard';
 import { quoteLogistics } from '@/lib/intelligence';
 import type { ShipmentSpec } from '@/lib/intelligence';
 
 export async function POST(req: Request) {
+  const me = await guardExpensive('intelligence/logistics', 30);
+  if (me instanceof NextResponse) return me;
   let body: unknown;
   try {
     body = await req.json();

@@ -1,3 +1,4 @@
+import {guardExpensive, requireInternal} from '@/lib/api-guard';
 import {NextResponse} from 'next/server';
 import {generateText, tool, stepCountIs} from 'ai';
 import {model} from '@/lib/ai';
@@ -98,6 +99,11 @@ function buildNovaTools(userId: string | null) {
 // ─── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
+  // Members (rate-limited) or internal agents (x-internal-secret). Anonymous LLM use is refused.
+  if (requireInternal(req) !== null) {
+    const me = await guardExpensive('nova', 30);
+    if (me instanceof NextResponse) return me;
+  }
   const parsed = await parseBody(req, novaRequestSchema);
   if (parsed.error) return parsed.error;
   const {prompt, system, image, images} = parsed.data;

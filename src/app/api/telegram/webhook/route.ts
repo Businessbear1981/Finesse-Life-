@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
 import {createServiceClient} from '@/lib/data/service';
+import {verifyTelegram} from '@/lib/net/webhook-auth';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
@@ -26,7 +27,7 @@ async function callNova(prompt: string, system?: string): Promise<string> {
   try {
     const res = await fetch(NOVA_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? ''},
       body: JSON.stringify({prompt, system}),
     });
     const data = (await res.json()) as {text?: string};
@@ -37,6 +38,7 @@ async function callNova(prompt: string, system?: string): Promise<string> {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  if (!verifyTelegram(req.headers)) return NextResponse.json({error: 'unauthorized'}, {status: 401});
   let update: TelegramUpdate;
   try {
     update = (await req.json()) as TelegramUpdate;

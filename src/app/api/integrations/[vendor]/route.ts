@@ -1,3 +1,4 @@
+import {requireAdmin} from '@/lib/api-guard';
 import {NextResponse, type NextRequest} from 'next/server';
 import {createClient} from '@/lib/data/server';
 import {FINESSE_API, SERVICE_ROLE, createClient as createAdmin} from '@/lib/data/compat';
@@ -14,18 +15,6 @@ function admin() {
   );
 }
 
-async function requireAdmin() {
-  const dbc = await createClient();
-  const {data: {user}} = await dbc.auth.getUser();
-  if (!user) return null;
-  const {data: profile} = await dbc
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (!profile || !['admin', 'owner'].includes(profile.role)) return null;
-  return user;
-}
 
 // PUT — save credentials + enabled flag for a vendor.
 // Body: {credentials: Record<string,string>, enabled: boolean}

@@ -1,5 +1,6 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
+import {verifyMediaWebhook} from '@/lib/net/webhook-auth';
 
 // Generic media-vendor webhook receiver.
 //
@@ -24,9 +25,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({error: 'unknown vendor'}, {status: 400});
   }
 
+  const raw = await req.text();
+  if (!verifyMediaWebhook(raw, req.headers, req.nextUrl)) {
+    return NextResponse.json({error: 'unauthorized'}, {status: 401});
+  }
   let payload: Record<string, unknown>;
   try {
-    payload = await req.json();
+    payload = JSON.parse(raw);
   } catch {
     return NextResponse.json({error: 'invalid JSON'}, {status: 400});
   }

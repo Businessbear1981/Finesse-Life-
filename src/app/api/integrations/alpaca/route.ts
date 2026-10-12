@@ -1,3 +1,4 @@
+import {guardExpensive} from '@/lib/api-guard';
 import {NextResponse, type NextRequest} from 'next/server';
 import {FINESSE_API, SERVICE_ROLE, createClient as createAdmin} from '@/lib/data/compat';
 
@@ -31,7 +32,10 @@ interface AlpacaPosition {
 }
 
 export async function POST(req: NextRequest) {
-  const {api_key, api_secret, user_id} = (await req.json()) as {
+  const me = await guardExpensive('alpaca', 10);
+  if (me instanceof NextResponse) return me;
+  const user_id = me.id;
+  const {api_key, api_secret} = (await req.json()) as {
     api_key: string;
     api_secret: string;
     user_id?: string;

@@ -128,12 +128,6 @@ interface AnalysisResult {
   price_range: string;
 }
 
-const MOCK_ANALYSIS: AnalysisResult = {
-  style_labels: ['Dark luxury', 'Sculptural silhouette', 'Minimalist'],
-  similar_brands: ['The Row', 'Bottega Veneta', 'Toteme', 'Lemaire'],
-  price_range: '$800–$3,200',
-};
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function TabButton({
@@ -463,6 +457,7 @@ export default function StylistPage() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   // SSR-safe gender detection
 
@@ -514,6 +509,7 @@ export default function StylistPage() {
     if (!fileInputRef.current?.files?.[0]) return;
     setAnalyzing(true);
     setAnalysisResult(null);
+    setAnalyzeError(null);
 
     try {
       // Get userId
@@ -529,7 +525,8 @@ export default function StylistPage() {
       const result = await res.json() as AnalysisResult;
       setAnalysisResult(result);
     } catch {
-      setAnalysisResult(MOCK_ANALYSIS);
+      // No fabricated read: surface the failure instead.
+      setAnalyzeError('Style read unavailable right now. Try again shortly.');
     } finally {
       setAnalyzing(false);
     }
@@ -909,6 +906,9 @@ export default function StylistPage() {
 
               {/* Analysis result */}
               <AnimatePresence>
+                {analyzeError && (
+                  <p role="alert" style={{color: CREAM, opacity: 0.7, fontSize: 12, marginTop: 12}}>{analyzeError}</p>
+                )}
                 {analysisResult && (
                   <motion.div
                     key="result"

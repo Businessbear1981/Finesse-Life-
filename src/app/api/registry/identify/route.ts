@@ -1,7 +1,10 @@
+import {guardExpensive} from '@/lib/api-guard';
 import { NextResponse } from 'next/server';
 import { complete } from '@/lib/ai';
 
 export async function POST(req: Request) {
+  const me = await guardExpensive('registry/identify', 10);
+  if (me instanceof NextResponse) return me;
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

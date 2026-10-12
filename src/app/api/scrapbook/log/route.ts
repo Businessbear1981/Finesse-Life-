@@ -1,3 +1,4 @@
+import {requireUser} from '@/lib/api-guard';
 import { NextResponse } from 'next/server';
 import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
@@ -16,11 +17,14 @@ function getSeason(date: Date): string {
 }
 
 export async function POST(req: Request) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
   try {
-    const { user_id, entry_type, title, description, photo_urls, metadata } = await req.json();
+    const { entry_type, title, description, photo_urls, metadata } = await req.json();
 
-    if (!user_id || !entry_type || !title) {
-      return NextResponse.json({ error: 'user_id, entry_type, and title are required' }, { status: 400 });
+    const user_id = me.id;
+    if (!entry_type || !title) {
+      return NextResponse.json({ error: 'entry_type and title are required' }, { status: 400 });
     }
 
     const season = getSeason(new Date());

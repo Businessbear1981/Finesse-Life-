@@ -1,6 +1,9 @@
+import {requireAdmin} from '@/lib/api-guard';
 import {NextResponse, type NextRequest} from 'next/server';
 import {FINESSE_API, SERVICE_ROLE, createClient as createDb} from '@/lib/data/compat';
-import {createClient} from '@/lib/data/server';
+import {runTest} from '@/lib/integrations/test';
+import {getConfig} from '@/lib/config';
+import {safeEqual} from '@/lib/net/webhook-auth';
 
 export const runtime = 'nodejs';
 // Allow long runs — every integration is tested in parallel but some may take 10s+.
@@ -14,31 +17,18 @@ type CheckResult = {
   message: string;
 };
 
-async function requireAdmin() {
-  const dbc = await createClient();
-  const {data: {user}} = await dbc.auth.getUser();
-  if (!user) return null;
-  const {data: profile} = await dbc
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (!profile || !['admin', 'owner'].includes(profile.role)) return null;
-  return user;
-}
 
 export async function POST(req: NextRequest) {
   // Allow CLI usage with an admin bearer token (set INTEGRATIONS_CLI_TOKEN env)
   const cliToken = process.env.INTEGRATIONS_CLI_TOKEN;
   const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  const isCli = cliToken && bearer === cliToken;
+  const isCli = safeEqual(bearer, cliToken);
 
   if (!isCli) {
     const user = await requireAdmin();
     if (!user) return NextResponse.json({error: 'forbidden'}, {status: 403});
   }
 
-  const origin = new URL(req.url).origin;
   const admin = createDb(
     FINESSE_API,
     SERVICE_ROLE,
@@ -66,15 +56,12 @@ export async function POST(req: NextRequest) {
       }
       const start = Date.now();
       try {
-        const res = await fetch(`${origin}/api/integrations/${row.vendor}/test`, {
-          method: 'POST',
-          headers: isCli && cliToken ? {Authorization: `Bearer ${cliToken}`} : {},
-        });
-        const j = await res.json();
+        // Called in-process (no self-HTTP: avoids Host-header SSRF and lost session cookies).
+        const j = await runTest(row.vendor, await getConfig(row.vendor));
         return {
           kind: 'integration',
           name: row.display_name,
-          status: j.status ?? 'fail',
+          status: j.status === 'no_quota' ? 'warn' : j.status,
           latency_ms: j.latency_ms ?? Date.now() - start,
           message: j.message ?? 'no message',
         };
@@ -90,11 +77,11 @@ export async function POST(req: NextRequest) {
     }),
   );
 
-  // Critical paths — project-specific. Stub one example: "doc upload creates a run row".
-  // Replace this with the actual critical paths for your app.
-  const criticalChecks: CheckResult[] = [
-    await criticalPathAuthRoundtrip(admin),
-  ];
+  // Critical paths: database reachable through the Worker, Worker health, outbox not backing up.
+  const criticalChecks: CheckResult[] = await Promise.all([
+    criticalPathAuthRoundtrip(admin),
+    criticalPathWorkerHealth(),
+  ]);
 
   const all = [...integrationChecks, ...criticalChecks];
   const summary = {
@@ -120,7 +107,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({summary, checks: all});
 }
 
-// Critical path stub — proves database auth round-trip works.
+// Proves the service data path (Next → Worker /v1/data → Postgres) works.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function criticalPathAuthRoundtrip(admin: any): Promise<CheckResult> {
   const start = Date.now();
@@ -141,4 +128,18 @@ async function criticalPathAuthRoundtrip(admin: any): Promise<CheckResult> {
     latency_ms: Date.now() - start,
     message: 'profiles table reachable',
   };
+}
+
+async function criticalPathWorkerHealth(): Promise<CheckResult> {
+  const start = Date.now();
+  const base = process.env.FINESSE_API_URL;
+  const fail = (message: string): CheckResult => ({kind: 'critical_path', name: 'worker health', status: 'fail', latency_ms: Date.now() - start, message});
+  if (!base) return fail('FINESSE_API_URL not set');
+  try {
+    const r = await fetch(`${base}/health`, {signal: AbortSignal.timeout(5000)});
+    if (!r.ok) return fail(`health ${r.status}`);
+    return {kind: 'critical_path', name: 'worker health', status: 'ok', latency_ms: Date.now() - start, message: 'worker healthy'};
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : String(e));
+  }
 }

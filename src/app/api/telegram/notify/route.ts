@@ -1,3 +1,4 @@
+import {requireInternal} from '@/lib/api-guard';
 import {NextResponse} from 'next/server';
 import {createServiceClient} from '@/lib/data/service';
 
@@ -40,6 +41,8 @@ function buildMessage(type: NotifyType, data?: Record<string, string>): string |
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  const denied = requireInternal(req);
+  if (denied) return denied;
   let body: NotifyBody;
   try {
     body = (await req.json()) as NotifyBody;

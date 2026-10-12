@@ -1,3 +1,5 @@
+import {guardExpensive} from '@/lib/api-guard';
+import {NextResponse} from 'next/server';
 // GET  /api/intelligence/market?category=Sneakers
 // GET  /api/intelligence/market?mode=anomalies
 // POST /api/intelligence/market  { mode: 'price', item: {...} }
@@ -5,6 +7,8 @@
 import { getMarketSignals, recommendListingPrice, detectMarketAnomalies } from '@/lib/intelligence';
 
 export async function GET(req: Request) {
+  const me = await guardExpensive('market', 30);
+  if (me instanceof NextResponse) return me;
   const { searchParams } = new URL(req.url);
   const category = searchParams.get('category') ?? undefined;
   const mode = searchParams.get('mode');
@@ -26,6 +30,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const me = await guardExpensive('market', 30);
+  if (me instanceof NextResponse) return me;
   let body: unknown;
   try {
     body = await req.json();

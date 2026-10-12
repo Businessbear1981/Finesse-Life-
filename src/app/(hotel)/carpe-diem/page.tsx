@@ -285,6 +285,10 @@ function FantasyTab() {
         body: JSON.stringify({league_id: leagueId.trim(), team_id: teamId.trim()}),
       });
       const data = await res.json();
+      if (res.status === 409 && data.connect_url) {
+        window.location.href = data.connect_url; // first time: authorize Yahoo, then come back
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? 'Failed to load');
       } else {
