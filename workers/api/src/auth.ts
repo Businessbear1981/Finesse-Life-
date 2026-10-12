@@ -76,3 +76,9 @@ export const requireAuth: MiddlewareHandler<AppEnv> = async (c, next) => {
   c.set('claims', claims);
   await next();
 };
+
+/** Ops-only routes. WorkOS role "admin" (set per organization membership in WorkOS). */
+export const requireAdmin: MiddlewareHandler<AppEnv> = async (c, next) => {
+  if (c.var.claims?.role !== 'admin') return c.json({ error: 'forbidden' }, 403);
+  await next();
+};

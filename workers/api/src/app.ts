@@ -8,8 +8,11 @@ import { defaultRegistry, type EngineRegistry, type ModelProvider } from './engi
 import { gatewayModel, nullModel } from './model';
 import { EnvelopeError, EnvelopeSchema, handleEnvelope } from './envelope';
 import { mobile } from './routes/mobile';
+import { scaleRoutes } from './routes/scale';
+import { socialRoutes } from './routes/social';
+import type { PaymentGateway, ShippingProvider } from './scale/adapters';
 
-export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider }
+export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider; payments?: PaymentGateway; shipping?: ShippingProvider }
 export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims } };
 export type DepsFactory = (env: Env) => Deps;
 
@@ -64,6 +67,8 @@ export function createApp(makeDeps: DepsFactory = defaultDeps) {
   });
 
   app.route('/api', mobile);
+  app.route('/v1/scale', scaleRoutes);
+  app.route('/v1/social', socialRoutes);
 
   app.onError((err, c) => {
     console.error(err);
