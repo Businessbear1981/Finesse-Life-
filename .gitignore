@@ -45,3 +45,6 @@ next-env.d.ts
 .cursor/*
 !.cursor/rules/
 supabase/.temp/
+
+# db package
+/db/node_modules
