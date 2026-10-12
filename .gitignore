@@ -48,3 +48,4 @@ supabase/.temp/
 
 # db package
 /db/node_modules
+.dev.vars
