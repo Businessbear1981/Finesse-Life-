@@ -258,9 +258,9 @@ export default function ConciergePage() {
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({prompt: text, system}),
+        body: JSON.stringify({prompt: text, system, persona: 'concierge'}),
       });
-      const data = (await res.json().catch(() => ({}))) as {text?: string; error?: string; tool_calls?: Array<{name: string; result: unknown}>};
+      const data = (await res.json().catch(() => ({}))) as {text?: string; error?: string; retryAfterS?: number; tool_calls?: Array<{name: string; result: unknown}>};
 
       if (!res.ok || !data.text) {
         // Honest failure: nothing was arranged, so never echo a success line.
@@ -271,7 +271,9 @@ export default function ConciergePage() {
             role: 'system',
             text: res.status === 401
               ? 'Sign in to speak with your concierge. Nothing has been arranged.'
-              : "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment.",
+              : res.status === 429
+                ? `Nova needs a moment — try again ${Number(data.retryAfterS) > 0 ? `in ${Math.ceil(Number(data.retryAfterS))} s` : 'shortly'}. Nothing has been arranged.`
+                : "Your concierge couldn't be reached just now. Nothing has been arranged — try again in a moment.",
           },
         ]);
         return;

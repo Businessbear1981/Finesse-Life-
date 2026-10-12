@@ -1,17 +1,17 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient as createAdmin} from '@supabase/supabase-js';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
 const ALPACA_BASE = 'https://paper-api.alpaca.markets/v2';
 
-function admin() {
-  return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {auth: {persistSession: false}},
-  );
-}
+// Any client-sent user_id is ignored: the snapshot is saved for the signed-in member only.
+const body = z.object({
+  api_key: z.string().trim().min(1).max(128),
+  api_secret: z.string().trim().min(1).max(256),
+});
 
 interface AlpacaAccount {
   equity: string;
@@ -31,15 +31,13 @@ interface AlpacaPosition {
 }
 
 export async function POST(req: NextRequest) {
-  const {api_key, api_secret, user_id} = (await req.json()) as {
-    api_key: string;
-    api_secret: string;
-    user_id?: string;
-  };
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401});
 
-  if (!api_key || !api_secret) {
-    return NextResponse.json({error: 'api_key and api_secret required'}, {status: 400});
-  }
+  const parsed = await parseBody(req, body);
+  if (parsed.error) return parsed.error;
+  const {api_key, api_secret} = parsed.data;
 
   const headers = {
     'APCA-API-KEY-ID': api_key,
@@ -82,21 +80,20 @@ export async function POST(req: NextRequest) {
     fetched_at: new Date().toISOString(),
   };
 
-  // Upsert into carpe_diem_profiles if user_id provided
-  if (user_id) {
-    await admin()
-      .from('carpe_diem_profiles')
-      .upsert(
-        {
-          user_id,
-          alpaca_connected: true,
-          alpaca_api_key: `${api_key.slice(0, 6)}...`, // store partial key only
-          alpaca_portfolio_snapshot: snapshot,
-          updated_at: new Date().toISOString(),
-        },
-        {onConflict: 'user_id'},
-      );
-  }
+  // Saved as the member (RLS owner_only / carpe_diem_own), never via the service role.
+  const {error} = await supabase
+    .from('carpe_diem_profiles')
+    .upsert(
+      {
+        user_id: user.id,
+        alpaca_connected: true,
+        alpaca_api_key: `${api_key.slice(0, 6)}...`, // store partial key only
+        alpaca_portfolio_snapshot: snapshot,
+        updated_at: new Date().toISOString(),
+      },
+      {onConflict: 'user_id'},
+    );
+  if (error) console.warn('[alpaca] snapshot not saved', error.message);
 
   return NextResponse.json(snapshot);
 }

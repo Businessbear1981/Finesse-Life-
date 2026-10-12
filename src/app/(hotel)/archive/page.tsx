@@ -221,6 +221,14 @@ function EntryCard({
 
 // ─── Add Moment Form ──────────────────────────────────────────────────────────
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () => void }) {
   const [title, setTitle] = useState('');
   const [entryType, setEntryType] = useState<EntryType>('nova_moment');
@@ -240,9 +248,15 @@ function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () 
         body: JSON.stringify({
           system: 'You are Nova, a warm, cinematic AI companion. Write a single short diary-style description (2-3 sentences, past tense, intimate tone) for a Finesse life milestone. Keep it under 60 words.',
           prompt: `Write a description for this moment: "${title}" — type: ${ENTRY_TYPE_LABELS[entryType]}`,
+          persona: 'archive',
         }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {text?: string; retryAfterS?: unknown};
+      if (!res.ok) {
+        const limit = novaLimitMessage(res.status, data);
+        if (limit) setError(limit);
+        return;
+      }
       if (data.text) setDescription(data.text);
     } catch {
       // no-op

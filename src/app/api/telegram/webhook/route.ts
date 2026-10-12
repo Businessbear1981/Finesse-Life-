@@ -1,10 +1,11 @@
 import {NextResponse} from 'next/server';
 import {createServiceClient} from '@/lib/supabase/service';
 import {verifyLinkToken, webhookAuthorised} from '@/lib/telegram-link';
+import {resolvePersona, runNova} from '@/lib/nova';
+import {takeAiRateLimit} from '@/lib/ai-rate-limit';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
-const NOVA_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://finesselife.vip'}/api/nova`;
 
 interface TelegramUpdate {
   update_id: number;
@@ -26,15 +27,18 @@ async function sendMessage(chatId: number, text: string): Promise<void> {
 // Never claim an action was taken when Nova did not answer.
 const NOVA_UNAVAILABLE = "Nova couldn't be reached just now. Nothing has been arranged — please try again shortly.";
 
-async function callNova(prompt: string, system?: string): Promise<string> {
+// Calls Nova in-process (runNova) — no HTTP hop to the now members-only /api/nova. The legacy
+// `system` text only selects the server-owned 'telegram' persona; it is never sent as instructions.
+// Pass the linked member's profile id as `userId` for usage attribution + the per-member limit.
+async function callNova(prompt: string, system?: string, userId?: string | null): Promise<string> {
   try {
-    const res = await fetch(NOVA_URL, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({prompt, system}),
-    });
-    const data = (await res.json()) as {text?: string};
-    return data.text ?? NOVA_UNAVAILABLE;
+    const {persona} = resolvePersona({persona: 'telegram', system});
+    if (userId) {
+      const gate = await takeAiRateLimit(userId, 'nova');
+      if (!gate.allowed) return `You've reached Nova's limit for now. Try again in about ${Math.ceil(gate.retryAfterS / 60)} min.`;
+    }
+    const result = await runNova({userId: userId ?? null, prompt: prompt.slice(0, 4000), persona, feature: 'nova.telegram'});
+    return result.ok ? result.text : NOVA_UNAVAILABLE;
   } catch {
     return NOVA_UNAVAILABLE;
   }
@@ -173,7 +177,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   if (text.startsWith('/nova ')) {
     const userPrompt = text.slice(6).trim();
-    const reply = await callNova(userPrompt, 'You are Nova, a luxury AI lifestyle concierge for Finesse. Be warm, direct, and elevated.');
+    const reply = await callNova(userPrompt, 'You are Nova, a luxury AI lifestyle concierge for Finesse. Be warm, direct, and elevated.', profile.id);
     await sendMessage(chatId, reply);
     return NextResponse.json({ok: true});
   }
@@ -182,6 +186,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   const reply = await callNova(
     text,
     'You are Nova, a luxury AI lifestyle concierge for Finesse. The user is a VIP member messaging via Telegram. Be warm, direct, and elevated. Keep responses concise for mobile.',
+    profile.id,
   );
   await sendMessage(chatId, reply);
   return NextResponse.json({ok: true});

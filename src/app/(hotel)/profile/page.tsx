@@ -478,6 +478,17 @@ export default async function ProfilePage({
               Edit Profile
             </Link>
           )}
+
+          {/* Account (data export, deletion, lift PIN) — own profile only */}
+          {isOwnProfile && (
+            <Link
+              href="/account"
+              className="inline-block font-label text-[8px] tracking-[0.3em] uppercase transition-colors mb-6"
+              style={{color: 'rgba(201,169,97,0.35)'}}
+            >
+              Account &amp; Privacy
+            </Link>
+          )}
         </div>
 
         {/* ── VIP ACCESS SECTION — own profile only ── */}

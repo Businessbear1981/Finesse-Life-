@@ -594,6 +594,14 @@ function GarageTab() {
 
 /* ─── Nova Briefing ─── */
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 function NovaBriefing({
   alpacaConnected,
   fantasyConnected,
@@ -627,9 +635,15 @@ function NovaBriefing({
         body: JSON.stringify({
           system: 'You are Nova, the intelligence concierge at Finesse — a members-only luxury lifestyle platform. You speak in short, sharp, masculine prose. No fluff. Direct. Confident. 2-3 sentences max.',
           prompt: `Give a sharp weekly briefing for this member. Context: ${context} Start with "This week" and reference his actual data. Keep it under 60 words.`,
+          persona: 'briefing',
         }),
       });
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {text?: string; retryAfterS?: unknown};
+      if (!res.ok) {
+        setBriefing(novaLimitMessage(res.status, data) ?? 'Nova is offline. Check back shortly.');
+        setFetched(true);
+        return;
+      }
       setBriefing(data.text ?? '');
       setFetched(true);
     } catch {

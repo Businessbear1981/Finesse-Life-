@@ -1,15 +1,15 @@
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient as createAdmin} from '@supabase/supabase-js';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
-function admin() {
-  return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {auth: {persistSession: false}},
-  );
-}
+// Any client-sent user_id is ignored: data is saved for the signed-in member only.
+const body = z.object({
+  league_id: z.string().trim().min(1).max(64),
+  team_id: z.string().trim().min(1).max(64),
+});
 
 // Yahoo Fantasy OAuth2 is phase 2.
 // Phase 1: user provides league_id + team_id; we return a realistic demo payload.
@@ -53,34 +53,31 @@ function buildDemoPayload(league_id: string, team_id: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const {league_id, team_id, user_id} = (await req.json()) as {
-    league_id: string;
-    team_id: string;
-    user_id?: string;
-  };
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401});
 
-  if (!league_id || !team_id) {
-    return NextResponse.json({error: 'league_id and team_id required'}, {status: 400});
-  }
+  const parsed = await parseBody(req, body);
+  if (parsed.error) return parsed.error;
+  const {league_id, team_id} = parsed.data;
 
   const payload = buildDemoPayload(league_id, team_id);
 
-  // Upsert fantasy data into carpe_diem_profiles if user_id provided
-  if (user_id) {
-    await admin()
-      .from('carpe_diem_profiles')
-      .upsert(
-        {
-          user_id,
-          fantasy_connected: true,
-          fantasy_league_id: league_id,
-          fantasy_team_id: team_id,
-          fantasy_snapshot: payload,
-          updated_at: new Date().toISOString(),
-        },
-        {onConflict: 'user_id'},
-      );
-  }
+  // Saved as the member (RLS owner_only / carpe_diem_own), never via the service role.
+  const {error} = await supabase
+    .from('carpe_diem_profiles')
+    .upsert(
+      {
+        user_id: user.id,
+        fantasy_connected: true,
+        fantasy_league_id: league_id,
+        fantasy_team_id: team_id,
+        fantasy_snapshot: payload,
+        updated_at: new Date().toISOString(),
+      },
+      {onConflict: 'user_id'},
+    );
+  if (error) console.warn('[yahoo-fantasy] snapshot not saved', error.message);
 
   return NextResponse.json(payload);
 }

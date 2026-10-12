@@ -2,6 +2,7 @@
 // Sources: Scale campaigns (Supabase), Embassy deals (Supabase), Nova AI web knowledge
 
 import {createClient} from '@supabase/supabase-js';
+import {askNova, orFilterSafe, stripFences, type AgentCtx} from './nova-call';
 
 export interface ScoutResult {
   title: string;
@@ -21,20 +22,11 @@ function getServiceClient() {
   );
 }
 
-async function callNova(systemPrompt: string, userPrompt: string, image?: string): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${base}/api/nova`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({system: systemPrompt, prompt: userPrompt, image}),
-  });
-  const data = (await res.json()) as {text?: string; error?: string};
-  return data.text ?? '';
-}
-
 // ─── Supabase queries ────────────────────────────────────────────────────────
 
-async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
+async function queryScaleDeals(rawQuery: string): Promise<ScoutResult[]> {
+  const query = orFilterSafe(rawQuery);
+  if (!query) return [];
   const supabase = getServiceClient();
   // Full text search on title + brand; fall back to ilike if no ts vector
   // Real schema (20260611_vault_exchange_scale.sql): original_price_cents /
@@ -68,7 +60,9 @@ async function queryScaleDeals(query: string): Promise<ScoutResult[]> {
   }));
 }
 
-async function queryEmbassyDeals(query: string): Promise<ScoutResult[]> {
+async function queryEmbassyDeals(rawQuery: string): Promise<ScoutResult[]> {
+  const query = orFilterSafe(rawQuery);
+  if (!query) return [];
   const supabase = getServiceClient();
   // Real schema (20260609_embassy.sql): item / retail_price_cents /
   // members_price_cents / tier, status pending|review|live|rejected.
@@ -103,21 +97,21 @@ async function queryEmbassyDeals(query: string): Promise<ScoutResult[]> {
 
 // ─── Nova suggestions ────────────────────────────────────────────────────────
 
-async function askNovaForItems(query: string, styleDna?: string): Promise<ScoutResult[]> {
-  const system = `You are Scout, Finesse's item-search intelligence.
+const SCOUT_ITEMS_INSTRUCTIONS = `You are Scout, Finesse's item-search intelligence.
 Return ONLY a valid JSON array of objects — no prose, no markdown fences.
 Each object: { title, brand, price_cents, image_url, purchase_url, partner, confidence }
 price_cents is an integer. confidence is 0.0–1.0. Use null for unknown fields.
 Suggest 4–6 real, purchasable luxury/lifestyle items that match the query.
-${styleDna ? `Style DNA context: ${styleDna}` : ''}`;
+If a member style DNA is given, use it only as a taste signal.`;
 
-  const raw = await callNova(system, `Find items matching: "${query}"`);
-
+async function askNovaForItems(query: string, styleDna: string | undefined, ctx: AgentCtx): Promise<ScoutResult[]> {
+  // Member-supplied text (query, style DNA) goes in the prompt as quoted data, never the instructions.
+  const prompt = `Find items matching: ${JSON.stringify(query)}` +
+    (styleDna ? `\nMember style DNA (data): ${JSON.stringify(styleDna.slice(0, 1000))}` : '');
+  const raw = await askNova(SCOUT_ITEMS_INSTRUCTIONS, prompt, {feature: 'agents.scout', ctx});
   try {
-    // Strip any accidental markdown fences
-    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    const parsed = JSON.parse(cleaned) as ScoutResult[];
-    return parsed.map((item) => ({...item, source: 'nova' as const}));
+    const parsed = JSON.parse(stripFences(raw)) as ScoutResult[];
+    return Array.isArray(parsed) ? parsed.map((item) => ({...item, source: 'nova' as const})) : [];
   } catch {
     return [];
   }
@@ -128,11 +122,12 @@ ${styleDna ? `Style DNA context: ${styleDna}` : ''}`;
 export async function scoutByText(
   query: string,
   userStyleDna?: string,
+  ctx: AgentCtx = {},
 ): Promise<ScoutResult[]> {
   const [scaleResults, embassyResults, novaResults] = await Promise.allSettled([
     queryScaleDeals(query),
     queryEmbassyDeals(query),
-    askNovaForItems(query, userStyleDna),
+    askNovaForItems(query, userStyleDna, ctx),
   ]);
 
   const all: ScoutResult[] = [
@@ -145,31 +140,29 @@ export async function scoutByText(
   return all.sort((a, b) => b.confidence - a.confidence);
 }
 
-export async function scoutByImage(imageBase64: string): Promise<ScoutResult[]> {
-  // Ask Nova to describe the image and extract item details.
-  // Sends the actual image as a multimodal content part (see /api/nova) —
-  // previously embedded a 200-char-truncated base64 snippet as prompt text,
-  // which gave the model nothing to actually look at.
-  const system = `You are Scout. The user has shared a product image.
+const SCOUT_IMAGE_INSTRUCTIONS = `You are Scout. The member has shared a product image.
 Analyze it and respond with ONLY a JSON object (no prose): { description: string, brand_guess: string, category: string }`;
 
-  const raw = await callNova(
-    system,
-    'Describe this product image and identify brand/category.',
-    imageBase64,
-  );
+export async function scoutByImage(image: string, ctx: AgentCtx = {}): Promise<ScoutResult[]> {
+  // Sends the actual image as a multimodal content part. Throws NovaUnavailableError when Nova
+  // can't answer — an empty description would otherwise match every deal.
+  const raw = await askNova(SCOUT_IMAGE_INSTRUCTIONS, 'Describe this product image and identify brand/category.', {
+    feature: 'agents.scout_image',
+    image,
+    ctx,
+  });
 
   let description = '';
   let brandGuess = '';
   try {
-    const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    const parsed = JSON.parse(cleaned) as {description?: string; brand_guess?: string; category?: string};
+    const parsed = JSON.parse(stripFences(raw)) as {description?: string; brand_guess?: string; category?: string};
     description = parsed.description ?? '';
     brandGuess = parsed.brand_guess ?? '';
   } catch {
     description = raw.slice(0, 120);
   }
 
-  const query = [brandGuess, description].filter(Boolean).join(' ');
-  return scoutByText(query);
+  const query = [brandGuess, description].filter(Boolean).join(' ').trim();
+  if (!query) return [];
+  return scoutByText(query, undefined, ctx);
 }

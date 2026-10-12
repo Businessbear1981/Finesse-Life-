@@ -1,25 +1,18 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
-import {cookies} from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 import {uploadObject} from '@/lib/r2';
+import {UPLOAD_TYPES, memberUploadKey, resolveUploadType} from '@/lib/account';
 
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
+// POST /api/upload (multipart: file, type?) — member image upload to R2.
+// `type` must be one of UPLOAD_TYPES (default "upload"); the key is always
+// `<type>s/<session user id>/…`, so a client can't write outside its own namespace.
+// Any client-sent userId field is ignored.
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
-
+    const supabase = await createClient();
     const {
       data: {user},
     } = await supabase.auth.getUser();
@@ -29,11 +22,15 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const type = (formData.get('type') as string) ?? 'upload';
+    const file = formData.get('file');
+    const type = resolveUploadType(formData.get('type'));
 
-    if (!file) {
+    if (!(file instanceof File)) {
       return NextResponse.json({error: 'No file provided.'}, {status: 400});
+    }
+
+    if (!type) {
+      return NextResponse.json({error: `Unknown upload type. Allowed: ${UPLOAD_TYPES.join(', ')}.`}, {status: 400});
     }
 
     if (!ALLOWED_MIME.includes(file.type)) {
@@ -45,7 +42,7 @@ export async function POST(req: Request) {
     }
 
     const ext = file.type.split('/')[1].replace('jpeg', 'jpg');
-    const key = `${type}s/${user.id}/${Date.now()}.${ext}`;
+    const key = memberUploadKey(type, user.id, ext);
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const url = await uploadObject(key, buffer, file.type);

@@ -1,6 +1,10 @@
-// Unified Agent Dispatch API
+// Unified Agent Dispatch API — members only, rate limited.
 // POST { agent: 'scout'|'stylist'|'outing-planner'|'procurement'|'price-hunter', payload: {...} }
+// → 200 agent result | 400 invalid | 401 signed_out | 429 rate_limited | 502/503 nova_unavailable
 
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
 import {
   scoutByText,
   scoutByImage,
@@ -9,149 +13,116 @@ import {
   planOuting,
   findProcurementPath,
   huntPrice,
+  NovaUnavailableError,
   type ScoutResult,
 } from '@/lib/agents';
-import { emit } from '@/lib/intelligence';
-import { createClient } from '@/lib/supabase/server';
+import {emit} from '@/lib/intelligence';
+import {createClient} from '@/lib/supabase/server';
+import {guardAiCall} from '@/lib/ai-rate-limit';
+import {novaImageSchema} from '@/lib/nova';
 
-interface AgentRequest {
-  agent: 'scout' | 'stylist' | 'outing-planner' | 'procurement' | 'price-hunter';
-  payload: Record<string, unknown>;
-}
+const text = (max: number) => z.string().trim().min(1).max(max);
+const styleData = z.record(z.string(), z.unknown()).refine((o) => JSON.stringify(o).length <= 6000, 'style data too large');
+const scoutItem = z.object({
+  title: z.string().max(200),
+  brand: z.string().max(120),
+  price_cents: z.number().int().min(0).max(1_000_000_000),
+  source: z.enum(['scale', 'embassy', 'nova', 'web']),
+  image_url: z.string().max(2048).nullable(),
+  purchase_url: z.string().max(2048).nullable(),
+  partner: z.string().max(120).nullable(),
+  confidence: z.number().min(0).max(1),
+});
+const member = z.object({username: text(64), nightvision_data: styleData.optional()});
+
+const agentSchema = z.discriminatedUnion('agent', [
+  z.object({
+    agent: z.literal('scout'),
+    payload: z.union([
+      z.object({image: novaImageSchema}),
+      z.object({query: text(300), style_dna: z.string().max(1000).optional()}),
+    ]),
+  }),
+  z.object({
+    agent: z.literal('stylist'),
+    payload: z.union([
+      z.object({items: z.array(scoutItem).min(1).max(30), nightvision_data: styleData}),
+      z.object({occasion: text(300), occasion_type: z.string().max(64).optional(), nightvision_data: styleData.optional()}),
+    ]),
+  }),
+  z.object({
+    agent: z.literal('outing-planner'),
+    payload: z.object({occasion: text(300), occasion_type: z.string().max(64).optional(), member1: member, member2: member}),
+  }),
+  z.object({
+    agent: z.literal('procurement'),
+    payload: z.object({item: z.object({title: text(200), category: text(64), price_cents: z.number().int().min(0).max(1_000_000_000)})}),
+  }),
+  z.object({
+    agent: z.literal('price-hunter'),
+    payload: z.object({title: text(200), brand: text(120), category: text(64), retail_cents: z.number().int().min(0).max(1_000_000_000)}),
+  }),
+]);
 
 export async function POST(req: Request) {
-  let body: AgentRequest;
-  try {
-    body = (await req.json()) as AgentRequest;
-  } catch {
-    return Response.json({error: 'Invalid JSON body'}, {status: 400});
-  }
-
-  const {agent, payload} = body;
-
-  // Emit agent_query signal (non-blocking)
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) {
-    void emit({
-      user_id: user.id,
-      kind: 'agent_query',
-      payload: { agent, category: payload.category, query: payload.query },
-    });
+  const {data: {user}} = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
+
+  const parsed = await parseBody(req, agentSchema);
+  if (parsed.error) return parsed.error;
+  const body = parsed.data;
+  const ctx = {userId: user.id};
+
+  // Procurement makes no model call; every other agent does (scout-by-image sends an image).
+  if (body.agent !== 'procurement') {
+    const bucket = body.agent === 'scout' && 'image' in body.payload ? 'image' : 'nova';
+    const limited = await guardAiCall(user.id, bucket);
+    if (limited) return limited;
   }
 
+  void emit({
+    user_id: user.id,
+    kind: 'agent_query',
+    payload: {
+      agent: body.agent,
+      category: 'category' in body.payload ? body.payload.category : undefined,
+      query: 'query' in body.payload ? body.payload.query : undefined,
+    },
+  });
+
   try {
-    switch (agent) {
-      // ── Scout ──────────────────────────────────────────────────────────────
+    switch (body.agent) {
       case 'scout': {
-        if (payload.image && typeof payload.image === 'string') {
-          const results = await scoutByImage(payload.image);
-          return Response.json(results);
-        }
-        if (payload.query && typeof payload.query === 'string') {
-          const results = await scoutByText(
-            payload.query,
-            typeof payload.style_dna === 'string' ? payload.style_dna : undefined,
-          );
-          return Response.json(results);
-        }
-        return Response.json({error: 'Scout requires query (string) or image (base64 string)'}, {status: 400});
+        const p = body.payload;
+        if ('image' in p) return NextResponse.json(await scoutByImage(p.image, ctx));
+        return NextResponse.json(await scoutByText(p.query, p.style_dna, ctx));
       }
-
-      // ── Stylist ────────────────────────────────────────────────────────────
       case 'stylist': {
-        if (payload.items && Array.isArray(payload.items) && payload.nightvision_data) {
+        const p = body.payload;
+        if ('items' in p) {
           // Filter mode: rerank existing items by style DNA
-          const ranked = await filterByStyle(
-            payload.items as ScoutResult[],
-            (payload.nightvision_data as Record<string, unknown>) ?? {},
-          );
-          return Response.json(ranked);
+          return NextResponse.json(await filterByStyle(p.items as ScoutResult[], p.nightvision_data, ctx));
         }
-        if (payload.occasion && typeof payload.occasion === 'string') {
-          // Suggestion mode: generate items for an occasion
-          const suggestions = await suggestForOccasion(
-            payload.occasion,
-            typeof payload.occasion_type === 'string' ? payload.occasion_type : 'general',
-            (payload.nightvision_data as Record<string, unknown>) ?? {},
-          );
-          return Response.json(suggestions);
-        }
-        return Response.json(
-          {error: 'Stylist requires occasion (string) or items + nightvision_data'},
-          {status: 400},
-        );
+        // Suggestion mode: generate items for an occasion
+        return NextResponse.json(await suggestForOccasion(p.occasion, p.occasion_type ?? 'general', p.nightvision_data ?? {}, ctx));
       }
-
-      // ── Outing Planner ─────────────────────────────────────────────────────
       case 'outing-planner': {
-        if (
-          !payload.occasion ||
-          typeof payload.occasion !== 'string' ||
-          !payload.member1 ||
-          !payload.member2
-        ) {
-          return Response.json(
-            {error: 'outing-planner requires occasion, occasion_type, member1, member2'},
-            {status: 400},
-          );
-        }
-        const plan = await planOuting(
-          payload.occasion,
-          typeof payload.occasion_type === 'string' ? payload.occasion_type : 'general',
-          payload.member1 as {username: string; nightvision_data?: Record<string, unknown>},
-          payload.member2 as {username: string; nightvision_data?: Record<string, unknown>},
-        );
-        return Response.json(plan);
+        const p = body.payload;
+        return NextResponse.json(await planOuting(p.occasion, p.occasion_type ?? 'general', p.member1, p.member2, ctx));
       }
-
-      // ── Procurement ────────────────────────────────────────────────────────
-      case 'procurement': {
-        const item = payload.item as {title?: string; category?: string; price_cents?: number};
-        if (!item?.title || !item?.category || typeof item?.price_cents !== 'number') {
-          return Response.json(
-            {error: 'procurement requires item: { title, category, price_cents }'},
-            {status: 400},
-          );
-        }
-        const path = await findProcurementPath(
-          {
-            title: item.title,
-            category: item.category,
-            price_cents: item.price_cents,
-          },
-          user?.id,
-        );
-        return Response.json(path);
-      }
-
-      // ── Price Hunter ───────────────────────────────────────────────────────
+      case 'procurement':
+        return NextResponse.json(await findProcurementPath(body.payload.item, user.id));
       case 'price-hunter': {
-        const {title, brand, category, retail_cents} = payload as {
-          title?: string;
-          brand?: string;
-          category?: string;
-          retail_cents?: number;
-        };
-        if (!title || !brand || !category || typeof retail_cents !== 'number') {
-          return Response.json(
-            {error: 'price-hunter requires title, brand, category, retail_cents'},
-            {status: 400},
-          );
-        }
-        const prices = await huntPrice(title, brand, category, retail_cents);
-        return Response.json(prices);
+        const p = body.payload;
+        return NextResponse.json(await huntPrice(p.title, p.brand, p.category, p.retail_cents, ctx));
       }
-
-      // ── Unknown ────────────────────────────────────────────────────────────
-      default:
-        return Response.json(
-          {error: `Unknown agent "${agent}". Valid: scout, stylist, outing-planner, procurement, price-hunter`},
-          {status: 400},
-        );
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Agent error';
-    return Response.json({error: message}, {status: 500});
+    if (err instanceof NovaUnavailableError) {
+      return NextResponse.json({error: 'nova_unavailable'}, {status: err.status === 502 || err.status === 413 ? err.status : 503});
+    }
+    console.error('[POST /api/agents]', body.agent, err instanceof Error ? err.message : 'unknown');
+    return NextResponse.json({error: 'agent_error'}, {status: 500});
   }
 }

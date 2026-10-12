@@ -1,54 +1,68 @@
-// GET  /api/intelligence/market?category=Sneakers
+// Members only.
+// GET  /api/intelligence/market?category=Sneakers   (DB aggregate, no model call)
 // GET  /api/intelligence/market?mode=anomalies
-// POST /api/intelligence/market  { mode: 'price', item: {...} }
+// POST /api/intelligence/market  { mode: 'price', item: {...} }   (model call — rate limited)
 
-import { getMarketSignals, recommendListingPrice, detectMarketAnomalies } from '@/lib/intelligence';
+import {NextResponse} from 'next/server';
+import {z} from 'zod';
+import {parseBody} from '@/lib/api/validate';
+import {createClient} from '@/lib/supabase/server';
+import {guardAiCall} from '@/lib/ai-rate-limit';
+import {getMarketSignals, recommendListingPrice, detectMarketAnomalies} from '@/lib/intelligence';
+
+async function signedInUser() {
+  const supabase = await createClient();
+  const {data: {user}} = await supabase.auth.getUser();
+  return user;
+}
+
+const signedOut = () => NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const category = searchParams.get('category') ?? undefined;
+  if (!(await signedInUser())) return signedOut();
+  const {searchParams} = new URL(req.url);
+  const category = searchParams.get('category')?.slice(0, 64) || undefined;
   const mode = searchParams.get('mode');
 
   try {
     if (mode === 'anomalies') {
       const anomalies = await detectMarketAnomalies();
-      return Response.json({ anomalies });
+      return NextResponse.json({anomalies});
     }
 
     const signals = await getMarketSignals(category);
-    return Response.json({ signals });
+    return NextResponse.json({signals});
   } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : 'Market intelligence error' },
-      { status: 500 },
-    );
+    console.error('[GET /api/intelligence/market]', err instanceof Error ? err.message : 'unknown');
+    return NextResponse.json({error: 'market_unavailable'}, {status: 500});
   }
 }
 
+const priceSchema = z.object({
+  mode: z.literal('price'),
+  item: z.object({
+    title: z.string().trim().min(1).max(200),
+    brand: z.string().trim().max(120).optional(),
+    category: z.string().trim().min(1).max(64),
+    condition: z.string().trim().min(1).max(32),
+  }),
+});
+
 export async function POST(req: Request) {
-  let body: unknown;
+  const user = await signedInUser();
+  if (!user) return signedOut();
+
+  const parsed = await parseBody(req, priceSchema);
+  if (parsed.error) return parsed.error;
+
+  const limited = await guardAiCall(user.id, 'nova');
+  if (limited) return limited;
+
   try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON' }, { status: 400 });
+    const rec = await recommendListingPrice(parsed.data.item);
+    return NextResponse.json(rec);
+  } catch (err) {
+    console.error('[POST /api/intelligence/market]', err instanceof Error ? err.message : 'unknown');
+    return NextResponse.json({error: 'price_recommendation_unavailable'}, {status: 503});
   }
-
-  const { mode, item } = body as {
-    mode?: string;
-    item?: { title: string; brand?: string; category: string; condition: string };
-  };
-
-  if (mode === 'price' && item?.title) {
-    try {
-      const rec = await recommendListingPrice(item);
-      return Response.json(rec);
-    } catch (err) {
-      return Response.json(
-        { error: err instanceof Error ? err.message : 'Price recommendation error' },
-        { status: 500 },
-      );
-    }
-  }
-
-  return Response.json({ error: 'POST requires mode=price and item object' }, { status: 400 });
 }

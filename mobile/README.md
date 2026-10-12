@@ -19,6 +19,15 @@ npm run check         # tsc --noEmit
   `EXPO_PUBLIC_API_BASE_URL` (defaults to https://finesselife.vip).
 - After pulling, run `npx expo install expo-secure-store @supabase/supabase-js react-native-url-polyfill`
   so Expo pins versions that match SDK 57.
+- Live rooms (signed in; signed out they show a sign-in prompt and a labelled sample): Lounge, Nova, Vault, Gym,
+  Stylist, Starmaker, **Kitchen** (plan → compose → order intent), **Calendar** (reads/moves Diary entries),
+  **This Is You** (identity context, projections, visibility, export via the share sheet), **Closet**, **Diary**,
+  **Camera** (explicit consent before any upload) and **Jazz Club** (programme; join/tips refuse until the audio
+  partner / payouts are connected). Interiors are registered in `src/components/rooms/interiors.ts`; the shared
+  live states (signed out / loading / not open / error) are in `src/lib/live.ts` + `src/components/rooms/live.tsx`.
+- Hotel ids `perdiem` / `profile` map to manifest ids `per-diem` / `this-is-you` (`src/lib/room-ids.ts`), so
+  `/room/[id]` accepts either.
+- Account deletion: This Is You → Your key → Delete account (`app/delete-account.tsx`, POST /api/account/delete).
 - The house side (Finesse / Carpe Diem) is remembered on the device; change it or sign out from
   **This Is You** (top-left of the hotel).
 

@@ -492,6 +492,14 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 export default function StylistPage() {
   const [edition, setEdition] = useState<Edition>('finesse');
   const [activeTab, setActiveTab] = useState<Tab>('looks');
@@ -533,9 +541,17 @@ export default function StylistPage() {
         body: JSON.stringify({
           prompt: `Generate ${isMasc ? '4 masculine luxury looks' : '4 feminine luxury looks'} for a style-forward client. Each look should have a name, 4-5 specific brand items (e.g. "Jacquemus mini · Amina Muaddi heel"), an occasion tag (Date night/Statement lunch/Power meeting/Weekend flex/ATL night), and a realistic total price. Respond ONLY with valid JSON array: [{"name":"...","items":"brand · brand · brand","occasion":"...","price":"$X,XXX total"}]`,
           system: 'You are Nova, a luxury personal stylist AI. Always respond with valid JSON only, no markdown.',
+          persona: 'stylist',
         }),
       });
-      if (!res.ok) throw new Error('nova unavailable');
+      if (!res.ok) {
+        const limit = novaLimitMessage(res.status, (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null);
+        if (limit) {
+          setLooksError(limit);
+          return;
+        }
+        throw new Error('nova unavailable');
+      }
       const data = await res.json() as {text: string};
       const parsed = JSON.parse(data.text) as Look[];
       if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('no looks');

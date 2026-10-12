@@ -2,6 +2,7 @@
 // Checks Scale, Embassy, then asks Nova for market knowledge
 
 import {createClient} from '@supabase/supabase-js';
+import {askNova, orFilterSafe, stripFences, type AgentCtx} from './nova-call';
 
 export interface PriceResult {
   source: string;
@@ -11,17 +12,6 @@ export interface PriceResult {
   savings_cents: number; // vs retail
 }
 
-async function callNova(systemPrompt: string, userPrompt: string): Promise<string> {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${base}/api/nova`, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({system: systemPrompt, prompt: userPrompt}),
-  });
-  const data = (await res.json()) as {text?: string; error?: string};
-  return data.text ?? '';
-}
-
 function getServiceClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,11 +19,18 @@ function getServiceClient() {
   );
 }
 
+const PRICE_INSTRUCTIONS = `You are PriceHunter, Finesse's pricing intelligence agent.
+Return ONLY a valid JSON array — no prose, no markdown fences.
+Each object: { source, price_cents, url, is_members_price, savings_cents }
+price_cents and savings_cents are integers. is_members_price is a boolean. url may be null.
+Provide 1–3 real market price points (retailer name, realistic price). Do not fabricate URLs — use null if unsure.`;
+
 export async function huntPrice(
   title: string,
   brand: string,
   category: string,
   retail_cents: number,
+  ctx: AgentCtx = {},
 ): Promise<PriceResult[]> {
   const results: PriceResult[] = [];
 
@@ -47,6 +44,10 @@ export async function huntPrice(
   });
 
   const supabase = getServiceClient();
+  // Member text is embedded in PostgREST .or() filters — strip filter syntax first.
+  const t = orFilterSafe(title) || '-';
+  const b = orFilterSafe(brand) || '-';
+  const c = orFilterSafe(category) || '-';
 
   // 1. Check Scale deals
   // Real schema (20260611_vault_exchange_scale.sql): group_price_cents,
@@ -55,7 +56,7 @@ export async function huntPrice(
     .from('scale_deals')
     .select('title,group_price_cents,brand')
     .eq('status', 'open')
-    .or(`title.ilike.%${title}%,brand.ilike.%${brand}%`)
+    .or(`title.ilike.%${t}%,brand.ilike.%${b}%`)
     .limit(3);
 
   if (scaleData) {
@@ -81,7 +82,7 @@ export async function huntPrice(
     .from('embassy_deals')
     .select('brand,item,retail_price_cents,members_price_cents')
     .eq('status', 'live')
-    .or(`item.ilike.%${title}%,brand.ilike.%${brand}%,category.ilike.%${category}%`)
+    .or(`item.ilike.%${t}%,brand.ilike.%${b}%,category.ilike.%${c}%`)
     .limit(3);
 
   if (embassyData) {
@@ -103,24 +104,17 @@ export async function huntPrice(
     }
   }
 
-  // 3. Ask Nova for market pricing context
-  const system = `You are PriceHunter, Finesse's pricing intelligence agent.
-Return ONLY a valid JSON array — no prose, no markdown fences.
-Each object: { source, price_cents, url, is_members_price, savings_cents }
-price_cents and savings_cents are integers. is_members_price is a boolean. url may be null.
-Provide 1–3 real market price points (retailer name, realistic price). Do not fabricate URLs — use null if unsure.`;
-
-  const novaRaw = await callNova(
-    system,
-    `Find market prices for: "${brand} ${title}" in category "${category}". Retail estimate: $${(retail_cents / 100).toFixed(2)}`,
-  );
-
+  // 3. Ask Nova for market pricing context (skipped if Nova is unavailable)
   try {
-    const cleaned = novaRaw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim();
-    const novaPrices = JSON.parse(cleaned) as PriceResult[];
-    results.push(...novaPrices);
+    const novaRaw = await askNova(
+      PRICE_INSTRUCTIONS,
+      `Find market prices for: ${JSON.stringify(`${brand} ${title}`)} in category ${JSON.stringify(category)}. Retail estimate: $${(retail_cents / 100).toFixed(2)}`,
+      {feature: 'agents.price_hunter', ctx},
+    );
+    const novaPrices = JSON.parse(stripFences(novaRaw)) as PriceResult[];
+    if (Array.isArray(novaPrices)) results.push(...novaPrices);
   } catch {
-    // Nova didn't return parseable JSON — skip
+    // Nova unavailable or unparseable — skip
   }
 
   // Sort by price ascending, deduplicate by source

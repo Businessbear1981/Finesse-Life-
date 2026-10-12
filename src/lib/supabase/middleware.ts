@@ -45,6 +45,7 @@ export async function updateSession(request: NextRequest) {
   // Public hotel routes — no login required
   const isPublicRoute = pathname === '/' ||
     pathname === '/terms' ||
+    pathname === '/account/delete-info' ||
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/perdiem') ||
     pathname.startsWith('/lounge') ||
@@ -71,13 +72,10 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/carpe-diem') ||
     // Public entrance KeyLock — must be reachable before sign-in
     pathname.startsWith('/api/keylock/entrance') ||
-    // Agent dispatch API — callable from authenticated or public contexts
-    pathname.startsWith('/api/agents') ||
-    // AI APIs — auth is optional; routes handle no-session gracefully
-    pathname.startsWith('/api/nova') ||
-    pathname.startsWith('/api/intelligence') ||
-    pathname.startsWith('/api/stylist') ||
-    pathname.startsWith('/api/nightvision');
+    // AI APIs (/api/nova, /api/agents, /api/stylist, /api/nightvision, /api/intelligence/market)
+    // are members-only — signed-out callers get the JSON 401 below. The non-AI intelligence
+    // endpoints (signal, logistics, health, query) keep their own route-level handling.
+    (pathname.startsWith('/api/intelligence') && !pathname.startsWith('/api/intelligence/market'));
 
   // ── VIP gate ─────────────────────────────────────────────────────────
   // /vip routes require is_vip=true with a valid (non-expired) grant.

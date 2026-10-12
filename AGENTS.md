@@ -67,7 +67,7 @@ Finesse-Life-/
 - **Committed secret:** `OPS.md` carries the Supabase DB password in plaintext in git history. Rotation pending.
 - **`supabase db push` doesn't work** (pooler URL doesn't resolve). Use `npm run db:migrate <sql-file>`.
 - **Demo stubs still live** in `src/app/page.tsx` and `src/app/(hotel)/market/page.tsx` (`DEMO_PIN`, `DEMO_LISTINGS` — never call the real Exchange API). Present as of 2026-07-14.
-- **June-23 code audit findings** (`asserted` — pre-dates the Kitchen/Gym/salon work, not re-verified): Scout & Price-Hunter query columns/statuses that don't exist and return nothing; `scale/join` inserts columns absent from `scale_joins` (silent no-op); the Vault credits **12%** cashback with no funding source (prospectus economics say ~1% — this is a bug to fix, not a feature); no checkout/PaymentIntent wiring; the Lab connects Alpaca paper-trading → Finesse is not securities-free.
+- **June-23 code audit findings** (`asserted` — pre-dates the Kitchen/Gym/salon work, not re-verified): Scout & Price-Hunter query columns/statuses that don't exist and return nothing; `scale/join` inserts columns absent from `scale_joins` (silent no-op); the Vault cashback rate is **12%** by founder decision (ADR-0005, 2026-10-12) — the funding source/card partner is still unsigned, so Vault writes stay frozen; no checkout/PaymentIntent wiring; the Lab connects Alpaca paper-trading → Finesse is not securities-free.
 
 ## Where things live
 

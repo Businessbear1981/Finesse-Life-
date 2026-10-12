@@ -310,6 +310,14 @@ function VipItemCard({ item, accent, index, onGenerate }: { item: VipItem; accen
 
 // ─── Add Item Sheet ───────────────────────────────────────────────────────────
 
+/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
+function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
+  if (status === 401) return 'Sign in to ask Nova.';
+  if (status !== 429) return null;
+  const s = Number(body?.retryAfterS);
+  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
+}
+
 function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: () => void; onAdded: (item: RegistryItem) => void }) {
   const [subTab, setSubTab] = useState<AddSubTab>('upload');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -318,6 +326,7 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
   const [identified, setIdentified] = useState(false);
   const [novaPrompt, setNovaPrompt] = useState('');
   const [novaSuggesting, setNovaSuggesting] = useState(false);
+  const [novaError, setNovaError] = useState<string | null>(null);
   const [formTitle, setFormTitle] = useState('');
   const [formBrand, setFormBrand] = useState('');
   const [formPrice, setFormPrice] = useState('');
@@ -356,6 +365,7 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
   async function handleNovaSuggest() {
     if (!novaPrompt.trim()) return;
     setNovaSuggesting(true);
+    setNovaError(null);
     try {
       const res = await fetch('/api/nova', {
         method: 'POST',
@@ -363,8 +373,13 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
         body: JSON.stringify({
           prompt: `Registry item suggestion: "${novaPrompt}"`,
           system: 'You are a luxury personal shopper. Return ONLY JSON: {"title":"...","brand":"...","estimated_price_cents":number,"category":"Bags|Shoes|Jewelry|Clothing|Beauty|Home|Travel|Experience|Other"}',
+          persona: 'registry',
         }),
       });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null;
+        setNovaError(novaLimitMessage(res.status, body) ?? "Nova couldn't suggest an item just now. Try again in a moment.");
+      }
       if (res.ok) {
         const raw = await res.json() as { text: string };
         try {
@@ -378,6 +393,8 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
           }
         } catch { /* ignore parse error */ }
       }
+    } catch {
+      setNovaError("Nova couldn't suggest an item just now. Try again in a moment.");
     } finally {
       setNovaSuggesting(false);
     }
@@ -597,6 +614,11 @@ function AddItemSheet({ accent, onClose, onAdded }: { accent: string; onClose: (
                   {novaSuggesting ? '...' : 'ASK'}
                 </button>
               </div>
+              {novaError && (
+                <p role="alert" style={{ fontFamily: 'Cinzel,serif', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.45)', marginTop: '8px' }}>
+                  {novaError}
+                </p>
+              )}
             </motion.div>
           )}
 
