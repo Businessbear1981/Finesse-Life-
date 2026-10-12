@@ -13,9 +13,10 @@ before(async () => {
 });
 after(async () => { if (c) await c.end(); });
 
-const ORCH = ['seats','intents','plays','tier_runs','breakers','artifacts','truth_checks','source_reads','events','outbox','live_touches','commitments','presence'];
+// Wave 0's 13 tables plus event_receipts (0030, outbox delivery dedupe).
+const ORCH = ['event_receipts','seats','intents','plays','tier_runs','breakers','artifacts','truth_checks','source_reads','events','outbox','live_touches','commitments','presence'];
 
-test('all 13 Wave 0 tables exist', { skip }, async () => {
+test('all Wave 0 orch tables exist', { skip }, async () => {
   const { rows } = await c.query("select tablename from pg_tables where schemaname = 'orch'");
   assert.deepEqual(rows.map((r) => r.tablename).sort(), [...ORCH].sort());
 });
