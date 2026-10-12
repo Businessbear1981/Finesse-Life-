@@ -20,7 +20,7 @@ test('all migrations apply on a clean database', { skip }, async () => {
 });
 
 test('every public and orch table has RLS enabled', { skip }, async () => {
-  const { rows } = await c.query("select schemaname||'.'||tablename t from pg_tables where schemaname in ('public','orch','scale','social') and tablename <> 'schema_migrations' and not rowsecurity");
+  const { rows } = await c.query("select schemaname||'.'||tablename t from pg_tables where schemaname in ('public','orch','scale','social','engines') and tablename <> 'schema_migrations' and not rowsecurity");
   assert.deepEqual(rows, []);
 });
 
