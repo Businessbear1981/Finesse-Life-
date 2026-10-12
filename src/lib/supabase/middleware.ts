@@ -70,6 +70,10 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith('/nightvision') ||
     pathname.startsWith('/stylist') ||
     pathname.startsWith('/carpe-diem') ||
+    // Design showcase (/design/*) — public outside production, or when DESIGN_PREVIEW=true.
+    // The route's own layout also returns notFound() in production without the flag.
+    (pathname.startsWith('/design') &&
+      (process.env.NODE_ENV !== 'production' || process.env.DESIGN_PREVIEW === 'true')) ||
     // Public entrance KeyLock — must be reachable before sign-in
     pathname.startsWith('/api/keylock/entrance') ||
     // AI APIs (/api/nova, /api/agents, /api/stylist, /api/nightvision, /api/intelligence/market)
