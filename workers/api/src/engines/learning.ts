@@ -45,6 +45,13 @@ export async function promoteIfBetter(tx: Tx, engine = 'scale_forecast'): Promis
 
 export const learningEngine: Engine = {
   id: 'learning', intents: ['learning.status'], consumes: ['campaign.closed'], emits: [], tier: 3, provider: 'internal', timeoutMs: 10000,
+  /** Closed campaign → training row, then re-evaluate and promote the forecast model if it beats the incumbent. */
+  async onEvent(evt, svc) {
+    const id = String(evt.payload.campaign_id ?? '');
+    if (!id) return;
+    await recordClosedCampaign(svc, id);
+    await promoteIfBetter(svc);
+  },
   async handle({ agg }) {
     return { kind: 'learning.status', result: await evaluate(agg!) };
   },

@@ -5,7 +5,7 @@ import { dbExists } from '../truth';
 export const profileEngine: Engine = {
   id: 'profile',
   intents: ['behavioral_profile', 'profile.summary'],
-  consumes: ['checkin.saved'],
+  consumes: [],
   emits: ['profile.summarised'],
   tier: 0,
   provider: 'internal',

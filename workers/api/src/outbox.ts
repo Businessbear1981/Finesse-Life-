@@ -26,3 +26,20 @@ export function routeEvent(registry: EngineRegistry, msg: OutboxMessage): string
   const type = String(msg.payload.type ?? '');
   return registry.consumersOf(type).map((e) => e.id);
 }
+
+/**
+ * Deliver one queued event to its consuming engines. Queues are at-least-once, so each
+ * (event, engine) pair is recorded in orch.event_receipts inside the same transaction as the handler.
+ */
+export async function deliverEvent(db: Database, registry: EngineRegistry, msg: OutboxMessage): Promise<string[]> {
+  const evt = msg.payload as { event_id: number; type: string; user_id: string | null; payload: Record<string, unknown> };
+  const done: string[] = [];
+  for (const engine of registry.consumersOf(String(evt.type ?? ''))) {
+    if (!engine.onEvent) continue;
+    await db.tx('app_service', null, async (tx) => {
+      const fresh = (await tx.query('insert into orch.event_receipts(event_id, engine_id) values ($1, $2) on conflict do nothing', [evt.event_id, engine.id])).rowCount;
+      if (fresh) { await engine.onEvent!(evt, tx); done.push(engine.id); }
+    });
+  }
+  return done;
+}

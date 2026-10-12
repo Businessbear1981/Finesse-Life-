@@ -9,7 +9,7 @@ import { campaignView } from '../scale/service';
  * TODO: retailer/affiliate feeds, wholesaler quote ingestion, photo-based search (picture encouragement).
  */
 export const shopperEngine: Engine = {
-  id: 'personal_shopper', intents: ['shopper.shortlist', 'shopper.save'], consumes: ['campaign.opened'], emits: ['shopper.saved'],
+  id: 'personal_shopper', intents: ['shopper.shortlist', 'shopper.save'], consumes: [], emits: ['shopper.saved'],
   tier: 1, provider: 'internal', timeoutMs: 5000,
   async handle({ intent, payload, userId, read, agg }) {
     if (intent === 'shopper.save') {

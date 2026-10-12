@@ -7,7 +7,7 @@ import type { Engine } from './types';
  */
 export const nightvisionEngine: Engine = {
   id: 'nightvision', intents: ['nightvision.consent', 'nightvision.revoke', 'nightvision.style_dna', 'nightvision.campaign_seed'],
-  consumes: ['strike.issued', 'pledge.created'], emits: ['nightvision.consent_changed'], tier: 1, provider: 'internal', timeoutMs: 5000,
+  consumes: [], emits: ['nightvision.consent_changed'], tier: 1, provider: 'internal', timeoutMs: 5000,
   async handle({ intent, payload, userId, read, agg }) {
     if (intent === 'nightvision.consent' || intent === 'nightvision.revoke') {
       const grant = intent === 'nightvision.consent';

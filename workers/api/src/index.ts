@@ -1,6 +1,6 @@
 import type { Env, OutboxMessage } from './env';
 import { createApp, defaultDeps } from './app';
-import { relayOutbox, routeEvent } from './outbox';
+import { deliverEvent, relayOutbox } from './outbox';
 import { pgDatabase } from './db';
 import { defaultRegistry } from './engines';
 import { tick as scaleTick } from './scale/service';
@@ -33,12 +33,18 @@ export default {
     })());
   },
 
-  async queue(batch: MessageBatch<OutboxMessage>, _env: Env) {
+  async queue(batch: MessageBatch<OutboxMessage>, env: Env) {
     const registry = defaultRegistry();
+    const db = pgDatabase(env.HYPERDRIVE.connectionString);
     for (const m of batch.messages) {
-      const targets = routeEvent(registry, m.body);
-      console.log(JSON.stringify({ outbox_id: m.body.outbox_id, type: m.body.payload.type, targets }));
-      m.ack();
+      try {
+        const handled = await deliverEvent(db, registry, m.body);
+        console.log(JSON.stringify({ outbox_id: m.body.outbox_id, type: m.body.payload.type, handled }));
+        m.ack();
+      } catch (e) {
+        console.error(JSON.stringify({ outbox_id: m.body.outbox_id, error: String(e) }));
+        m.retry({ delaySeconds: Math.min(300, 2 ** m.attempts * 5) });
+      }
     }
   },
 } satisfies ExportedHandler<Env, OutboxMessage>;

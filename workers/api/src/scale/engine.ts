@@ -3,7 +3,7 @@ import { campaignView } from './service';
 
 /** Scale engine (hot tier): will the campaign reach its goal, how many backups, price/% saved now. */
 export const scaleEngine: Engine = {
-  id: 'scale', intents: ['scale.forecast'], consumes: ['pledge.created', 'backup.promoted', 'strike.issued'], emits: [],
+  id: 'scale', intents: ['scale.forecast'], consumes: [], emits: [],
   tier: 0, provider: 'internal', timeoutMs: 3000,
   async handle({ payload, read, agg }) {
     const id = String(payload.campaign_id ?? '');

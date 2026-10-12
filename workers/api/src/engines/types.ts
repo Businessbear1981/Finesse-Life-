@@ -47,4 +47,6 @@ export interface Engine {
   provider: string;     // breaker key
   timeoutMs: number;
   handle(input: EngineInput): Promise<EngineOutput>;
+  /** Queue consumer hook for event types listed in `consumes`. Runs in a service transaction, at most once per (event, engine). */
+  onEvent?(event: { event_id: number; type: string; user_id: string | null; payload: Record<string, unknown> }, svc: Tx): Promise<void>;
 }

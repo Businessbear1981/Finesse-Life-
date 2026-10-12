@@ -1,3 +1,5 @@
+import { deliverEvent } from '../src/outbox';
+import { defaultRegistry } from '../src/engines';
 import { strikePenaltyBps } from '../src/policy';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { pgDatabase, type Tx } from '../src/db';
@@ -122,6 +124,12 @@ run('scale + social against Postgres', () => {
     expect((await svc((tx) => tick(tx, { payments, shipping }, later))).closed).toBe(1);
     const rebates = (await svc((tx) => tx.query<{ amount_cents: string }>('select amount_cents from scale.rebates'))).rows;
     expect(rebates.map((r) => Number(r.amount_cents))).toEqual([600, 600, 600, 600]);
+    // campaign.closed flows through the outbox to the Learning engine exactly once (at-least-once queue)
+    const evt = (await svc((tx) => tx.query<{ payload: any; id: string }>("select id, payload from orch.outbox where payload->>'type' = 'campaign.closed'"))).rows[0]!;
+    const msg = { outbox_id: Number(evt.id), topic: 'scale', payload: evt.payload };
+    expect(await deliverEvent(db, defaultRegistry(), msg)).toEqual(['learning']);
+    expect(await deliverEvent(db, defaultRegistry(), msg)).toEqual([]);
+    expect((await svc((tx) => tx.query<{ n: number }>('select count(*)::int n from engines.training_rows'))).rows[0]!.n).toBe(1);
     expect((await svc((tx) => tx.query('select app.verify_chronicle() b'))).rows[0]!.b).toBeNull();
   });
 
