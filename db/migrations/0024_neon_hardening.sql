@@ -27,3 +27,18 @@ select app.enable_chronicle(t::regclass) from unnest(array[
   'public.integrations','public.user_integrations','public.procurement_tokens',
   'public.scale_deals','public.scale_pledges','public.scale_joins','public.social_accounts'
 ]) as t;
+
+-- WorkOS access tokens carry no email, so app.users rows can arrive without one.
+-- profiles.username is NOT NULL UNIQUE: fall back to a stable handle from the id.
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.profiles (id, email, username)
+  values (new.id, new.email,
+          coalesce(nullif(new.raw_user_meta_data->>'username', ''),
+                   nullif(split_part(new.email, '@', 1), '') || '_' || left(replace(new.id::text, '-', ''), 6),
+                   'member_' || left(replace(new.id::text, '-', ''), 12)))
+  on conflict (id) do nothing;
+  return new;
+end;
+$$;

@@ -1,0 +1,52 @@
+# Finesse API — Cloudflare Worker. Placeholders only; nothing here is a secret.
+# Secrets are set with `wrangler secret put` (see README.md), never in this file.
+name = "finesse-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+routes = [{ pattern = "api.finesselife.vip", custom_domain = true }]
+
+[vars]
+WORKOS_CLIENT_ID = "client_REPLACE_ME"          # public id; issuer/JWKS are derived from it
+ALLOWED_ORIGINS = "https://finesselife.vip,https://www.finesselife.vip"
+R2_ACCOUNT_ID = "REPLACE_ME_CLOUDFLARE_ACCOUNT_ID"
+R2_MEDIA_BUCKET_NAME = "finesse-media"
+
+# Neon via Hyperdrive. Create with:
+#   wrangler hyperdrive create finesse-neon --connection-string="<NEON POOLED URL, role finesse_api>"
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "REPLACE_ME_HYPERDRIVE_ID"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "finesse-media"
+
+[[r2_buckets]]
+binding = "PRIVATE"
+bucket_name = "finesse-private"
+
+[[r2_buckets]]
+binding = "EXPORTS"
+bucket_name = "finesse-exports"
+
+[[queues.producers]]
+binding = "EVENTS"
+queue = "finesse-events"
+
+[[queues.consumers]]
+queue = "finesse-events"
+max_batch_size = 50
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "finesse-events-dlq"
+
+# Outbox relay (replaces pg_cron).
+[triggers]
+crons = ["* * * * *"]
+
+# Secrets (wrangler secret put <NAME>):
+#   HOUSE_CODE_SHA256      hex sha256 of the KeyLock house code
+#   R2_ACCESS_KEY_ID       R2 S3 API token (presigned uploads)
+#   R2_SECRET_ACCESS_KEY
