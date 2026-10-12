@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useCallback} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
@@ -113,7 +114,8 @@ function GenderLock() {
 /* ─── Main Component ─── */
 
 export default function PerDiemPage() {
-  const [gender, setGender] = useState<Gender | null>(null);
+  const gender_ = useStoredGender();
+  const gender: Gender | null = gender_ === 'feminine' ? 'feminine' : 'masculine';
   const [tab, setTab] = useState<Tab>('planner');
   const [budget, setBudget] = useState(50000);
   const [vibe, setVibe] = useState('romantic');
@@ -131,10 +133,6 @@ export default function PerDiemPage() {
   const [mySharePct, setMySharePct] = useState(70);
 
   /* resolve gender from localStorage — SSR safe */
-  useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    setGender(stored === 'feminine' ? 'feminine' : 'masculine');
-  }, []);
 
   /* load Eventbrite checkout widget script once */
   useEffect(() => {

@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
@@ -172,11 +173,9 @@ function GoldDivider({label}: {label: string}) {
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GymPage() {
-  const [gender, setGender] = useState<string | null>(null);
+  const gender_ = useStoredGender();
+  const gender: string | null = gender_;
 
-  useEffect(() => {
-    setGender(localStorage.getItem('finesse_gender'));
-  }, []);
 
   const isMasc = gender === 'masculine';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
@@ -295,7 +294,7 @@ export default function GymPage() {
                 className="font-body italic"
                 style={{fontSize: '0.74rem', color: 'rgba(244,232,208,0.32)', lineHeight: 1.55}}
               >
-                "Consistency is the move."
+                &quot;Consistency is the move.&quot;
               </p>
             </div>
 
@@ -368,7 +367,7 @@ export default function GymPage() {
                 <span className="font-mono" style={{fontSize: '0.78rem', color: 'rgba(244,232,208,0.65)'}}>{FEM_TRAINER.nextSession}</span>
               </div>
               <p className="font-body italic" style={{fontSize: '0.76rem', color: 'rgba(244,232,208,0.35)', lineHeight: 1.55}}>
-                "{FEM_TRAINER.novaNote}"
+                &quot;{FEM_TRAINER.novaNote}&quot;
               </p>
             </motion.div>
 
@@ -444,7 +443,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&quot;{p.nova}&quot;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
@@ -507,7 +506,7 @@ export default function GymPage() {
                 Nova
               </p>
               <p className="font-body italic" style={{fontSize: '0.9rem', color: 'rgba(244,232,208,0.62)', lineHeight: 1.65}}>
-                "You skipped Monday. I'm not judging — I'm rescheduling. Marcus has 6am Thursday open. Confirmed."
+                &quot;You skipped Monday. I&apos;m not judging — I&apos;m rescheduling. Marcus has 6am Thursday open. Confirmed.&quot;
               </p>
             </motion.div>
 
@@ -561,7 +560,7 @@ export default function GymPage() {
                     </div>
                     <span className="font-mono" style={{fontSize: '0.85rem', color: '#C9A84C', marginLeft: '1rem'}}>{item.price}</span>
                   </div>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>"{item.novaNote}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>&quot;{item.novaNote}&quot;</p>
                 </div>
               ))}
             </div>
@@ -586,7 +585,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&quot;{p.nova}&quot;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}

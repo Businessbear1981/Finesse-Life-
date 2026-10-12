@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useEffect, useState, type ReactElement, type ReactNode} from 'react';
 import Link from 'next/link';
@@ -215,11 +216,9 @@ function DockTile({room, active}: {room: RoomDef; active: boolean}) {
 /* ─── Main Layout ─── */
 export function FinesseLayout({children}: {children: ReactNode}) {
   const pathname = usePathname();
-  const [gender, setGender] = useState<string | null>(null);
+  const gender_ = useStoredGender();
+  const gender: string | null = gender_;
 
-  useEffect(() => {
-    setGender(localStorage.getItem('finesse_gender'));
-  }, []);
 
   const isMasc = gender === 'masculine';
   const brandName = isMasc ? 'CARPE DIEM' : 'FINESSE';

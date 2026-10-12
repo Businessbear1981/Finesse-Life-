@@ -1,4 +1,5 @@
 'use client';
+import {setStoredGender} from '@/lib/use-gender';
 
 import {useState, useRef, useEffect, useCallback} from 'react';
 import {motion, useAnimation, AnimatePresence} from 'framer-motion';
@@ -39,7 +40,7 @@ export default function VaultEntrance() {
   }, [flash]);
 
   const selectGender = (gender: 'feminine' | 'masculine') => {
-    localStorage.setItem('finesse_gender', gender);
+    setStoredGender(gender);
     router.push('/lobby');
   };
 
@@ -322,8 +323,8 @@ export default function VaultEntrance() {
           return (
             <motion.div key={`bolt${i}`} className="absolute rounded-sm"
               style={{
-                top: bolt.top, bottom: (bolt as any).bottom,
-                left: bolt.left, right: (bolt as any).right,
+                top: bolt.top, bottom: (bolt as {bottom?: string}).bottom,
+                left: bolt.left, right: (bolt as {right?: string}).right,
                 width: bolt.w, height: bolt.h,
                 background: 'linear-gradient(135deg, #F0D88A, #C9A961, #6B5028)',
                 boxShadow: assembled >= i + 2

@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -63,17 +64,14 @@ const STYLE_OPTIONS: Record<string, string[]> = {
 };
 
 export default function Lab() {
-  const [edition, setEdition] = useState<'finesse' | 'carpe_diem'>('finesse');
+  const gender_ = useStoredGender();
+  const edition: 'finesse' | 'carpe_diem' = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [activeTool, setActiveTool] = useState<Tool | null>(null);
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('');
   const [generating, setGenerating] = useState(false);
   const [output, setOutput] = useState<string | null>(null);
 
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
   const accent = edition === 'carpe_diem' ? '#69C9D0' : '#FF4D7D';
 

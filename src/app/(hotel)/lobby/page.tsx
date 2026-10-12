@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -7,10 +8,8 @@ import { Shirt, ShoppingBag, Scissors, Plane, DollarSign, TrendingUp, Sun, Compa
 
 /* ─── Gender detection ─── */
 const useGender = () => {
-  const [isMasc, setIsMasc] = useState(false);
-  useEffect(() => {
-    setIsMasc(localStorage.getItem('finesse_gender') === 'masculine');
-  }, []);
+  const gender_ = useStoredGender();
+  const isMasc = gender_ === 'masculine';
   return isMasc;
 };
 

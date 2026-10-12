@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -181,12 +182,10 @@ function statusLabel(status: 'full' | 'low' | 'out'): string {
 // ─── Main ───────────────────────────────────────────────────────────────────────
 
 export default function SalonPage() {
-  const [isMasc, setIsMasc] = useState(false);
+  const gender_ = useStoredGender();
+  const isMasc = gender_ === 'masculine';
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
-  useEffect(() => {
-    setIsMasc(localStorage.getItem('finesse_gender') === 'masculine');
-  }, []);
 
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
   const appointments = isMasc ? MASCULINE_APPOINTMENTS : FEMININE_APPOINTMENTS;

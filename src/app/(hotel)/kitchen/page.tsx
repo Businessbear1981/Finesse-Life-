@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -201,11 +202,9 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function KitchenPage() {
-  const [gender, setGender] = useState<string | null>(null);
+  const gender_ = useStoredGender();
+  const gender: string | null = gender_;
 
-  useEffect(() => {
-    setGender(localStorage.getItem('finesse_gender'));
-  }, []);
 
   const isMasc = gender === 'masculine';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
@@ -327,7 +326,7 @@ export default function KitchenPage() {
                       </span>
                     </div>
                     <p className="font-body text-sm italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{r.nova}"
+                      &quot;{r.nova}&quot;
                     </p>
                   </motion.div>
                 ))}
@@ -392,7 +391,7 @@ export default function KitchenPage() {
                     <h3 className="font-display text-base" style={{ color: '#E8C87A' }}>{WINE.label}</h3>
                     <p className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(201,169,97,0.4)' }}>{WINE.vintage}</p>
                     <p className="font-body text-sm italic mt-3 leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{WINE.notes}"
+                      &quot;{WINE.notes}&quot;
                     </p>
                   </div>
                 </div>
@@ -479,7 +478,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
-                        "{recipe.nova}"
+                        &quot;{recipe.nova}&quot;
                       </p>
                     </div>
                   </motion.div>
@@ -512,7 +511,7 @@ export default function KitchenPage() {
                     <h3 className="font-display text-lg" style={{ color: '#E8C87A' }}>{s.name}</h3>
                     <p className="font-label text-[8px] tracking-[0.3em] uppercase mt-1" style={{ color: 'rgba(201,169,97,0.4)' }}>{s.category}</p>
                     <p className="font-body text-sm italic mt-3 leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{s.nova}"
+                      &quot;{s.nova}&quot;
                     </p>
                   </motion.div>
                 ))}
@@ -540,7 +539,7 @@ export default function KitchenPage() {
                     <span style={{ fontSize: '10px', color: '#FFA96B' }}>N</span>
                   </div>
                   <p className="font-body text-sm italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.6)' }}>
-                    "{DINNER_INTEL}"
+                    &quot;{DINNER_INTEL}&quot;
                   </p>
                 </div>
               </div>
@@ -653,7 +652,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
-                        "{recipe.nova}"
+                        &quot;{recipe.nova}&quot;
                       </p>
                     </div>
                   </motion.div>

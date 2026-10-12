@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
@@ -173,13 +174,10 @@ function PartnerTile({p}: {p: typeof PARTNERS_MASC[number]}) {
 }
 
 export default function GameRoomPage() {
-  const [gender, setGender] = useState<Gender | null>(null);
+  const gender_ = useStoredGender();
+  const gender: Gender | null = gender_ === 'masculine' ? 'masculine' : 'feminine';
   const [tab, setTab] = useState<'platforms' | 'scores' | 'fantasy'>('platforms');
 
-  useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    setGender(stored === 'masculine' ? 'masculine' : 'feminine');
-  }, []);
 
   const isMasc    = gender === 'masculine';
   const accent    = isMasc ? '#00FF88' : '#FF4D7D';

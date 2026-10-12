@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
@@ -689,7 +690,8 @@ function NovaBriefing({
 
 export default function CarpeDiemPage() {
   const router = useRouter();
-  const [gender, setGender] = useState<string | null>(null);
+  const stored = useStoredGender();
+  const gender = stored === 'masculine' ? 'masculine' : null;
   const [tab, setTab] = useState<Tab>('portfolio');
   const [alpacaConnected, setAlpacaConnected] = useState(false);
   const [fantasyConnected, setFantasyConnected] = useState(false);
@@ -702,12 +704,7 @@ export default function CarpeDiemPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    if (stored !== 'masculine') {
-      router.replace('/perdiem');
-    } else {
-      setGender('masculine');
-    }
+    if (localStorage.getItem('finesse_gender') !== 'masculine') router.replace('/perdiem');
   }, [router]);
 
   if (gender === null) return null;

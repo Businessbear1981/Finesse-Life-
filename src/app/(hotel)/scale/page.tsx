@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -474,15 +475,12 @@ function DealCard({ deal, index }: { deal: Deal; index: number }) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function Scale() {
-  const [edition, setEdition]       = useState<'finesse' | 'carpe_diem'>('finesse');
+  const edition: 'finesse' | 'carpe_diem' = useStoredGender() === 'masculine' ? 'carpe_diem' : 'finesse';
   const [activeFilter, setActiveFilter] = useState<FilterTab>('all');
   const [deals, setDeals]           = useState<Deal[]>([]);
   const [dealsLoaded, setDealsLoaded] = useState(false);
 
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-
     // Load real deals from database — no mock fallback
     import('@/lib/data/client').then(async ({ createClient }) => {
       try {

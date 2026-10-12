@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,15 +69,7 @@ function fmt(cents: number) {
 }
 
 function useAccent() {
-  const [accent, setAccent] = useState('#FF4D7D');
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setAccent(
-        localStorage.getItem('finesse_gender') === 'masculine' ? '#FFA96B' : '#FF4D7D',
-      );
-    }
-  }, []);
-  return accent;
+  return useStoredGender() === 'masculine' ? '#FFA96B' : '#FF4D7D';
 }
 
 // ── Listing Card ─────────────────────────────────────────────────────────────
@@ -409,6 +402,7 @@ function BrowseTab({ accent }: { accent: string }) {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     void load(page, category, priceRange);
   }, [load, page, category, priceRange]);
 

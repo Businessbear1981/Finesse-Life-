@@ -23,16 +23,16 @@ export async function GET(request: NextRequest) {
   const {data: {user}} = await dbc.auth.getUser();
   let likedIds: string[] = [];
   if (user && data?.length) {
-    const postIds = data.map((p: any) => p.id);
+    const postIds = data.map((p: {id: string}) => p.id);
     const {data: likes} = await dbc
       .from('post_likes')
       .select('post_id')
       .eq('user_id', user.id)
       .in('post_id', postIds);
-    likedIds = (likes || []).map((l: any) => l.post_id);
+    likedIds = (likes || []).map((l: {post_id: string}) => l.post_id);
   }
 
-  const posts = (data || []).map((p: any) => ({
+  const posts = (data || []).map((p: {id: string}) => ({
     ...p,
     liked_by_me: likedIds.includes(p.id),
   }));

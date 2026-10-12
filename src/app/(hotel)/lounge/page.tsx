@@ -498,6 +498,7 @@ export default function LoungePage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     fetchMembers();
     fetchPosts();
   }, [fetchMembers, fetchPosts]);

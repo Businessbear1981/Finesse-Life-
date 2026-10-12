@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
@@ -758,11 +759,8 @@ function PhotoCaptureGrid({
 
 export default function NightvisionPage() {
   // ── edition ──
-  const [edition, setEdition] = useState<Edition>('finesse');
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
 
   // ── auth ──
   const [userId, setUserId] = useState<string | null>(null);

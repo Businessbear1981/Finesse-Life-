@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -65,7 +66,8 @@ function formatPrice(n: number): string {
 }
 
 export default function WardrobePage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [tab, setTab] = useState<TabId>('closet');
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -91,10 +93,6 @@ export default function WardrobePage() {
   const [wItem, setWItem] = useState('');
   const [wPrice, setWPrice] = useState('');
 
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
   useEffect(() => {
     const dbc = createClient();

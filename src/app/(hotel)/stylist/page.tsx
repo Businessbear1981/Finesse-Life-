@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
@@ -451,10 +452,11 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StylistPage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [activeTab, setActiveTab] = useState<Tab>('looks');
   const [refreshing, setRefreshing] = useState(false);
-  const [looks, setLooks] = useState<Look[]>([]);
+  const [refreshedLooks, setLooks] = useState<Look[] | null>(null);
 
   // Upload / match state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -463,15 +465,9 @@ export default function StylistPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
 
   // SSR-safe gender detection
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
-  // Set initial looks based on edition
-  useEffect(() => {
-    setLooks(edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
-  }, [edition]);
+  // Initial looks follow the edition until the member refreshes them
+  const looks = refreshedLooks ?? (edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
 
   const isMasc = edition === 'carpe_diem';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';

@@ -354,6 +354,7 @@ export default function Backstage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     fetchConnectors();
     const interval = setInterval(fetchConnectors, 10_000);
     return () => clearInterval(interval);
