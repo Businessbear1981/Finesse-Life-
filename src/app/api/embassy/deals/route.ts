@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { parseBody } from '@/lib/api/validate';
@@ -19,14 +19,14 @@ const dealSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
 
   const parsed = await parseBody(req, dealSchema);
   if (parsed.error) return parsed.error;
   const body = parsed.data;
 
-  const { error } = await supabase.from('embassy_deals').insert({
+  const { error } = await dbc.from('embassy_deals').insert({
     brand: body.brand.trim(),
     item: body.item.trim(),
     source: body.source ?? null,

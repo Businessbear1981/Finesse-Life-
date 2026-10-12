@@ -2,7 +2,7 @@
 // Real-time supply/demand analysis from Exchange + Scale data.
 // Powers price recommendations, demand forecasting, and trend detection.
 
-import { createServiceClient } from '@/lib/supabase/service';
+import { createServiceClient } from '@/lib/data/service';
 import { complete } from '@/lib/ai';
 import type { MarketSignal, PriceRecommendation } from './types';
 

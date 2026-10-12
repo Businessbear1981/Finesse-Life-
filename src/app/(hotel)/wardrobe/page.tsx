@@ -1,9 +1,10 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 
 type Edition = 'finesse' | 'carpe_diem';
 type TabId = 'closet' | 'feed' | 'wishlist';
@@ -65,7 +66,8 @@ function formatPrice(n: number): string {
 }
 
 export default function WardrobePage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [tab, setTab] = useState<TabId>('closet');
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -91,14 +93,10 @@ export default function WardrobePage() {
   const [wItem, setWItem] = useState('');
   const [wPrice, setWPrice] = useState('');
 
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
+    const dbc = createClient();
+    dbc.auth.getUser().then(({ data }) => {
       setUserId(data?.user?.id ?? null);
     });
   }, []);

@@ -1,4 +1,5 @@
 'use client';
+import {setStoredGender} from '@/lib/use-gender';
 
 import {useState, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
@@ -416,7 +417,7 @@ export default function IntakePage() {
   }, [step]);
 
   const handleGender = useCallback((gender: Gender) => {
-    localStorage.setItem('finesse_gender', gender);
+    setStoredGender(gender);
     setData((d) => ({...d, gender}));
     goTo(1);
   }, [goTo]);

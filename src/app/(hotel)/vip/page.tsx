@@ -1,6 +1,6 @@
 import {redirect} from 'next/navigation';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {VipPostFeed} from './vip-post-feed';
 import {VipPostFabClient} from './vip-post-fab';
 
@@ -22,15 +22,15 @@ interface VipPost {
 }
 
 export default async function VipPage() {
-  const supabase = await createClient();
+  const dbc = await createClient();
   const {
     data: {user},
-  } = await supabase.auth.getUser();
+  } = await dbc.auth.getUser();
 
   if (!user) redirect('/login');
 
   // Verify VIP — middleware handles redirect but double-check server-side
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('is_vip, vip_expires_at, username, telegram_handle')
     .eq('id', user.id)
@@ -43,7 +43,7 @@ export default async function VipPage() {
     redirect('/profile?upgrade=true');
   }
 
-  const {data: rawPosts} = await supabase
+  const {data: rawPosts} = await dbc
     .from('vip_posts')
     .select(
       `

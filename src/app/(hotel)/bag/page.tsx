@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,20 +18,6 @@ interface CollectionItem {
   photo: string | null;
   note: string;
 }
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const FINESSE_ITEMS: CollectionItem[] = [
-  { id: '1', name: 'Birkin 25', brand: 'Hermès', category: 'bag', value_est: 38000, color: 'Gold', acquired: '2024', photo: null, note: 'My first Birkin. Never selling.' },
-  { id: '2', name: 'Royal Oak 33mm', brand: 'Audemars Piguet', category: 'watch', value_est: 42000, color: 'Rose Gold', acquired: '2023', photo: null, note: '' },
-  { id: '3', name: 'So Kate 120mm', brand: 'Christian Louboutin', category: 'shoes', value_est: 895, color: 'Nude Patent', acquired: '2025', photo: null, note: 'The ones.' },
-];
-
-const CARPE_DIEM_ITEMS: CollectionItem[] = [
-  { id: '1', name: 'Submariner Date', brand: 'Rolex', category: 'watch', value_est: 16500, color: 'Black', acquired: '2023', photo: null, note: 'Daily driver.' },
-  { id: '2', name: 'Air Jordan 1 Retro High', brand: 'Nike x Off-White', category: 'sneakers', value_est: 4200, color: 'Chicago', acquired: '2022', photo: null, note: 'DS. Never wearing.' },
-  { id: '3', name: 'Daytona', brand: 'Rolex', category: 'watch', value_est: 52000, color: 'Panda', acquired: '2024', photo: null, note: 'Grail unlocked.' },
-];
 
 const FINESSE_CATEGORIES = ['All', 'Bags', 'Shoes', 'Watches', 'Jewelry'];
 const CARPE_DIEM_CATEGORIES = ['All', 'Watches', 'Sneakers', 'Cars', 'Other'];
@@ -87,8 +74,8 @@ function PhotoPlaceholder({ category }: { category: string }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function BagPage() {
-  const [edition, setEdition] = useState<'finesse' | 'carpe_diem'>('finesse');
-  const [items, setItems] = useState<CollectionItem[]>(FINESSE_ITEMS);
+  const edition: 'finesse' | 'carpe_diem' = useStoredGender() === 'masculine' ? 'carpe_diem' : 'finesse';
+  const [items, setItems] = useState<CollectionItem[]>([]);
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [detailItem, setDetailItem] = useState<CollectionItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -110,10 +97,8 @@ export default function BagPage() {
 
   // SSR-safe gender detection + load from DB
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    const ed: 'finesse' | 'carpe_diem' = g === 'masculine' ? 'carpe_diem' : 'finesse';
-    setEdition(ed);
-    // Load real items from DB; fall back to demo data if unauthenticated
+    const ed = edition;
+    // Load real items from DB; empty if unauthenticated
     fetch(`/api/bag/items?edition=${ed}`)
       .then((r) => r.json())
       .then((d: { items?: CollectionItem[] }) => {
@@ -126,7 +111,7 @@ export default function BagPage() {
         setItems(dbItems.length > 0 ? dbItems : []);
       })
       .catch(() => setItems([]));
-  }, []);
+  }, [edition]);
 
   const accentColor = edition === 'finesse' ? '#FF4D7D' : '#69C9D0';
   const categories = edition === 'finesse' ? FINESSE_CATEGORIES : CARPE_DIEM_CATEGORIES;

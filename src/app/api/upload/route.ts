@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import {cookies} from 'next/headers';
 import {uploadObject} from '@/lib/r2';
 
@@ -9,9 +9,9 @@ const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const {
       data: {user},
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({error: 'Not authenticated.'}, {status: 401});

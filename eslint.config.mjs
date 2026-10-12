@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Separate packages with their own toolchains:
+    "workers/**",
+    "finesse-mobile/**",
+    "db/**",
   ]),
 ]);
 

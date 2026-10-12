@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
@@ -284,6 +285,10 @@ function FantasyTab() {
         body: JSON.stringify({league_id: leagueId.trim(), team_id: teamId.trim()}),
       });
       const data = await res.json();
+      if (res.status === 409 && data.connect_url) {
+        window.location.href = data.connect_url; // first time: authorize Yahoo, then come back
+        return;
+      }
       if (!res.ok) {
         setError(data.error ?? 'Failed to load');
       } else {
@@ -309,7 +314,7 @@ function FantasyTab() {
             Find your League ID + Team ID in the Yahoo Fantasy URL.
           </p>
           <p className="font-body text-[10px] mb-6" style={{color: `rgba(255,169,107,0.4)`}}>
-            Demo mode — OAuth2 coming in phase 2
+            First time? You&apos;ll be asked to sign in to Yahoo (read-only).
           </p>
 
           <div className="space-y-3 mb-5">
@@ -689,7 +694,8 @@ function NovaBriefing({
 
 export default function CarpeDiemPage() {
   const router = useRouter();
-  const [gender, setGender] = useState<string | null>(null);
+  const stored = useStoredGender();
+  const gender = stored === 'masculine' ? 'masculine' : null;
   const [tab, setTab] = useState<Tab>('portfolio');
   const [alpacaConnected, setAlpacaConnected] = useState(false);
   const [fantasyConnected, setFantasyConnected] = useState(false);
@@ -702,12 +708,7 @@ export default function CarpeDiemPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    if (stored !== 'masculine') {
-      router.replace('/perdiem');
-    } else {
-      setGender('masculine');
-    }
+    if (localStorage.getItem('finesse_gender') !== 'masculine') router.replace('/perdiem');
   }, [router]);
 
   if (gender === null) return null;

@@ -1,13 +1,13 @@
 import {NextResponse} from 'next/server';
-import {createServerClient} from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, SERVICE_ROLE, createServerClient} from '@/lib/data/compat';
 import {cookies} from 'next/headers';
 
 async function getServiceClient() {
   const cookieStore = await cookies();
 
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
     {
       cookies: {
         getAll() {
@@ -49,8 +49,8 @@ export async function GET() {
   try {
     const cookieStore = await cookies();
     const anonClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll() {
@@ -99,8 +99,8 @@ export async function PATCH(request: Request) {
     // Verify the caller is authenticated using the anon client
     const cookieStore = await cookies();
     const anonClient = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll() {

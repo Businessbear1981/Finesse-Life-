@@ -1,10 +1,10 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {emit} from '@/lib/intelligence';
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
   const {amount_cents} = await req.json() as {amount_cents: number};
@@ -13,13 +13,13 @@ export async function POST(req: NextRequest) {
   }
 
   // Upsert account so it exists before we write a transaction
-  await supabase.from('vault_accounts').upsert(
+  await dbc.from('vault_accounts').upsert(
     {user_id: user.id, updated_at: new Date().toISOString()},
     {onConflict: 'user_id', ignoreDuplicates: true},
   );
 
   // Record funding credit
-  await supabase.from('vault_transactions').insert({
+  await dbc.from('vault_transactions').insert({
     user_id: user.id,
     merchant: 'Vault Top-Up',
     amount_cents,
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Fetch current balance then increment
-  const {data: acct} = await supabase
+  const {data: acct} = await dbc
     .from('vault_accounts')
     .select('balance_cents')
     .eq('user_id', user.id)
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   const new_balance_cents = (acct?.balance_cents ?? 0) + amount_cents;
 
-  await supabase.from('vault_accounts').update({
+  await dbc.from('vault_accounts').update({
     balance_cents: new_balance_cents,
     updated_at: new Date().toISOString(),
   }).eq('user_id', user.id);

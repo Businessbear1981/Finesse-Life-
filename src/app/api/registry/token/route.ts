@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 
 function generateToken(): string {
@@ -19,9 +19,9 @@ interface TokenPayload {
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     const body = (await req.json()) as TokenPayload;
     const token = generateToken();
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
     if (user && body.item_id) {
       // Optionally log the token generation — non-blocking
-      supabase
+      dbc
         .from('registry_pledges')
         .select('id')
         .eq('item_id', body.item_id)

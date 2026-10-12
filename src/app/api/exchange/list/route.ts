@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 import { emit } from '@/lib/intelligence';
 
@@ -17,9 +17,9 @@ interface ListPayload {
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       },
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Minimum price is $1.' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('exchange_listings')
       .insert({
         seller_id: user.id,

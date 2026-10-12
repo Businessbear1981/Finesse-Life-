@@ -4,6 +4,7 @@
 // Suno's public API is third-party-wrapped (no first-party API). This stub
 // uses the common community-API shape; swap BASE + auth shape for your provider.
 
+import {safeFetch} from '@/lib/net/safe-url';
 import {uploadObject, publicUrlFor} from '@/lib/r2';
 
 const API_KEY = process.env.SUNO_API_KEY;
@@ -58,7 +59,7 @@ export async function pollTrack(trackId: string) {
 }
 
 export async function downloadAndStore(audioUrl: string) {
-  const r = await fetch(audioUrl);
+  const r = await safeFetch(audioUrl, {}, {timeoutMs: 60_000});
   const buf = Buffer.from(await r.arrayBuffer());
   const key = `music/${crypto.randomUUID()}.mp3`;
   await uploadObject(key, buf, 'audio/mpeg');

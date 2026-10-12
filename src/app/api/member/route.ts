@@ -1,15 +1,15 @@
 import {NextRequest, NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 
 export async function GET(req: NextRequest) {
   const username = req.nextUrl.searchParams.get('username')?.trim();
   if (!username) return NextResponse.json({found: false});
 
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('display_name, gender, vibe, city')
     .ilike('display_name', username)

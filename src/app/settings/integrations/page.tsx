@@ -1,4 +1,4 @@
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {redirect} from 'next/navigation';
 import {IntegrationCard} from './integration-card';
 
@@ -16,11 +16,11 @@ type IntegrationRow = {
 };
 
 export default async function IntegrationsPage() {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) redirect('/login');
 
-  const {data: profile} = await supabase
+  const {data: profile} = await dbc
     .from('profiles')
     .select('role')
     .eq('id', user.id)
@@ -34,7 +34,7 @@ export default async function IntegrationsPage() {
     );
   }
 
-  const {data: integrations, error} = await supabase
+  const {data: integrations, error} = await dbc
     .from('integrations')
     .select('vendor, display_name, enabled, fields_schema, last_tested_at, last_test_status, last_test_message, last_test_latency_ms')
     .order('display_name');
@@ -46,7 +46,7 @@ export default async function IntegrationsPage() {
         <p className="text-red-600">Failed to load: {error.message}</p>
         <p className="opacity-70 text-sm mt-2">
           If you haven&apos;t applied the <code>integrations</code> data engine yet:{' '}
-          <code>supabase db push assets/data-engines/integrations.sql</code>
+          <code>dbc db push assets/data-engines/integrations.sql</code>
         </p>
       </main>
     );

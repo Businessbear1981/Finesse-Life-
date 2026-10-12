@@ -1,3 +1,4 @@
+import {guardExpensive} from '@/lib/api-guard';
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
@@ -120,6 +121,8 @@ function parseNovaJson(text: string): NovaAnalysis | null {
 }
 
 export async function POST(req: Request) {
+  const me = await guardExpensive('nightvision/analyze', 10);
+  if (me instanceof NextResponse) return me;
   try {
     const parsed = await parseBody(req, analyzeSchema);
     if (parsed.error) return parsed.error;
@@ -130,7 +133,7 @@ export async function POST(req: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     const novaRes = await fetch(`${siteUrl}/api/nova`, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? ''},
       body: JSON.stringify({
         prompt: profileSummary,
         system: SYSTEM_PROMPT,

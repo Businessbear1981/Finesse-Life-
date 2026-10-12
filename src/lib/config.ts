@@ -7,8 +7,8 @@
 //
 // In dev, you can use .env.local; in prod, the vault is the source of truth.
 
-import {createClient} from '@supabase/supabase-js';
 import {decryptJson} from './crypto';
+import {createClient, FINESSE_API, SERVICE_ROLE} from '@/lib/data/compat';
 
 type VendorConfig = Record<string, string>;
 type CacheEntry = {at: number; data: VendorConfig; enabled: boolean};
@@ -18,8 +18,8 @@ const TTL_MS = 60_000;
 
 function admin() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
     {auth: {persistSession: false}},
   );
 }
@@ -77,10 +77,8 @@ export class IntegrationDisabledError extends Error {
 // with the seed in integrations.sql.
 function fromEnv(vendor: string): VendorConfig {
   const map: Record<string, Record<string, string | undefined>> = {
-    supabase: {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      anon_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      service_role_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    finesse_api: {
+      url: process.env.FINESSE_API_URL,
     },
     cloudflare_r2: {
       account_id: process.env.CLOUDFLARE_ACCOUNT_ID,

@@ -1,4 +1,5 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1006,7 +1007,8 @@ const MAIN_TABS: MainTab[] = ['MY LIST', 'OUTINGS', 'VIP BOARD'];
 
 export default function RegistryPage() {
   const [activeTab, setActiveTab] = useState<MainTab>('MY LIST');
-  const [accent, setAccent] = useState('#FF4D7D');
+  const gender_ = useStoredGender();
+  const accent = gender_ === 'masculine' ? '#FFA96B' : '#FF4D7D';
   const [isVip, setIsVip] = useState<boolean | null>(null); // null = loading
   const [items, setItems] = useState<RegistryItem[]>([]);
   const [outings, setOutings] = useState<OutingCard[]>([]);
@@ -1019,11 +1021,6 @@ export default function RegistryPage() {
   const [tokenItem, setTokenItem] = useState<VipItem | null>(null);
 
   // Gender accent
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const g = localStorage.getItem('finesse_gender') as Gender | null;
-    setAccent(g === 'masculine' ? '#FFA96B' : '#FF4D7D');
-  }, []);
 
   // Load profile (for is_vip)
   useEffect(() => {
@@ -1045,6 +1042,7 @@ export default function RegistryPage() {
 
   // Load registry items
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     setLoadingItems(true);
     fetch('/api/registry/items')
       .then(r => r.json())
@@ -1055,6 +1053,7 @@ export default function RegistryPage() {
 
   // Load outings
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     setLoadingOutings(true);
     fetch('/api/registry/outings')
       .then(r => r.json())
@@ -1066,6 +1065,7 @@ export default function RegistryPage() {
   // Load VIP exclusives (only when on VIP BOARD tab and VIP confirmed)
   useEffect(() => {
     if (activeTab !== 'VIP BOARD' || isVip !== true) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     setLoadingVip(true);
     fetch('/api/registry/vip')
       .then(r => r.json())

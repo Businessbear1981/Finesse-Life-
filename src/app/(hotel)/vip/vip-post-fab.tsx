@@ -2,7 +2,7 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
 import {Plus, X} from 'lucide-react';
 
 export function VipPostFabClient() {
@@ -19,16 +19,16 @@ export function VipPostFabClient() {
     setError('');
 
     try {
-      const supabase = createClient();
+      const dbc = createClient();
       const {
         data: {user},
-      } = await supabase.auth.getUser();
+      } = await dbc.auth.getUser();
       if (!user) {
         setError('Not authenticated.');
         return;
       }
 
-      const {error: insertErr} = await supabase.from('vip_posts').insert({
+      const {error: insertErr} = await dbc.from('vip_posts').insert({
         author_id: user.id,
         content: text,
       });

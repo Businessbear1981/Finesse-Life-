@@ -1,9 +1,11 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
+import {PlaidConnect} from '@/components/fin/plaid-connect';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -758,17 +760,14 @@ function PhotoCaptureGrid({
 
 export default function NightvisionPage() {
   // ── edition ──
-  const [edition, setEdition] = useState<Edition>('finesse');
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
 
   // ── auth ──
   const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({data}) => {
+    const dbc = createClient();
+    dbc.auth.getUser().then(({data}) => {
       setUserId(data?.user?.id ?? null);
     });
   }, []);
@@ -784,6 +783,13 @@ export default function NightvisionPage() {
     plaid: false,
     spotify: false,
   });
+  const [plaidOpen, setPlaidOpen] = useState(false);
+  const refreshPlaid = () =>
+    fetch('/api/plaid/items').then((r) => (r.ok ? r.json() : null)).then((j: {items?: Array<{status: string}>} | null) => {
+      const linked = !!j?.items?.some((i) => i.status === 'active');
+      setSources((p) => ({...p, plaid: linked}));
+    }).catch(() => {});
+  useEffect(() => { void refreshPlaid(); }, []);
 
   // ── questionnaire ──
   const [answers, setAnswers] = useState<Answers>(EMPTY_ANSWERS);
@@ -870,37 +876,19 @@ export default function NightvisionPage() {
   const handleConnectInstagram = () => {
     const hasEnv = !!process.env.NEXT_PUBLIC_INSTAGRAM_APP_ID;
     if (!hasEnv) {
-      showToast('Instagram OAuth · wiring in progress');
-      // Optimistically mark connected for demo flow
-      setSources((p) => ({...p, instagram: true}));
+      // Not connected until the provider confirms; never mark a source connected without OAuth.
+      showToast('Instagram is not available yet');
       return;
     }
     window.location.href = '/api/auth/instagram';
   };
 
-  const handleConnectSnapchat = () => {
-    showToast('Snapchat OAuth · wiring in progress');
-    setSources((p) => ({...p, snapchat: true}));
-  };
+  // Snapchat has no backend integration yet; never show it as connected.
+  const handleConnectSnapchat = () => showToast('Snapchat is not available yet');
+  // Plaid: consented, scoped, minimized (docs/DATA_POLICY.md). Connected only once the server confirms an Item.
+  const handleConnectPlaid = () => setPlaidOpen(true);
 
-  const handleConnectPlaid = async () => {
-    try {
-      const res = await fetch('/api/plaid/link', {method: 'POST'});
-      if (!res.ok) throw new Error('not configured');
-      const data = (await res.json()) as {link_token?: string};
-      if (data.link_token) {
-        showToast('Plaid Link initializing...');
-        setSources((p) => ({...p, plaid: true}));
-      }
-    } catch {
-      showToast('Plaid · wiring in progress');
-      setSources((p) => ({...p, plaid: true}));
-    }
-  };
-
-  const handleConnectSpotify = () => {
-    window.location.href = '/api/auth/spotify';
-  };
+  const handleConnectSpotify = () => showToast('Spotify is not available yet');
 
   // ── questionnaire handlers ──
   function handleSingleSelect(qId: keyof Answers, value: string) {
@@ -960,7 +948,7 @@ export default function NightvisionPage() {
         generated_at: new Date().toISOString(),
       };
 
-      // Save to Supabase
+      // Save to database
       await fetch('/api/nightvision/profile', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1033,6 +1021,9 @@ export default function NightvisionPage() {
 
       {/* Toast */}
       <AnimatePresence>
+        {plaidOpen && (
+          <PlaidConnect onClose={() => setPlaidOpen(false)} onDone={(m) => { setPlaidOpen(false); showToast(m); void refreshPlaid(); }} />
+        )}
         {toast && (
           <motion.div
             key="toast"
@@ -1200,9 +1191,9 @@ export default function NightvisionPage() {
                 />
 
                 <ConnectCard
-                  title="PLAID · SPENDING INTEL"
-                  subtitle="Transaction layer"
-                  detail="Real transaction data. We see what brands you actually pay for — not just follow."
+                  title="PLAID · BUDGET SIGNAL"
+                  subtitle="Balances, with your consent"
+                  detail="Account names and balances only, to plan within your budget. No account numbers, no transactions, never used for Standing."
                   connected={sources.plaid}
                   onConnect={handleConnectPlaid}
                 />
@@ -1721,7 +1712,7 @@ export default function NightvisionPage() {
                   {[
                     {key: 'instagram' as const, label: 'INSTAGRAM', detail: 'Visual identity'},
                     {key: 'snapchat' as const, label: 'SNAPCHAT', detail: 'Social graph'},
-                    {key: 'plaid' as const, label: 'PLAID', detail: 'Transaction data'},
+                    {key: 'plaid' as const, label: 'PLAID', detail: 'Balances only'},
                     {key: 'spotify' as const, label: 'SPOTIFY', detail: 'Music intelligence'},
                   ].map(({key, label, detail}) => {
                     const connected = nvProfile.answers && sources[key];

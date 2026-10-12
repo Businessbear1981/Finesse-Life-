@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
+import {FINESSE_API, MEMBER_ROLE, SERVICE_ROLE, createServerClient} from '@/lib/data/compat';
+import {createClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 
 const service = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  FINESSE_API,
+  SERVICE_ROLE,
 );
 
 async function getUser() {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  const dbc = createServerClient(
+    FINESSE_API,
+    MEMBER_ROLE,
     { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
   );
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await dbc.auth.getUser();
   return user;
 }
 

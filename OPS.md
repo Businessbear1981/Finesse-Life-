@@ -32,7 +32,14 @@ Steps 3 and 4 are independent. You can deploy without committing and vice versa.
 
 ---
 
-## Database (Supabase)
+## Database (Supabase — being retired, see docs/decisions/0002)
+
+> ⚠ **SECURITY:** a Supabase database password was committed to this file and is still in git
+> history. It was removed from the working tree on branch `wave0-foundation`. **Rotate it now**
+> in the Supabase dashboard (Project Settings → Database → Reset password), then decommission
+> the project once Neon is live. Never put credentials in tracked files; use `.env.local`
+> / Wrangler secrets / Vercel and Railway env vars.
+
 
 **Project:** `zcqcgqsovrjlxxiipuzg`  
 **Dashboard:** `https://supabase.com/dashboard/project/zcqcgqsovrjlxxiipuzg`  
@@ -44,7 +51,7 @@ host:     db.zcqcgqsovrjlxxiipuzg.supabase.co
 port:     5432
 database: postgres
 user:     postgres
-password: Superdog#109918
+password: <REMOVED — rotate in Supabase; see SECURITY note below>
 ```
 
 **Run a migration:**

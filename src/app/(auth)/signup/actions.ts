@@ -1,7 +1,7 @@
 'use server';
 
 import {redirect} from 'next/navigation';
-import {createClient} from '@/lib/supabase/server';
+import {signUp as workosSignUp} from '@/lib/data/auth';
 
 export async function signUp(
   _prevState: {error: string | null},
@@ -33,8 +33,7 @@ export async function signUp(
     return {error: 'You must accept the terms to continue.'};
   }
 
-  const supabase = await createClient();
-  const {error} = await supabase.auth.signUp({email, password});
+  const {error} = await workosSignUp(email, password);
 
   if (error) {
     return {error: error.message};

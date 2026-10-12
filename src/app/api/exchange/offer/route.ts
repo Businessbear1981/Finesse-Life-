@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
@@ -14,9 +14,9 @@ const offerSchema = z.object({
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       },
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const body = parsed.data;
 
     // Verify buyer is not the seller
-    const { data: listing, error: listingError } = await supabase
+    const { data: listing, error: listingError } = await dbc
       .from('exchange_listings')
       .select('seller_id, status, asking_price_cents, category, brand')
       .eq('id', body.listing_id)
@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Listing is no longer active.' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('exchange_offers')
       .insert({
         listing_id: body.listing_id,

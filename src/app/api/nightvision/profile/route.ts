@@ -1,5 +1,5 @@
 import {NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 
 interface NightvisionData {
   answers: Record<string, string | string[]>;
@@ -12,17 +12,17 @@ interface NightvisionData {
 
 export async function GET() {
   try {
-    const supabase = await createClient();
+    const dbc = await createClient();
 
     const {
       data: {user},
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
     }
 
-    const {data, error} = await supabase
+    const {data, error} = await dbc
       .from('profiles')
       .select('nightvision_data')
       .eq('id', user.id)
@@ -47,11 +47,11 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
+    const dbc = await createClient();
 
     const {
       data: {user},
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       generated_at: new Date().toISOString(),
     };
 
-    const {error} = await supabase
+    const {error} = await dbc
       .from('profiles')
       .upsert(
         {id: user.id, nightvision_data, updated_at: new Date().toISOString()},

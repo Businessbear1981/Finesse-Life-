@@ -1,7 +1,10 @@
+import {guardExpensive} from '@/lib/api-guard';
 import {NextResponse} from 'next/server';
 import {complete} from '@/lib/ai';
 
 export async function POST(req: Request) {
+  const me = await guardExpensive('bernard', 20);
+  if (me instanceof NextResponse) return me;
   const {prompt, system} = await req.json();
   try {
     const text = await complete(prompt, {

@@ -1,9 +1,10 @@
+import {requireUser} from '@/lib/api-guard';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+const dbc = createClient(
+  FINESSE_API,
+  SERVICE_ROLE,
 );
 
 function getSeason(date: Date): string {
@@ -16,16 +17,19 @@ function getSeason(date: Date): string {
 }
 
 export async function POST(req: Request) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
   try {
-    const { user_id, entry_type, title, description, photo_urls, metadata } = await req.json();
+    const { entry_type, title, description, photo_urls, metadata } = await req.json();
 
-    if (!user_id || !entry_type || !title) {
-      return NextResponse.json({ error: 'user_id, entry_type, and title are required' }, { status: 400 });
+    const user_id = me.id;
+    if (!entry_type || !title) {
+      return NextResponse.json({ error: 'entry_type and title are required' }, { status: 400 });
     }
 
     const season = getSeason(new Date());
 
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('scrapbook_entries')
       .insert({
         user_id,

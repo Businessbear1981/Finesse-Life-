@@ -1,6 +1,7 @@
+import {requireAdmin} from '@/lib/api-guard';
 import {NextResponse, type NextRequest} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
-import {createClient as createAdmin} from '@supabase/supabase-js';
+import {createClient} from '@/lib/data/server';
+import {FINESSE_API, SERVICE_ROLE, createClient as createAdmin} from '@/lib/data/compat';
 import {encryptJson} from '@/lib/crypto';
 import {invalidateConfig} from '@/lib/config';
 
@@ -8,24 +9,12 @@ export const runtime = 'nodejs';
 
 function admin() {
   return createAdmin(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
     {auth: {persistSession: false}},
   );
 }
 
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
-  if (!user) return null;
-  const {data: profile} = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle();
-  if (!profile || !['admin', 'owner'].includes(profile.role)) return null;
-  return user;
-}
 
 // PUT — save credentials + enabled flag for a vendor.
 // Body: {credentials: Record<string,string>, enabled: boolean}

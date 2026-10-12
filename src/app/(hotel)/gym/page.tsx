@@ -1,8 +1,11 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect} from 'react';
 import {motion} from 'framer-motion';
 import Link from 'next/link';
+import {useRoomData} from '@/lib/rooms';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -50,11 +53,6 @@ interface ScheduleItem {
 
 // ─── Feminine data ─────────────────────────────────────────────────────────────
 
-const FEM_CLASSES: GymClass[] = [
-  {day: 'Monday', time: '7:00 AM', name: 'SoulCycle', studio: 'East 83rd', instructor: 'Jordan M.'},
-  {day: 'Wednesday', time: '6:00 PM', name: 'Hot Pilates', studio: 'CorePower Studio', instructor: 'Studio Class'},
-  {day: 'Saturday', time: '10:00 AM', name: 'Barre', studio: 'Physique 57 (Chelsea)', instructor: 'Natalie R.'},
-];
 
 const FEM_TRAINER: TrainerCard = {
   name: 'Aaliyah S.',
@@ -64,35 +62,12 @@ const FEM_TRAINER: TrainerCard = {
   novaNote: "She's going to push you. That's why I booked her.",
 };
 
-const FEM_RECOVERY: RecoveryItem[] = [
-  {name: 'Cryotherapy', venue: 'RESTORE Hyper Wellness', price: '$65', when: 'Sunday — 2:00 PM'},
-  {name: 'Swedish Massage', venue: 'The Well', price: '$195', when: 'Next Friday'},
-];
 
-const FEM_GEAR: GearItem[] = [
-  {brand: 'LULULEMON', name: 'Align Leggings — Mauve Mist', price: '$98', novaNote: 'Already in your size.'},
-  {brand: 'VUORI', name: 'Performance Jogger', price: '$108', novaNote: 'Post-workout or coffee run. Both.'},
-];
 
 // ─── Masculine data ────────────────────────────────────────────────────────────
 
-const MASC_STATS: PerfStat[] = [
-  {label: 'Week Streak', value: '4'},
-  {label: 'Total Sessions', value: '47'},
-  {label: 'Avg Session', value: '62 min'},
-  {label: 'PR This Month', value: '385 lb deadlift'},
-];
 
-const MASC_SCHEDULE: ScheduleItem[] = [
-  {day: 'Tuesday', time: '6:00 AM', name: 'Personal Training — Marcus T.', venue: "Gold's Gym, 67th St"},
-  {day: 'Thursday', time: '7:00 AM', name: 'Sauna + Cold Plunge', venue: 'Othership'},
-  {day: 'Saturday', time: '11:00 AM', name: 'Golf Fitness — Coach Rivera', venue: 'Chelsea Piers'},
-];
 
-const MASC_GEAR: GearItem[] = [
-  {brand: 'HYPERICE', name: 'Hypervolt 2 Pro', price: '$299', novaNote: 'recovery is the workout'},
-  {brand: 'LULULEMON', name: 'ABC Pant — Commission', price: '$128', novaNote: 'you wear these to everything and you know it'},
-];
 
 interface FitnessPartner {
   brand: string;
@@ -104,53 +79,7 @@ interface FitnessPartner {
 
 // ─── Partner / ad data ────────────────────────────────────────────────────────
 
-const FEM_PARTNERS: FitnessPartner[] = [
-  {
-    brand: 'WHOOP',
-    offer: '1 Month Free + Band',
-    saving: '$30 value',
-    code: 'FINESSE30',
-    nova: "Your sleep score is killing your results. WHOOP will tell you exactly why.",
-  },
-  {
-    brand: 'FORM NUTRITION',
-    offer: '20% Off Collagen + Pre-Workout',
-    saving: '20% off',
-    code: 'NOVA20',
-    nova: "Clean ingredients. No junk. The collagen powder goes in everything.",
-  },
-  {
-    brand: 'CLASSPASS',
-    offer: '2 Weeks Free — All Studios',
-    saving: '$40 value',
-    code: 'FINESSE2WK',
-    nova: "Try the SoulCycle, the barre, the hot yoga — all on us. Pick your obsession.",
-  },
-];
 
-const MASC_PARTNERS: FitnessPartner[] = [
-  {
-    brand: 'WHOOP 4.0',
-    offer: '1 Month Free',
-    saving: '$30 value',
-    code: 'FINESSE30',
-    nova: "Track your strain, recovery, and sleep. I use this data to schedule your sessions.",
-  },
-  {
-    brand: 'GAINFUL',
-    offer: 'Custom Protein — First Order 25% Off',
-    saving: '25% off',
-    code: 'NOVA25',
-    nova: "Personalized protein formula. Built for your body weight and goals. Not generic.",
-  },
-  {
-    brand: 'HYPERICE',
-    offer: '$50 Off Hypervolt 2 Pro',
-    saving: '$50 off',
-    code: 'RECOVER50',
-    nova: "Recovery is the workout. This is the one tool that actually changes your numbers.",
-  },
-];
 
 // ─── Art deco divider ─────────────────────────────────────────────────────────
 
@@ -172,11 +101,11 @@ function GoldDivider({label}: {label: string}) {
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function GymPage() {
-  const [gender, setGender] = useState<string | null>(null);
+  // Editorial content from room_catalog, the member's own items from room_member_items (no hardcoded data).
+  const {FEM_CLASSES, FEM_RECOVERY, FEM_GEAR, MASC_STATS, MASC_SCHEDULE, MASC_GEAR, FEM_PARTNERS, MASC_PARTNERS} = useRoomData('gym', {FEM_CLASSES: [] as GymClass[], FEM_RECOVERY: [] as RecoveryItem[], FEM_GEAR: [] as GearItem[], MASC_STATS: [] as PerfStat[], MASC_SCHEDULE: [] as ScheduleItem[], MASC_GEAR: [] as GearItem[], FEM_PARTNERS: [] as FitnessPartner[], MASC_PARTNERS: [] as FitnessPartner[]}, ['MASC_STATS', 'MASC_SCHEDULE']);
+  const gender_ = useStoredGender();
+  const gender: string | null = gender_;
 
-  useEffect(() => {
-    setGender(localStorage.getItem('finesse_gender'));
-  }, []);
 
   const isMasc = gender === 'masculine';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
@@ -295,7 +224,7 @@ export default function GymPage() {
                 className="font-body italic"
                 style={{fontSize: '0.74rem', color: 'rgba(244,232,208,0.32)', lineHeight: 1.55}}
               >
-                "Consistency is the move."
+                &quot;Consistency is the move.&quot;
               </p>
             </div>
 
@@ -368,7 +297,7 @@ export default function GymPage() {
                 <span className="font-mono" style={{fontSize: '0.78rem', color: 'rgba(244,232,208,0.65)'}}>{FEM_TRAINER.nextSession}</span>
               </div>
               <p className="font-body italic" style={{fontSize: '0.76rem', color: 'rgba(244,232,208,0.35)', lineHeight: 1.55}}>
-                "{FEM_TRAINER.novaNote}"
+                &quot;{FEM_TRAINER.novaNote}&quot;
               </p>
             </motion.div>
 
@@ -444,7 +373,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&quot;{p.nova}&quot;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}
@@ -507,7 +436,7 @@ export default function GymPage() {
                 Nova
               </p>
               <p className="font-body italic" style={{fontSize: '0.9rem', color: 'rgba(244,232,208,0.62)', lineHeight: 1.65}}>
-                "You skipped Monday. I'm not judging — I'm rescheduling. Marcus has 6am Thursday open. Confirmed."
+                &quot;You skipped Monday. I&apos;m not judging — I&apos;m rescheduling. Marcus has 6am Thursday open. Confirmed.&quot;
               </p>
             </motion.div>
 
@@ -561,7 +490,7 @@ export default function GymPage() {
                     </div>
                     <span className="font-mono" style={{fontSize: '0.85rem', color: '#C9A84C', marginLeft: '1rem'}}>{item.price}</span>
                   </div>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>"{item.novaNote}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.28)', marginTop: '0.35rem'}}>&quot;{item.novaNote}&quot;</p>
                 </div>
               ))}
             </div>
@@ -586,7 +515,7 @@ export default function GymPage() {
                     <span className="font-mono" style={{fontSize: '0.72rem', color: 'rgba(201,169,97,0.6)', border: '1px solid rgba(201,169,97,0.15)', padding: '0.2rem 0.5rem'}}>{p.saving}</span>
                   </div>
                   <p className="font-body" style={{fontSize: '0.85rem', color: 'rgba(244,232,208,0.7)', marginBottom: '0.35rem'}}>{p.offer}</p>
-                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>"{p.nova}"</p>
+                  <p className="font-body italic" style={{fontSize: '0.7rem', color: 'rgba(244,232,208,0.3)', marginBottom: '0.6rem'}}>&quot;{p.nova}&quot;</p>
                   <div
                     className="inline-flex items-center gap-2 px-3 py-1"
                     style={{background: 'rgba(201,169,97,0.06)', border: '1px solid rgba(201,169,97,0.15)'}}

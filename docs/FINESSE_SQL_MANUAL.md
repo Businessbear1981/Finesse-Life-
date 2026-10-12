@@ -69,7 +69,7 @@ All tables live in the `public` schema with Row Level Security (RLS) enabled. Ta
 | `vip_expires_at` | timestamptz | If set, VIP access lapses at this time. null = lifetime VIP |
 | `intake_complete` | bool | True once the style quiz is submitted |
 | `nova_persona` | jsonb | Nova AI personality config (voice, name, gender) — also mirrored in `concierge_avatars` |
-| `nightvision_data` | jsonb | Plaid/Spotify financial + music personality blend used by the Nightvision room |
+| `nightvision_data` | jsonb | Nightvision personality blend (questionnaire + music). Bank data lives only in `fin.*` under docs/DATA_POLICY.md (balances, consented) |
 | `style_dna` | jsonb | AI color/style analysis result from the Nova photo scan |
 | `check_in` | timestamptz | Timestamp of last Lobby check-in (updates the lobby live counter) |
 
@@ -863,3 +863,15 @@ All tables live in the `public` schema with Row Level Security (RLS) enabled. Ta
 All OAuth tokens and API credentials stored in the database are encrypted at rest using AES-256-GCM via `src/lib/crypto.ts`. The encryption key is `ENCRYPTION_KEY` in Vercel environment variables — never stored in the database.
 
 Encrypted columns: `integrations.credentials_enc`, `integrations.oauth_token_enc`, `integrations.refresh_token_enc`, `social_accounts.access_token_enc`.
+
+
+## `fin` schema (Plaid, migration 0033)
+
+| Table | Purpose |
+|---|---|
+| `fin.consents` | Member consent ledger: scopes, purpose, policy version, revoked_at. Owner-read. |
+| `fin.plaid_items` | One row per linked institution; status active/login_required/pending_disconnect/revoked/error. Owner-read. |
+| `fin.plaid_item_secrets` | AES-256-GCM sealed access tokens. Service-only. |
+| `fin.accounts` | Minimized accounts: name, type, last-4 mask, balances in cents. Owner-read. |
+| `fin.webhook_events` | Deduped Plaid webhook receipts. Service-only. |
+| `jazz.listeners` | Persistent Feed.fm client id per member (Jazz Club). Owner-read. |

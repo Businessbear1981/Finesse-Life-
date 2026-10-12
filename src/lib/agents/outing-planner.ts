@@ -7,7 +7,7 @@ async function callNova(systemPrompt: string, userPrompt: string): Promise<strin
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const res = await fetch(`${base}/api/nova`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '', 'Content-Type': 'application/json'},
     body: JSON.stringify({system: systemPrompt, prompt: userPrompt}),
   });
   const data = (await res.json()) as {text?: string; error?: string};

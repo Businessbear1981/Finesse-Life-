@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
@@ -8,9 +8,9 @@ import { parseBody } from '@/lib/api/validate';
 export async function GET() {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -21,7 +21,7 @@ export async function GET() {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     if (!user) {
       return NextResponse.json({ items: [] });
@@ -29,7 +29,7 @@ export async function GET() {
 
     // Real schema (registry_items): name/image_url, not title/photo_url;
     // purchased boolean, not a status column — 'active' means not yet purchased.
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('registry_items')
       .select('id, name, brand, price_cents, pledged_cents, category, occasion, image_url, source')
       .eq('user_id', user.id)
@@ -73,9 +73,9 @@ const itemSchema = z.object({
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       {
         cookies: {
           getAll: () => cookieStore.getAll(),
@@ -86,20 +86,19 @@ export async function POST(req: Request) {
 
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await dbc.auth.getUser();
 
     const parsed = await parseBody(req, itemSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
     if (!user) {
-      // Allow unauthenticated in demo — return a synthetic id
-      return NextResponse.json({ success: true, id: `demo_${Date.now()}` });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Real schema (registry_items): name/image_url, not title/photo_url; no
     // status/visibility columns exist — purchased defaults to false on insert.
-    const { data, error } = await supabase
+    const { data, error } = await dbc
       .from('registry_items')
       .insert({
         user_id: user.id,

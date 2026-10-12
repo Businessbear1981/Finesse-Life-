@@ -1,6 +1,6 @@
 import {redirect} from 'next/navigation';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 import {VipAccessSection} from './vip-access-section';
 import {ProfileTabs} from './profile-tabs';
 
@@ -132,10 +132,10 @@ export default async function ProfilePage({
 }: {
   searchParams: Promise<{upgrade?: string; u?: string}>;
 }) {
-  const supabase = await createClient();
+  const dbc = await createClient();
   const {
     data: {user},
-  } = await supabase.auth.getUser();
+  } = await dbc.auth.getUser();
 
   if (!user) redirect('/login');
 
@@ -146,11 +146,11 @@ export default async function ProfilePage({
 
   const [viewerProfileResult, targetProfileResult, postsResult] = await Promise.all([
     // Viewer's own profile (for VIP check)
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    dbc.from('profiles').select('*').eq('id', user.id).single(),
     // Target profile
     targetUsername
-      ? supabase.from('profiles').select('*').eq('username', targetUsername).single()
-      : supabase.from('profiles').select('*').eq('id', user.id).single(),
+      ? dbc.from('profiles').select('*').eq('username', targetUsername).single()
+      : dbc.from('profiles').select('*').eq('id', user.id).single(),
     // Posts from the target (we'll know the ID after)
     Promise.resolve({data: [] as Post[]}),
   ]);
@@ -167,7 +167,7 @@ export default async function ProfilePage({
   const canSeePrivate = viewerIsVip && targetHasPrivate;
 
   // Fetch posts for the target user
-  const {data: posts} = await supabase
+  const {data: posts} = await dbc
     .from('posts')
     .select('id, content, media_urls, likes_count, created_at')
     .eq('author_id', targetProfile.id)

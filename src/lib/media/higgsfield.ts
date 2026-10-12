@@ -2,6 +2,7 @@
 // API patterns vary per product (GPT Image 2, Seedance, Soul, etc.);
 // this stub covers the common shape: submit job → poll → download → R2 upload.
 
+import {safeFetch} from '@/lib/net/safe-url';
 import {uploadObject, publicUrlFor} from '@/lib/r2';
 
 const KEY_ID = process.env.HIGGSFIELD_API_KEY_ID;
@@ -42,7 +43,7 @@ export async function pollJob(jobId: string) {
 }
 
 export async function downloadAndStore(resultUrl: string, kind: 'image' | 'video' = 'image') {
-  const r = await fetch(resultUrl);
+  const r = await safeFetch(resultUrl, {}, {timeoutMs: 60_000});
   const buf = Buffer.from(await r.arrayBuffer());
   const ext = kind === 'video' ? 'mp4' : 'png';
   const mime = kind === 'video' ? 'video/mp4' : 'image/png';

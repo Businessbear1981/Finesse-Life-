@@ -1,5 +1,6 @@
 import {NextResponse} from 'next/server';
-import {createServiceClient} from '@/lib/supabase/service';
+import {createServiceClient} from '@/lib/data/service';
+import {verifyTelegram} from '@/lib/net/webhook-auth';
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const TG_BASE = `https://api.telegram.org/bot${TOKEN}`;
@@ -26,7 +27,7 @@ async function callNova(prompt: string, system?: string): Promise<string> {
   try {
     const res = await fetch(NOVA_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'x-internal-secret': process.env.INTERNAL_API_SECRET ?? ''},
       body: JSON.stringify({prompt, system}),
     });
     const data = (await res.json()) as {text?: string};
@@ -37,6 +38,7 @@ async function callNova(prompt: string, system?: string): Promise<string> {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
+  if (!verifyTelegram(req.headers)) return NextResponse.json({error: 'unauthorized'}, {status: 401});
   let update: TelegramUpdate;
   try {
     update = (await req.json()) as TelegramUpdate;
@@ -52,8 +54,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   const telegramUserId = message.from?.id;
 
   // Look up profile by telegram_chat_id
-  const supabase = createServiceClient();
-  const {data: profile} = await supabase
+  const dbc = createServiceClient();
+  const {data: profile} = await dbc
     .from('profiles')
     .select('id, username, telegram_handle, telegram_chat_id')
     .eq('telegram_chat_id', String(chatId))
@@ -63,7 +65,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (text.startsWith('/link ')) {
     const userId = text.slice(6).trim();
     if (userId && telegramUserId) {
-      const {error} = await supabase
+      const {error} = await dbc
         .from('profiles')
         .update({
           telegram_chat_id: String(chatId),
@@ -111,7 +113,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/vip') {
-    const {data: vipData} = await supabase
+    const {data: vipData} = await dbc
       .from('profiles')
       .select('is_vip, vip_expires_at, display_name')
       .eq('id', profile.id)
@@ -131,7 +133,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/vault') {
-    const {data: vault} = await supabase
+    const {data: vault} = await dbc
       .from('vault_accounts')
       .select('balance')
       .eq('user_id', profile.id)
@@ -143,7 +145,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   if (text === '/registry') {
-    const {count} = await supabase
+    const {count} = await dbc
       .from('registry_items')
       .select('id', {count: 'exact', head: true})
       .eq('user_id', profile.id)

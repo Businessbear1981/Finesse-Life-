@@ -1,11 +1,11 @@
 'use client';
+import {setStoredGender} from '@/lib/use-gender';
 
 import {useState, useRef, useEffect, useCallback} from 'react';
 import {motion, useAnimation, AnimatePresence} from 'framer-motion';
 import {useRouter} from 'next/navigation';
 import Link from 'next/link';
 
-const DEMO_PIN = '123456';
 
 // Each puzzle segment: angle around the dial, display label
 const SEGMENTS = [
@@ -39,7 +39,7 @@ export default function VaultEntrance() {
   }, [flash]);
 
   const selectGender = (gender: 'feminine' | 'masculine') => {
-    localStorage.setItem('finesse_gender', gender);
+    setStoredGender(gender);
     router.push('/lobby');
   };
 
@@ -70,31 +70,28 @@ export default function VaultEntrance() {
 
     if (newLen > 6) return;
 
-    // New digit entered — validate immediately
-    const newDigit = val[newLen - 1];
-    const expected = DEMO_PIN[newLen - 1];
-
-    if (newDigit !== expected) {
-      setError(true);
-      shakeControls.start({
-        x: [0, -14, 14, -9, 9, -5, 5, 0],
-        transition: {duration: 0.5},
-      });
-      setTimeout(reset, 1400);
-      return;
-    }
-
-    // Correct — assemble piece
+    // Digits are checked server-side once all six are in (the code never ships to the browser).
     setDigits(val.split(''));
     setAssembled(newLen);
     setFlash(newLen - 1);
 
     if (newLen === 6) {
-      setTimeout(() => {
-        setOpening(true);
-        setTimeout(() => setLightFlood(true), 900);
-        setTimeout(() => setShowGenderSelect(true), 2500);
-      }, 500);
+      void fetch('/api/keylock/house', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code: val})})
+        .then((r) => r.ok)
+        .catch(() => false)
+        .then((ok) => {
+          if (!ok) {
+            setError(true);
+            shakeControls.start({x: [0, -14, 14, -9, 9, -5, 5, 0], transition: {duration: 0.5}});
+            setTimeout(reset, 1400);
+            return;
+          }
+          setTimeout(() => {
+            setOpening(true);
+            setTimeout(() => setLightFlood(true), 900);
+            setTimeout(() => setShowGenderSelect(true), 2500);
+          }, 500);
+        });
     }
   }, [digits, opening, error, showGenderSelect, shakeControls, reset]);
 
@@ -322,8 +319,8 @@ export default function VaultEntrance() {
           return (
             <motion.div key={`bolt${i}`} className="absolute rounded-sm"
               style={{
-                top: bolt.top, bottom: (bolt as any).bottom,
-                left: bolt.left, right: (bolt as any).right,
+                top: bolt.top, bottom: (bolt as {bottom?: string}).bottom,
+                left: bolt.left, right: (bolt as {right?: string}).right,
                 width: bolt.w, height: bolt.h,
                 background: 'linear-gradient(135deg, #F0D88A, #C9A961, #6B5028)',
                 boxShadow: assembled >= i + 2

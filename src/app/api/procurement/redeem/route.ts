@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import { NextRequest, NextResponse } from 'next/server';
 
 // POST { token: string }
@@ -6,8 +6,8 @@ import { NextRequest, NextResponse } from 'next/server';
 // redeemed. Previously tokens were random strings with no backing state at
 // all; this is the first real enforcement of "single-use, expires in 72h."
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Auth required' }, { status: 401 });
   }
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'token is required' }, { status: 400 });
   }
 
-  const { data: row, error } = await supabase
+  const { data: row, error } = await dbc
     .from('procurement_tokens')
     .select('id,status,expires_at,partner_name,estimated_savings_cents')
     .eq('token', token)
@@ -34,12 +34,12 @@ export async function POST(req: NextRequest) {
 
   if (row.status === 'expired' || new Date(row.expires_at) < new Date()) {
     if (row.status !== 'expired') {
-      await supabase.from('procurement_tokens').update({ status: 'expired' }).eq('id', row.id);
+      await dbc.from('procurement_tokens').update({ status: 'expired' }).eq('id', row.id);
     }
     return NextResponse.json({ error: 'Token expired' }, { status: 410 });
   }
 
-  await supabase
+  await dbc
     .from('procurement_tokens')
     .update({ status: 'redeemed', redeemed_at: new Date().toISOString() })
     .eq('id', row.id);

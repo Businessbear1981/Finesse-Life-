@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { emit } from '@/lib/intelligence';
@@ -12,8 +12,8 @@ const joinSchema = z.object({
 // POST { deal_id: string, amount_cents: number }
 // MVP: auth check + record join intent. Full CCBill payment wired in phase 2.
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const { data: { user } } = await dbc.auth.getUser();
 
   if (!user) {
     return NextResponse.json({ error: 'Auth required' }, { status: 401 });
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   const cashback_cents = Math.floor(amount_cents * 0.01);
 
   // Upsert vault account before writing intent
-  await supabase
+  await dbc
     .from('vault_accounts')
     .upsert(
       { user_id: user.id, updated_at: new Date().toISOString() },
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   // scale_joins real schema is (id, deal_id, user_id, joined_at) — only insert
   // columns that exist, so this actually succeeds and trg_scale_join_count fires.
-  const { error: joinError } = await supabase.from('scale_joins').insert({
+  const { error: joinError } = await dbc.from('scale_joins').insert({
     user_id: user.id,
     deal_id,
   });

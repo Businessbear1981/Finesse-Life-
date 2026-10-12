@@ -217,7 +217,7 @@ export default function ConciergePage() {
     setAvatar(config);
     setSetupStep('done');
     localStorage.setItem('finesse_concierge_avatar', JSON.stringify(config));
-    // Persist to Supabase profile
+    // Persist to database profile
     fetch('/api/profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

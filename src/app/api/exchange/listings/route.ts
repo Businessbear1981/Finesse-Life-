@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
+import {FINESSE_API, MEMBER_ROLE, createServerClient} from '@/lib/data/compat';
 import { cookies } from 'next/headers';
 import { emit } from '@/lib/intelligence';
 
@@ -16,18 +16,18 @@ export async function GET(req: Request) {
     const offset = (page - 1) * pageSize;
 
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    const dbc = createServerClient(
+      FINESSE_API,
+      MEMBER_ROLE,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await dbc.auth.getUser();
 
     // ── My Offers: listings where I'm the buyer ───────────────────────────────
     if (offersMode) {
       if (!user) return NextResponse.json({ listings: [], total: 0, page });
-      const { data, error, count } = await supabase
+      const { data, error, count } = await dbc
         .from('exchange_offers')
         .select('*, exchange_listings(*)', { count: 'exact' })
         .eq('buyer_id', user.id)
@@ -48,7 +48,7 @@ export async function GET(req: Request) {
     // ── My Listings: items I posted ───────────────────────────────────────────
     if (mine) {
       if (!user) return NextResponse.json({ listings: [], total: 0, page });
-      const { data, error, count } = await supabase
+      const { data, error, count } = await dbc
         .from('exchange_listings')
         .select('*', { count: 'exact' })
         .eq('seller_id', user.id)
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     }
 
     // ── Browse: active listings with filters ──────────────────────────────────
-    let query = supabase
+    let query = dbc
       .from('exchange_listings')
       .select('*', { count: 'exact' })
       .eq('status', 'active')

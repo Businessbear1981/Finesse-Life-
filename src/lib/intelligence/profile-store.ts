@@ -5,7 +5,7 @@
 // prediction) don't all recompute from 250 raw signals, and gives future
 // background/self-learning jobs something persistent to read and update.
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/data/server';
 import type { BehavioralProfile } from './types';
 
 interface MemberProfileRow {
@@ -18,8 +18,8 @@ interface MemberProfileRow {
 }
 
 export async function getStoredProfile(userId: string): Promise<MemberProfileRow | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const dbc = await createClient();
+  const { data, error } = await dbc
     .from('member_profiles')
     .select('*')
     .eq('user_id', userId)
@@ -46,11 +46,11 @@ export async function persistProfile(
   userId: string,
   profile: BehavioralProfile,
 ): Promise<void> {
-  const supabase = await createClient();
+  const dbc = await createClient();
   const existing = await getStoredProfile(userId);
   const nextVersion = existing ? existing.version + 1 : 1;
 
-  const { error } = await supabase.from('member_profiles').upsert(
+  const { error } = await dbc.from('member_profiles').upsert(
     {
       user_id: userId,
       profile,

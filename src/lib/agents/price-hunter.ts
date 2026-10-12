@@ -1,7 +1,7 @@
 // PriceHunter: given an item description, finds best available price
 // Checks Scale, Embassy, then asks Nova for market knowledge
 
-import {createClient} from '@supabase/supabase-js';
+import {FINESSE_API, SERVICE_ROLE, createClient} from '@/lib/data/compat';
 
 export interface PriceResult {
   source: string;
@@ -15,7 +15,7 @@ async function callNova(systemPrompt: string, userPrompt: string): Promise<strin
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
   const res = await fetch(`${base}/api/nova`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'x-internal-secret': process.env.INTERNAL_API_SECRET ?? '', 'Content-Type': 'application/json'},
     body: JSON.stringify({system: systemPrompt, prompt: userPrompt}),
   });
   const data = (await res.json()) as {text?: string; error?: string};
@@ -24,8 +24,8 @@ async function callNova(systemPrompt: string, userPrompt: string): Promise<strin
 
 function getServiceClient() {
   return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    FINESSE_API,
+    SERVICE_ROLE,
   );
 }
 
@@ -46,12 +46,12 @@ export async function huntPrice(
     savings_cents: 0,
   });
 
-  const supabase = getServiceClient();
+  const dbc = getServiceClient();
 
   // 1. Check Scale deals
   // Real schema (20260611_vault_exchange_scale.sql): group_price_cents,
   // status open|met|closed|cancelled. No purchase_url column — link to /scale.
-  const {data: scaleData} = await supabase
+  const {data: scaleData} = await dbc
     .from('scale_deals')
     .select('title,group_price_cents,brand')
     .eq('status', 'open')
@@ -77,7 +77,7 @@ export async function huntPrice(
   // 2. Check Embassy deals
   // Real schema (20260609_embassy.sql): retail_price_cents / members_price_cents
   // are already in cents, status pending|review|live|rejected. No purchase_url.
-  const {data: embassyData} = await supabase
+  const {data: embassyData} = await dbc
     .from('embassy_deals')
     .select('brand,item,retail_price_cents,members_price_cents')
     .eq('status', 'live')

@@ -1,8 +1,13 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import {useRoomData} from '@/lib/rooms';
+
+type TrendingFeminineItem = { name: string; brand: string; venue: string; price: string };
+
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -29,140 +34,11 @@ interface Product {
 
 // ─── Feminine Data ──────────────────────────────────────────────────────────────
 
-const FEMININE_APPOINTMENTS: Appointment[] = [
-  {
-    id: 'f1',
-    service: 'Gloss Genius Full Color',
-    provider: 'Mariana Torres',
-    venue: 'Nine Zero One Salon',
-    address: '8826 Burton Way, West Hollywood, CA',
-    date: 'Jun 24',
-    time: '11:00 AM',
-    price: 285,
-    status: 'upcoming',
-    novaNote: 'Mariana has a 6-week waitlist. Your slot is protected.',
-  },
-  {
-    id: 'f2',
-    service: 'Signature HydraFacial',
-    provider: 'Esthetician Kira',
-    venue: 'Heyday',
-    address: '109 W 17th St, New York, NY',
-    date: 'Jun 27',
-    time: '2:00 PM',
-    price: 165,
-    status: 'upcoming',
-    novaNote: 'Ask for the Brightening Booster when you arrive. Twenty dollars. Worth every cent.',
-  },
-  {
-    id: 'f3',
-    service: 'Keratin Treatment',
-    provider: 'Nine Zero One Salon',
-    venue: 'WeHo Studio',
-    address: '8826 Burton Way, West Hollywood, CA',
-    date: 'Apr 12',
-    time: '10:00 AM',
-    price: 320,
-    status: 'past',
-  },
-  {
-    id: 'f4',
-    service: 'Brazilian Wax',
-    provider: 'European Wax Center',
-    venue: 'Beverly Hills',
-    address: '357 N Canon Dr, Beverly Hills, CA',
-    date: 'May 3',
-    time: '1:00 PM',
-    price: 72,
-    status: 'past',
-  },
-  {
-    id: 'f5',
-    service: 'Lash Extensions — Classic Set',
-    provider: 'Sugarlash Pro Studio',
-    venue: 'West Hollywood',
-    address: '7373 Beverly Blvd, Los Angeles, CA',
-    date: 'May 19',
-    time: '3:00 PM',
-    price: 148,
-    status: 'past',
-  },
-  {
-    id: 'f6',
-    service: 'Gua Sha Restorative Facial',
-    provider: 'Le Jolie Spa',
-    venue: 'Beverly Hills',
-    address: '435 N Roxbury Dr, Beverly Hills, CA',
-    date: 'Jun 7',
-    time: '12:00 PM',
-    price: 165,
-    status: 'past',
-  },
-];
 
 // ─── Masculine Data ─────────────────────────────────────────────────────────────
 
-const MASCULINE_APPOINTMENTS: Appointment[] = [
-  {
-    id: 'm1',
-    service: 'Haircut + Lineup',
-    provider: 'Marcus Reid',
-    venue: 'Fellow Barber',
-    address: '8 Spring St, New York, NY',
-    date: 'Fri',
-    time: '3:00 PM',
-    price: 65,
-    status: 'upcoming',
-    novaNote: 'Marcus knows you only need 20 minutes. He\'s got 15 booked.',
-  },
-  {
-    id: 'm2',
-    service: 'Deep Tissue Massage',
-    provider: 'Aire Ancient Baths',
-    venue: 'Aire New York',
-    address: '88 Franklin St, New York, NY',
-    date: 'Sat',
-    time: '12:00 PM',
-    price: 180,
-    status: 'upcoming',
-    novaNote: 'Arrive 20 early. Roman pool first — cold to hot is the only sequence.',
-  },
-  {
-    id: 'm3',
-    service: 'Cut + Beard Sculpt',
-    provider: 'Marcus Reid',
-    venue: 'Fellow Barber',
-    address: '8 Spring St, New York, NY',
-    date: 'May 16',
-    time: '4:00 PM',
-    price: 95,
-    status: 'past',
-  },
-  {
-    id: 'm4',
-    service: 'Men\'s Clarifying Facial',
-    provider: 'Heyday',
-    venue: 'Flatiron',
-    address: '57 W 17th St, New York, NY',
-    date: 'Jun 1',
-    time: '11:00 AM',
-    price: 130,
-    status: 'past',
-  },
-];
 
-const MASCULINE_PRODUCTS: Product[] = [
-  { id: 'p1', name: 'Shampoo & Conditioner', brand: 'Aesop', status: 'low', price: 62 },
-  { id: 'p2', name: 'Oud Wood EDP 50ml', brand: 'Tom Ford', status: 'full', price: 210 },
-  { id: 'p3', name: 'Recovery Moisturizer', brand: 'Malin+Goetz', status: 'low', price: 52 },
-  { id: 'p4', name: 'Detox Face Wash', brand: 'Malin+Goetz', status: 'full', price: 38 },
-];
 
-const TRENDING_FEMININE = [
-  { name: 'Ice Roller Facial', brand: 'Tata Harper', venue: 'Bergdorf Goodman Spa, 5th Ave NYC', price: '$195' },
-  { name: 'Collagen Lip Treatment', brand: 'Joanna Czech', venue: 'Upper East Side Studio, NYC', price: '$350' },
-  { name: 'Bespoke Brow Architecture', brand: 'Shaping Room', venue: 'NoHo, New York', price: '$125' },
-];
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -181,12 +57,12 @@ function statusLabel(status: 'full' | 'low' | 'out'): string {
 // ─── Main ───────────────────────────────────────────────────────────────────────
 
 export default function SalonPage() {
-  const [isMasc, setIsMasc] = useState(false);
+  // Editorial content from room_catalog, the member's own items from room_member_items (no hardcoded data).
+  const {FEMININE_APPOINTMENTS, MASCULINE_APPOINTMENTS, MASCULINE_PRODUCTS, TRENDING_FEMININE} = useRoomData('salon', {FEMININE_APPOINTMENTS: [] as Appointment[], MASCULINE_APPOINTMENTS: [] as Appointment[], MASCULINE_PRODUCTS: [] as Product[], TRENDING_FEMININE: [] as TrendingFeminineItem[]}, ['FEMININE_APPOINTMENTS', 'MASCULINE_APPOINTMENTS']);
+  const gender_ = useStoredGender();
+  const isMasc = gender_ === 'masculine';
   const [activeTab, setActiveTab] = useState<'upcoming' | 'history'>('upcoming');
 
-  useEffect(() => {
-    setIsMasc(localStorage.getItem('finesse_gender') === 'masculine');
-  }, []);
 
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
   const appointments = isMasc ? MASCULINE_APPOINTMENTS : FEMININE_APPOINTMENTS;

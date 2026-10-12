@@ -1,9 +1,10 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/data/client';
 
 type Edition = 'finesse' | 'carpe_diem';
 
@@ -63,7 +64,8 @@ function BalanceSkeleton() {
 }
 
 export default function VaultPage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [displayName, setDisplayName] = useState<string>('MEMBER');
   const [isVip, setIsVip] = useState<boolean | null>(null);
   const [showFundModal, setShowFundModal] = useState(false);
@@ -76,19 +78,15 @@ export default function VaultPage() {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Gender detection (SSR-safe)
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
   // Auth + profile fetch
   useEffect(() => {
     async function loadProfile() {
       try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const dbc = createClient();
+        const { data: { user } } = await dbc.auth.getUser();
         if (!user) { setIsVip(false); return; }
-        const { data: profile } = await supabase
+        const { data: profile } = await dbc
           .from('profiles')
           .select('display_name, is_vip')
           .eq('id', user.id)
@@ -100,9 +98,8 @@ export default function VaultPage() {
           setIsVip(false);
         }
       } catch {
-        // Supabase not wired yet — show demo mode
-        setIsVip(true);
-        setDisplayName('DEMO MEMBER');
+        // Never grant VIP on failure.
+        setIsVip(false);
       }
     }
     loadProfile();
@@ -125,6 +122,7 @@ export default function VaultPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- external data fetch/subscription on mount or dep change; loading state is intentional
     fetchVault();
   }, [fetchVault]);
 

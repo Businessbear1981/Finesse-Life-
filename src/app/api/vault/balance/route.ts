@@ -1,19 +1,19 @@
 import {NextResponse} from 'next/server';
-import {createClient} from '@/lib/supabase/server';
+import {createClient} from '@/lib/data/server';
 
 export async function GET() {
-  const supabase = await createClient();
-  const {data: {user}} = await supabase.auth.getUser();
+  const dbc = await createClient();
+  const {data: {user}} = await dbc.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
   // Get vault account (may not exist yet for new members)
-  const {data: account} = await supabase
+  const {data: account} = await dbc
     .from('vault_accounts')
     .select('balance_cents, cashback_earned_cents')
     .eq('user_id', user.id)
     .maybeSingle();
 
-  const {data: transactions} = await supabase
+  const {data: transactions} = await dbc
     .from('vault_transactions')
     .select('id, merchant, amount_cents, cashback_cents, category, direction, created_at')
     .eq('user_id', user.id)

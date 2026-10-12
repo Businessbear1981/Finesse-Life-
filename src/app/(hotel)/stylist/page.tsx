@@ -1,9 +1,10 @@
 'use client';
+import {useStoredGender} from '@/lib/use-gender';
 
 import {useState, useEffect, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
-import {createClient} from '@/lib/supabase/client';
+import {createClient} from '@/lib/data/client';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -126,12 +127,6 @@ interface AnalysisResult {
   similar_brands: string[];
   price_range: string;
 }
-
-const MOCK_ANALYSIS: AnalysisResult = {
-  style_labels: ['Dark luxury', 'Sculptural silhouette', 'Minimalist'],
-  similar_brands: ['The Row', 'Bottega Veneta', 'Toteme', 'Lemaire'],
-  price_range: '$800–$3,200',
-};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -451,27 +446,23 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function StylistPage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  const gender_ = useStoredGender();
+  const edition: Edition = gender_ === 'masculine' ? 'carpe_diem' : 'finesse';
   const [activeTab, setActiveTab] = useState<Tab>('looks');
   const [refreshing, setRefreshing] = useState(false);
-  const [looks, setLooks] = useState<Look[]>([]);
+  const [refreshedLooks, setLooks] = useState<Look[] | null>(null);
 
   // Upload / match state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   // SSR-safe gender detection
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
 
-  // Set initial looks based on edition
-  useEffect(() => {
-    setLooks(edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
-  }, [edition]);
+  // Initial looks follow the edition until the member refreshes them
+  const looks = refreshedLooks ?? (edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
 
   const isMasc = edition === 'carpe_diem';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
@@ -518,11 +509,12 @@ export default function StylistPage() {
     if (!fileInputRef.current?.files?.[0]) return;
     setAnalyzing(true);
     setAnalysisResult(null);
+    setAnalyzeError(null);
 
     try {
       // Get userId
-      const supabase = createClient();
-      const {data: {user}} = await supabase.auth.getUser();
+      const dbc = createClient();
+      const {data: {user}} = await dbc.auth.getUser();
 
       const formData = new FormData();
       formData.append('file', fileInputRef.current.files[0]);
@@ -533,7 +525,8 @@ export default function StylistPage() {
       const result = await res.json() as AnalysisResult;
       setAnalysisResult(result);
     } catch {
-      setAnalysisResult(MOCK_ANALYSIS);
+      // No fabricated read: surface the failure instead.
+      setAnalyzeError('Style read unavailable right now. Try again shortly.');
     } finally {
       setAnalyzing(false);
     }
@@ -913,6 +906,9 @@ export default function StylistPage() {
 
               {/* Analysis result */}
               <AnimatePresence>
+                {analyzeError && (
+                  <p role="alert" style={{color: CREAM, opacity: 0.7, fontSize: 12, marginTop: 12}}>{analyzeError}</p>
+                )}
                 {analysisResult && (
                   <motion.div
                     key="result"
