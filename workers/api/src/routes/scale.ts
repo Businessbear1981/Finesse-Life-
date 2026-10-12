@@ -46,9 +46,13 @@ scaleRoutes.get('/campaigns/:id', async (c) => {
 });
 
 scaleRoutes.post('/campaigns/:id/pledge', async (c) => {
-  const b = z.object({ quantity: z.number().int().positive(), payment_method_ref: z.string().min(3).max(200) }).safeParse(await c.req.json().catch(() => null));
+  const shipTo = z.object({
+    name: z.string().min(1).max(120), line1: z.string().min(1).max(200), line2: z.string().max(200).optional(), city: z.string().min(1).max(100),
+    state: z.string().max(100).optional(), postal_code: z.string().min(2).max(20), country: z.string().length(2),
+  });
+  const b = z.object({ quantity: z.number().int().positive(), payment_method_ref: z.string().min(3).max(200), ship_to: shipTo.optional() }).safeParse(await c.req.json().catch(() => null));
   if (!b.success) return c.json({ error: 'invalid_body' }, 400);
-  return c.json(await svc(c, (tx) => pledge(tx, c.req.param('id'), c.var.claims.uid, b.data.quantity, b.data.payment_method_ref)), 201);
+  return c.json(await svc(c, (tx) => pledge(tx, c.req.param('id'), c.var.claims.uid, b.data.quantity, b.data.payment_method_ref, new Date(), b.data.ship_to ?? null)), 201);
 });
 scaleRoutes.post('/campaigns/:id/withdraw', async (c) => { await svc(c, (tx) => withdraw(tx, c.req.param('id'), c.var.claims.uid)); return c.json({ ok: true }); });
 scaleRoutes.post('/campaigns/:id/decline', async (c) => c.json(await svc(c, (tx) => decline(tx, c.req.param('id'), c.var.claims.uid))));

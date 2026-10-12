@@ -18,16 +18,17 @@ export default {
     const db = pgDatabase(env.HYPERDRIVE.connectionString);
     ctx.waitUntil((async () => {
       await relayOutbox(db, env.EVENTS);
-      // No real processor yet: never close a decline window with a fake or missing gateway in production.
-      if (env.PAYMENTS_MODE === 'live') {
-        throw new Error('live payment adapter not implemented');
-      }
       await db.tx('app_service', null, (tx) => creditDue(tx));
       const d = new Date(event.scheduledTime);
       if (d.getUTCHours() === 3 && d.getUTCMinutes() === 0) await db.tx('app_service', null, (tx) => recompute(tx));
       if (env.PAYMENTS_MODE === 'sandbox') {
         const { fakePayments } = await import('./scale/adapters');
         await db.tx('app_service', null, (tx) => scaleTick(tx, { payments: fakePayments(), shipping: fakeShipping() }));
+      } else if (env.PAYMENTS_MODE === 'live') {
+        // Fail closed: never close a decline window without both real adapters configured.
+        if (!env.STRIPE_SECRET_KEY || !env.SHIPBOB_TOKEN || !env.SHIPBOB_CHANNEL_ID) throw new Error('PAYMENTS_MODE=live needs STRIPE_SECRET_KEY, SHIPBOB_TOKEN, SHIPBOB_CHANNEL_ID');
+        const { stripePayments, shipbobShipping } = await import('./scale/live');
+        await db.tx('app_service', null, (tx) => scaleTick(tx, { payments: stripePayments(env.STRIPE_SECRET_KEY!), shipping: shipbobShipping(env.SHIPBOB_TOKEN!, env.SHIPBOB_CHANNEL_ID!) }));
       }
     })());
   },

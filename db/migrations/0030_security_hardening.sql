@@ -15,3 +15,7 @@ alter table social.referral_payouts drop constraint if exists referral_payouts_s
 alter table social.referral_payouts add constraint referral_payouts_status_check
   check (status in ('pending_partner','credited','failed','clawback_pending','clawed_back'));
 alter table social.referral_payouts add column if not exists clawback_reason text;
+
+-- Ship-to captured at pledge time for 3PL handoff (owner-RLS on scale.pledges already applies).
+alter table scale.pledges add column if not exists ship_to jsonb
+  check (ship_to is null or (ship_to ? 'name' and ship_to ? 'line1' and ship_to ? 'city' and ship_to ? 'postal_code' and ship_to ? 'country'));

@@ -1,4 +1,4 @@
-/** Payment processor behind an interface. Real adapter (Stripe off-session PaymentIntent) lands with credentials. */
+/** Payment processor behind an interface. Live adapter: ./live.ts stripePayments. */
 export interface PaymentGateway {
   id: string;
   charge(input: { paymentMethodRef: string; amountCents: number; currency: string; idempotencyKey: string; description: string }):
@@ -6,10 +6,12 @@ export interface PaymentGateway {
   refund(input: { chargeRef: string; amountCents: number; idempotencyKey: string }): Promise<{ ok: boolean; error?: string }>;
 }
 
-/** 3PL behind an interface (ShipBob or Amazon MCF once chosen). */
+export interface ShipTo { name: string; line1: string; line2?: string; city: string; state?: string; postal_code: string; country: string }
+
+/** 3PL behind an interface. Live adapter: ./live.ts shipbobShipping. */
 export interface ShippingProvider {
   id: string;
-  createOrder(input: { reference: string; userId: string; sku: string; quantity: number; addressRef: string | null }):
+  createOrder(input: { reference: string; userId: string; sku: string; quantity: number; shipTo: ShipTo | null }):
     Promise<{ ok: true; providerRef: string } | { ok: false; error: string }>;
 }
 

@@ -12,8 +12,13 @@ export interface Env {
   AI_GATEWAY_API_KEY?: string;
   /** Shared secret for the Next.js server (former Supabase service-role paths). */
   SERVICE_API_KEY?: string;
-  /** 'off' (default): Scale windows are not closed. 'sandbox': fake processor + 3PL. 'live': real adapters (not built yet). */
+  /** 'off' (default): Scale windows are not closed. 'sandbox': fake processor + 3PL. 'live': Stripe + ShipBob (src/scale/live.ts). */
   PAYMENTS_MODE?: 'off' | 'sandbox' | 'live';
+  STRIPE_SECRET_KEY?: string;
+  SHIPBOB_TOKEN?: string;
+  SHIPBOB_CHANNEL_ID?: string;
+  /** Cloudflare Rate Limiting binding ([[ratelimits]] in wrangler.toml). */
+  RATE_LIMITER?: { limit(o: { key: string }): Promise<{ success: boolean }> };
   R2_ACCESS_KEY_ID?: string;
   R2_SECRET_ACCESS_KEY?: string;
 }

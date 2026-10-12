@@ -1,6 +1,7 @@
 import type { Tx } from '../db';
 import type { PaymentGateway, ShippingProvider } from './adapters';
 import { SCALE_POLICY, strikePenaltyBps } from '../policy';
+import type { ShipTo } from './adapters';
 import { BAR_AT_STRIKES, defaultWaitlistSize, forecast, orderWaitlist, type WaitlistEntry } from './forecast';
 
 export class ScaleError extends Error { constructor(public code: 400 | 403 | 404 | 409, msg: string) { super(msg); } }
@@ -50,7 +51,7 @@ async function enterWindow(tx: Tx, c: { id: string; decline_window_hours: number
   await emit(tx, 'campaign.goal_reached', { campaign_id: c.id, window_ends_at: ends.toISOString() });
 }
 
-export async function pledge(tx: Tx, id: string, uid: string, quantity: number, paymentMethodRef: string, now = new Date()) {
+export async function pledge(tx: Tx, id: string, uid: string, quantity: number, paymentMethodRef: string, now = new Date(), shipTo: ShipTo | null = null) {
   const c = await lockCampaign(tx, id);
   if (!['open', 'decision_window'].includes(c.status)) throw new ScaleError(409, `campaign is ${c.status}`);
   if (quantity < 1 || quantity > c.max_per_member) throw new ScaleError(400, `quantity must be 1..${c.max_per_member}`);
@@ -61,8 +62,8 @@ export async function pledge(tx: Tx, id: string, uid: string, quantity: number, 
   let status: 'pledged' | 'waitlisted' = c.status === 'open' && units + quantity <= c.unit_goal ? 'pledged' : 'waitlisted';
   if (status === 'waitlisted' && (await waitlisted(tx, id)) + quantity > c.waitlist_size) throw new ScaleError(409, 'campaign and waitlist are full');
   const p = (await tx.query<{ id: string }>(
-    'insert into scale.pledges(campaign_id, user_id, quantity, status, payment_method_ref) values ($1,$2,$3,$4,$5) returning id',
-    [id, uid, quantity, status, paymentMethodRef])).rows[0]!.id;
+    'insert into scale.pledges(campaign_id, user_id, quantity, status, payment_method_ref, ship_to) values ($1,$2,$3,$4,$5,$6) returning id',
+    [id, uid, quantity, status, paymentMethodRef, shipTo])).rows[0]!.id;
   await emit(tx, 'pledge.created', { campaign_id: id, pledge_id: p, quantity, status });
   if (status === 'pledged' && units + quantity >= c.unit_goal) await enterWindow(tx, c, now);
   return { pledge_id: p, status };
@@ -165,9 +166,9 @@ export async function tick(tx: Tx, deps: TickDeps, now = new Date()) {
     }
     await tx.query("update scale.pledges set status = 'withdrawn', updated_at = now() where campaign_id = $1 and status = 'waitlisted'", [c.id]);
     // 3PL handoff.
-    const paid = (await tx.query<{ id: string; user_id: string; quantity: number }>("select id, user_id, quantity from scale.pledges where campaign_id = $1 and status = 'paid'", [c.id])).rows;
+    const paid = (await tx.query<{ id: string; user_id: string; quantity: number; ship_to: ShipTo | null }>("select id, user_id, quantity, ship_to from scale.pledges where campaign_id = $1 and status = 'paid'", [c.id])).rows;
     for (const p of paid) {
-      const r = await deps.shipping.createOrder({ reference: p.id, userId: p.user_id, sku: String(c.product?.sku ?? c.id), quantity: p.quantity, addressRef: null });
+      const r = await deps.shipping.createOrder({ reference: p.id, userId: p.user_id, sku: String(c.product?.sku ?? c.id), quantity: p.quantity, shipTo: p.ship_to ?? null });
       await tx.query('insert into scale.shipments(pledge_id, user_id, provider, provider_ref, status) values ($1,$2,$3,$4,$5) on conflict (pledge_id) do nothing',
         [p.id, p.user_id, deps.shipping.id, r.ok ? r.providerRef : null, r.ok ? 'accepted' : 'exception']);
       out.shipped++;

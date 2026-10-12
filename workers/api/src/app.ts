@@ -12,6 +12,7 @@ import { scaleRoutes } from './routes/scale';
 import { socialRoutes } from './routes/social';
 import { dataRoutes, meRoute } from './routes/data';
 import type { PaymentGateway, ShippingProvider } from './scale/adapters';
+import { rateLimit } from './ratelimit';
 
 export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider; payments?: PaymentGateway; shipping?: ShippingProvider }
 export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims; service?: boolean } };
@@ -24,7 +25,7 @@ export const defaultDeps: DepsFactory = (env) => ({
   model: env.AI_GATEWAY_API_KEY ? gatewayModel(env.AI_GATEWAY_API_KEY) : nullModel,
 });
 
-export function createApp(makeDeps: DepsFactory = defaultDeps) {
+export function createApp(makeDeps: DepsFactory = defaultDeps, opts: { rateLimit?: number } = {}) {
   const app = new Hono<AppEnv>();
 
   app.use('*', async (c, next) => {
@@ -32,6 +33,10 @@ export function createApp(makeDeps: DepsFactory = defaultDeps) {
     return cors({ origin: origins, allowHeaders: ['Authorization', 'Content-Type', 'Idempotency-Key'], maxAge: 600 })(c, next);
   });
   app.use('*', async (c, next) => { c.set('deps', makeDeps(c.env)); await next(); });
+
+  const rl = rateLimit(opts.rateLimit ?? 120);
+  app.use('/v1/*', rl);
+  app.use('/api/*', rl);
 
   app.get('/health', (c) => c.json({ ok: true }));
 

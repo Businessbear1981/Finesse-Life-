@@ -50,3 +50,9 @@ crons = ["* * * * *"]
 #   HOUSE_CODE_SHA256      hex sha256 of the KeyLock house code
 #   R2_ACCESS_KEY_ID       R2 S3 API token (presigned uploads)
 #   R2_SECRET_ACCESS_KEY
+
+# Cloudflare Rate Limiting binding: 120 requests / 60s per client key (token hash or IP).
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
