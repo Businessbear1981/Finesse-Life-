@@ -10,6 +10,8 @@ export interface Env {
   R2_MEDIA_BUCKET_NAME: string;
   HOUSE_CODE_SHA256?: string;
   AI_GATEWAY_API_KEY?: string;
+  /** Shared secret for the Next.js server (former Supabase service-role paths). */
+  SERVICE_API_KEY?: string;
   /** 'off' (default): Scale windows are not closed. 'sandbox': fake processor + 3PL. 'live': real adapters (not built yet). */
   PAYMENTS_MODE?: 'off' | 'sandbox' | 'live';
   R2_ACCESS_KEY_ID?: string;

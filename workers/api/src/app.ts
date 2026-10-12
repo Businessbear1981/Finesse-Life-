@@ -10,10 +10,11 @@ import { EnvelopeError, EnvelopeSchema, handleEnvelope } from './envelope';
 import { mobile } from './routes/mobile';
 import { scaleRoutes } from './routes/scale';
 import { socialRoutes } from './routes/social';
+import { dataRoutes, meRoute } from './routes/data';
 import type { PaymentGateway, ShippingProvider } from './scale/adapters';
 
 export interface Deps { db: Database; verifier: Verifier; registry: EngineRegistry; model?: ModelProvider; payments?: PaymentGateway; shipping?: ShippingProvider }
-export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims } };
+export type AppEnv = { Bindings: Env; Variables: { deps: Deps; claims: Claims; service?: boolean } };
 export type DepsFactory = (env: Env) => Deps;
 
 export const defaultDeps: DepsFactory = (env) => ({
@@ -69,6 +70,8 @@ export function createApp(makeDeps: DepsFactory = defaultDeps) {
   app.route('/api', mobile);
   app.route('/v1/scale', scaleRoutes);
   app.route('/v1/social', socialRoutes);
+  app.route('/v1/data', dataRoutes);
+  app.route('/v1/me', meRoute);
 
   app.onError((err, c) => {
     console.error(err);
