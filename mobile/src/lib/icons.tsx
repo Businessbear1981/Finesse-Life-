@@ -1,7 +1,9 @@
 // Lucide icons used by the Finesse design (extracted from the design bundle; ISC licence, lucide.dev).
 import {SvgXml} from 'react-native-svg';
+import {ah} from './ah';
 
 const PATHS: Record<string, string> = {
+  "bell": "<path d=\"M10.268 21a2 2 0 0 0 3.464 0\"></path> <path d=\"M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326\"></path>",
   "bookopen": "<path d=\"M12 7v14\"></path> <path d=\"M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z\"></path>",
   "briefcase": "<path d=\"M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16\"></path> <rect width=\"20\" height=\"14\" x=\"2\" y=\"6\" rx=\"2\"></rect>",
   "building2": "<path d=\"M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z\"></path> <path d=\"M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2\"></path> <path d=\"M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2\"></path> <path d=\"M10 6h4\"></path> <path d=\"M10 10h4\"></path> <path d=\"M10 14h4\"></path> <path d=\"M10 18h4\"></path>",
@@ -45,7 +47,7 @@ const PATHS: Record<string, string> = {
 
 export type IconName = keyof typeof PATHS | string;
 
-export function Icon({name, size = 20, color = '#E8C87A', strokeWidth = 1.6}: {name: IconName; size?: number; color?: string; strokeWidth?: number}) {
+export function Icon({name, size = 20, color = ah.text, strokeWidth = 1.6}: {name: IconName; size?: number; color?: string; strokeWidth?: number}) {
   const body = PATHS[name] ?? PATHS.sparkles;
   const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
   return <SvgXml xml={xml} width={size} height={size} />;

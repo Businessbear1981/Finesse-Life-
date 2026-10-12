@@ -1,23 +1,24 @@
-// The Kitchen — implemented from "Finesse Kitchen.dc.html": PLAN (day strip, cream menu card, calorie
-// ledger, one weekly order), SHOP (the house pan, pots & pans, the Finesse house line, add to Sunday's order
-// or check out separately), MASTERS (cook-along classes step by step with an optional chef voice, or book a
-// private chef) and THE RECIPE BOOK drawer (your book, and recipe trades with members).
+// The Kitchen — implemented from "Finesse Kitchen.dc.html" (After Hours skin): PLAN (day strip, menu card,
+// calorie ledger, one weekly order), SHOP (the house pan, pots & pans, the Finesse house line, add to Sunday's
+// order or check out separately), MASTERS (cook-along classes step by step with an optional chef voice, or book
+// a private chef) and THE RECIPE BOOK drawer (your book, and recipe trades with members).
 // PLAN is live when signed in: GET /api/kitchen/plan reads the week, POST /api/kitchen/compose saves it (the
 // member can start from the house menu and edit it), and only then does POST /api/kitchen/order-intent record
 // one order *intent* — nothing is placed or charged until a grocery partner asks the member to authorise.
 // Signed out, PLAN is a labelled sample. Shop checkout and chef requests are previews.
 import {useState} from 'react';
 import {Pressable, Text, TextInput, View} from 'react-native';
-import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
-import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
+import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {api} from '@/lib/api';
-import {deco, fonts, track, type Side} from '@/lib/deco';
+import {track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
-import {ActionBar, SampleNote, Segmented, s} from './shared';
-import {LiveGate, OK_GREEN, RowBtn, Status} from './live';
+import {AHCard, AHChip, AHEyebrow, AHTitle} from '@/components/ah';
+import {radius} from '@/lib/ah';
+import {ActionBar, SampleNote, Segmented} from './shared';
+import {LiveGate, OK_GREEN, Status} from './live';
+import {Fine, Head, Meter, Pick, Row, Round, TextBtn, ah, ahFonts, t} from './RoomKit';
 
-const OX = '#6B1424', INK = '#1A120C', SEPIA = '#5A4630';
 const KDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const MENU: Array<Array<[string, string, number]>> = [
   [['BREAKFAST', 'Greek yogurt, figs, pistachio', 380], ['LUNCH', 'Seared salmon, fennel, lemon', 560], ['DINNER', 'Out · dinner hold at 8:30', 700]],
@@ -38,56 +39,38 @@ const SLOTS = ['FRI 7 PM', 'SAT 6 PM', 'SUN 5 PM'];
 const REC: Array<[string, string, string]> = [['r1', 'Cacio e pepe', 'NONNA · 25 MIN · 640 KCAL'], ['r2', 'Seared salmon, fennel, lemon', 'OWN · 30 MIN · 560 KCAL'], ['r3', 'Miso cod, greens', 'OWN · 20 MIN · 520 KCAL'], ['r4', 'Figs, yogurt, pistachio', 'OWN · 5 MIN · 380 KCAL']];
 const MKT: Array<[string, string, string]> = [['m1', 'Coq au vin', 'CLAIRE M. · 2 HR · 720 KCAL'], ['m2', 'Saffron risotto', 'DEV R. · 40 MIN · 610 KCAL'], ['m3', 'Burnt honey tart', 'INES A. · 90 MIN · 430 KCAL']];
 
+const cap = (x: string) => x.charAt(0) + x.slice(1).toLowerCase();
+
 function mondayISO() {
   const d = new Date(); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** The design's cream paper card (linear-gradient #F2E8D2 → #E8DBBE). */
-function Paper({children, style}: {children: React.ReactNode; style?: object}) {
+/** Photo stand-in for product and class frames, until real imagery is uploaded. */
+function Frame({h, label, icon, children}: {h: number; label?: string; icon?: string; children?: React.ReactNode}) {
   return (
-    <View style={[{overflow: 'hidden'}, style]}>
-      <Svg style={{position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'}} preserveAspectRatio="none">
-        <Defs><LinearGradient id="kpaper" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#F2E8D2" /><Stop offset="1" stopColor="#E8DBBE" /></LinearGradient></Defs>
-        <Rect width="100%" height="100%" fill="url(#kpaper)" />
-      </Svg>
+    <View style={{height: h, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: ah.ink3, borderBottomWidth: 1, borderColor: ah.line}}>
+      {icon ? <Icon name={icon} size={34} color={ah.faint} strokeWidth={1.1} /> : null}
       {children}
+      {label ? <Text style={[t.eyebrow, {color: ah.faint, fontSize: 10}]}>{label}</Text> : null}
     </View>
   );
 }
-
-/** Diagonal-hatched placeholder (design: repeating-linear-gradient 135deg) for product / video frames. */
-function Hatch({h, label, dark, children}: {h: number; label?: string; dark?: boolean; children?: React.ReactNode}) {
-  const c = dark ? 'rgba(26,18,12,0.12)' : 'rgba(201,169,97,0.12)';
-  return (
-    <View style={{height: h, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10, borderColor: dark ? 'rgba(26,18,12,0.4)' : 'rgba(201,169,97,0.4)', borderWidth: dark ? 1 : 0, borderBottomWidth: 1}}>
-      <Svg style={{position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'}}>
-        {Array.from({length: 60}, (_, i) => <Rect key={i} x={i * 16 - 300} y={-200} width={8} height={800} fill={c} transform={`rotate(45 ${i * 16 - 300} 0)`} />)}
-      </Svg>
-      {children}
-      {label ? <Text style={{fontFamily: fonts.mono, fontSize: 10, letterSpacing: 1.2, color: dark ? SEPIA : deco.brass}}>{label}</Text> : null}
-    </View>
-  );
-}
-
-const capsLabel = {fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2.2, color: deco.brassHighlight} as const;
 
 function AddBtn({on, onPress}: {on: boolean; onPress: () => void}) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}}
-      style={{minHeight: 44, minWidth: 84, paddingHorizontal: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass, backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
-      <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.3, color: on ? '#140E08' : deco.brassHighlight}}>{on ? 'IN ORDER ✓' : 'ADD'}</Text>
-    </Pressable>
-  );
+  return <Pick label={on ? 'In order' : 'Add'} on={on} onPress={onPress} style={{minWidth: 92}} />;
 }
 
 function PickRow({init, name, sub, right, rightColor, on, onPress}: {init: string; name: string; sub: string; right: string; rightColor: string; on: boolean; onPress: () => void}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}}
-      style={{flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 64, paddingVertical: 8, paddingHorizontal: 10, borderWidth: 2, borderColor: on ? deco.brassHighlight : 'rgba(201,169,97,0.4)', backgroundColor: on ? 'rgba(201,169,97,0.12)' : '#120C0A'}}>
-      <View style={{width: 40, height: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: OX}}><Text style={{fontFamily: fonts.displayHeavy, fontSize: 18, color: deco.brassWhite}}>{init}</Text></View>
-      <View style={{flex: 1, gap: 2}}><Text style={{fontFamily: fonts.label, fontSize: 15, color: deco.cream}}>{name}</Text><Text style={s.small}>{sub}</Text></View>
-      <Text style={{fontFamily: fonts.mono, fontSize: 10, color: rightColor}}>{right}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${name}, ${sub}, ${right}`}
+      style={({pressed}) => ({flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 72, padding: 14, borderRadius: 20, borderWidth: 1,
+        borderColor: on ? ah.white : ah.line, backgroundColor: on ? 'rgba(255,255,255,0.07)' : ah.ink2, opacity: pressed ? 0.85 : 1})}>
+      <View style={{width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: on ? ah.rose : ah.line2, backgroundColor: '#1B1B1F'}}>
+        <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>{init}</Text>
+      </View>
+      <View style={{flex: 1, gap: 2}}><Text style={t.name}>{name}</Text><Text style={t.small}>{sub}</Text></View>
+      <Text style={[t.num, {fontSize: 13, color: rightColor}]}>{right}</Text>
     </Pressable>
   );
 }
@@ -120,166 +103,141 @@ export function Kitchen({side}: {side: Side}) {
   const M = MASTERS.find((m) => m[0] === master);
 
   return (
-    <View style={{gap: 12}}>
-      <Segmented options={[['PLAN', 'PLAN'], ['SHOP', 'SHOP'], ['MASTERS', 'MASTERS']]} value={tab} onChange={setTab} />
+    <View style={{gap: 16}}>
+      <View style={{gap: 6}}>
+        <AHTitle size={34}>Plan the week, stock the pan, cook with a master.</AHTitle>
+      </View>
+      <Segmented options={[['PLAN', 'Plan'], ['SHOP', 'Shop'], ['MASTERS', 'Masters']]} value={tab} onChange={setTab} />
 
       {tab === 'PLAN' ? <PlanTab acc={acc} /> : null}
 
       {tab === 'SHOP' ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-          <View style={{borderWidth: 2, borderColor: deco.brass, backgroundColor: '#120C0A'}}>
-            <Hatch h={150} label="PRODUCT PHOTO · CARBON STEEL PAN" />
-            <View style={{padding: 12, gap: 6}}>
-              <Text style={capsLabel}>FEATURED · THE HOUSE PAN</Text>
-              <Text style={{fontFamily: fonts.displayHeavy, fontSize: 24, lineHeight: 27, color: deco.brassWhite}}>{FEAT[1]}</Text>
-              <Text style={[s.body, {fontSize: 12}]}>{FEAT[2]}</Text>
-              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10}}>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 20, color: deco.brassWhite}}>${FEAT[3]}</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 16}}>
+          <AHCard pad={0}>
+            <Frame h={170} icon="chefhat" label="Product photo · carbon steel pan" />
+            <View style={{padding: 20, gap: 8}}>
+              <AHChip label="Featured · the house pan" tone="rose" />
+              <AHTitle size={30} italic={false} style={{marginTop: 4}}>{FEAT[1]}</AHTitle>
+              <Text style={t.small}>{FEAT[2]}</Text>
+              <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 6}}>
+                <Text style={{fontFamily: ahFonts.serif, fontSize: 34, color: ah.text}}>${FEAT[3]}</Text>
                 <AddBtn on={!!cart[FEAT[0]]} onPress={() => toggle(FEAT[0])} />
               </View>
             </View>
-          </View>
-          {([['POTS & PANS', COOK], ['FINESSE HOUSE LINE', MER]] as Array<[string, Item[]]>).map(([title, list]) => (
+          </AHCard>
+          {([['Pots & pans', COOK], ['Finesse house line', MER]] as Array<[string, Item[]]>).map(([title, list]) => (
             <View key={title}>
-              <Text style={capsLabel}>{title}</Text>
-              {list.map(([id, name, spec, p]) => (
-                <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.25)'}}>
-                  <View style={{flex: 1, gap: 2}}>
-                    <Text style={{fontFamily: fonts.label, fontSize: 15, color: deco.cream}}>{name}</Text>
-                    <Text style={s.small}>{spec}</Text>
-                    <Text style={{fontFamily: fonts.mono, fontSize: 11, color: deco.brassHighlight}}>${p}</Text>
+              <Head>{title}</Head>
+              {list.map(([id, name, spec, p], i) => (
+                <Row key={id} last={i === list.length - 1}>
+                  <View style={{flex: 1, gap: 3}}>
+                    <Text style={t.title}>{name}</Text>
+                    <Text style={t.small}>{spec}</Text>
+                    <Text style={[t.num, {fontSize: 14, color: ah.blush}]}>${p}</Text>
                   </View>
                   <AddBtn on={!!cart[id]} onPress={() => toggle(id)} />
-                </View>
+                </Row>
               ))}
             </View>
           ))}
-          <ActionBar color={cartSent ? deco.brass : cartN ? acc : 'rgba(201,169,97,0.35)'} disabled={!cartN}
-            label={cartSent ? 'ADDED TO SUNDAY ORDER' : cartN ? `ADD ${cartN} TO THE ORDER · $${cartTot.toLocaleString()}` : 'CHOOSE AN ITEM'} onPress={() => setCartSent((x) => !x)} />
-          <Pressable disabled={!cartN} onPress={() => setPaid((x) => !x)} accessibilityRole="button"
-            style={{minHeight: 50, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: deco.brass, opacity: cartN ? 1 : 0.6}}>
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: deco.brassHighlight}}>{paid ? 'CHECKOUT PREVIEW · NOT CHARGED' : cartN ? `OR CHECK OUT SEPARATELY · $${cartTot.toLocaleString()}` : 'OR CHECK OUT SEPARATELY'}</Text>
-          </Pressable>
+          <ActionBar color={cartSent ? ah.white : acc} disabled={!cartN}
+            label={cartSent ? 'Added to Sunday order' : cartN ? `Add ${cartN} to the order · $${cartTot.toLocaleString()}` : 'Choose an item'} onPress={() => setCartSent((x) => !x)} />
+          <Pick disabled={!cartN} onPress={() => setPaid((x) => !x)} on={paid} style={{minHeight: 52}}
+            label={paid ? 'Checkout preview · not charged' : cartN ? `Or check out separately · $${cartTot.toLocaleString()}` : 'Or check out separately'} />
         </Animated.View>
       ) : null}
 
       {tab === 'MASTERS' ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-          <Segmented options={[['CLASSES', 'CLASSES'], ['CHEF', 'PRIVATE CHEF']]} value={mMode} onChange={setMMode} />
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 14}}>
+          <Segmented options={[['CLASSES', 'Classes'], ['CHEF', 'Private chef']]} value={mMode} onChange={setMMode} />
           {mMode === 'CLASSES' ? (
             <View style={{gap: 10}}>
-              <Text style={[s.body, {fontSize: 12}]}>Cook along with a master. Pick a class and the steps run on your counter, one at a time.</Text>
+              <Fine>Cook along with a master. Pick a class and the steps run on your counter, one at a time.</Fine>
               {MASTERS.map(([id, name, craft, len]) => (
-                <PickRow key={id} init={name.split(' ').pop()![0]} name={name} sub={craft} right={len} rightColor="#7AF5B8" on={master === id} onPress={() => { setMaster(id); setStep(0); }} />
+                <PickRow key={id} init={name.split(' ').pop()![0]} name={name} sub={craft} right={cap(len.split(' ')[0]) + ' min'} rightColor={ah.ok} on={master === id} onPress={() => { setMaster(id); setStep(0); }} />
               ))}
               {M ? (
                 <Animated.View entering={FadeInDown.duration(350)}>
-                  <Paper style={{padding: 12, gap: 8}}>
-                    <Hatch h={110} dark label={`MASTERCLASS VIDEO · ${M[3]}`}>
-                      <View style={{width: 44, height: 44, borderRadius: 22, backgroundColor: OX, alignItems: 'center', justifyContent: 'center'}}><Text style={{color: deco.brassWhite, fontSize: 16}}>▶</Text></View>
-                    </Hatch>
-                    <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{M[1].toUpperCase()} · STEP {step + 1} OF {M[4].length}</Text>
-                    <Animated.Text key={step} entering={FadeIn.duration(300)} style={{fontFamily: fonts.script, fontSize: 21, lineHeight: 26, color: INK}}>{M[4][step]}</Animated.Text>
-                    <Pressable onPress={() => setVoice((v) => !v)} accessibilityRole="switch" accessibilityState={{checked: voice}}
-                      style={{minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: OX}}>
-                      <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.3, color: OX}}>{voice ? 'CHEF VOICE · ON' : 'CHEF VOICE · OFF'}</Text>
-                    </Pressable>
-                    {voice ? <Text style={{fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: SEPIA}}>{M[1].split(' ').slice(0, 2).join(' ')}: {VOICE[step % 4]}</Text> : null}
-                    <View style={{flexDirection: 'row', gap: 8}}>
-                      <Pressable onPress={() => setStep((x) => Math.max(0, x - 1))} accessibilityRole="button" style={{flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: INK}}>
-                        <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: INK}}>BACK</Text>
-                      </Pressable>
-                      <Pressable onPress={() => setStep((x) => (x + 1 >= M[4].length ? 0 : x + 1))} accessibilityRole="button" style={{flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: OX}}>
-                        <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: deco.brassWhite}}>{step + 1 >= M[4].length ? 'START OVER' : 'NEXT STEP'}</Text>
-                      </Pressable>
+                  <AHCard pad={0} style={{backgroundColor: ah.ink3}}>
+                    <Frame h={130} label={`Masterclass video · ${M[3].toLowerCase()}`}>
+                      <View style={{width: 52, height: 52, borderRadius: 26, backgroundColor: ah.white, alignItems: 'center', justifyContent: 'center'}}><Text style={{color: '#000', fontSize: 16, marginLeft: 3}}>▶</Text></View>
+                    </Frame>
+                    <View style={{padding: 20, gap: 12}}>
+                      <AHEyebrow color={ah.blush}>{M[1]} · step {step + 1} of {M[4].length}</AHEyebrow>
+                      <Animated.Text key={step} entering={FadeIn.duration(300)} style={[t.voice, {fontSize: 25, lineHeight: 31}]}>{M[4][step]}</Animated.Text>
+                      <View style={{flexDirection: 'row', gap: 4}}>{M[4].map((_, i) => <View key={i} style={{flex: 1, height: 3, borderRadius: 2, backgroundColor: i <= step ? ah.rose : ah.line2}} />)}</View>
+                      <Pick role="switch" on={voice} onPress={() => setVoice((v) => !v)} label={voice ? 'Chef voice · on' : 'Chef voice · off'} a11y="Chef voice" style={{alignSelf: 'flex-start'}} />
+                      {voice ? <Text style={t.small}>{M[1].split(' ').slice(0, 2).join(' ')}: {VOICE[step % 4]}</Text> : null}
+                      <View style={{flexDirection: 'row', gap: 10}}>
+                        <Pick label="Back" flex onPress={() => setStep((x) => Math.max(0, x - 1))} />
+                        <Pick label={step + 1 >= M[4].length ? 'Start over' : 'Next step'} on flex onPress={() => setStep((x) => (x + 1 >= M[4].length ? 0 : x + 1))} />
+                      </View>
                     </View>
-                  </Paper>
+                  </AHCard>
                 </Animated.View>
               ) : null}
             </View>
           ) : (
             <View style={{gap: 12}}>
-              <Text style={capsLabel}>BOOK A PRIVATE CHEF</Text>
-              <Segmented options={[['AT HOME', 'AT HOME'], ['VIRTUAL', 'VIRTUAL']]} value={fmt} onChange={(v) => { setFmt(v); setChefReq(false); }} />
+              <Head>Book a private chef</Head>
+              <Segmented options={[['AT HOME', 'At home'], ['VIRTUAL', 'Virtual']]} value={fmt} onChange={(v) => { setFmt(v); setChefReq(false); }} />
               {CHEFS.map(([id, name, craft, rate]) => (
-                <PickRow key={id} init={name.split(' ').pop()![0]} name={name} sub={craft} right={`$${fmt === 'VIRTUAL' ? Math.round(rate * 0.4) : rate}`} rightColor={deco.brassHighlight} on={chef === id} onPress={() => { setChef(id); setChefReq(false); }} />
+                <PickRow key={id} init={name.split(' ').pop()![0]} name={name} sub={craft} right={`$${fmt === 'VIRTUAL' ? Math.round(rate * 0.4) : rate}`} rightColor={ah.text} on={chef === id} onPress={() => { setChef(id); setChefReq(false); }} />
               ))}
-              <View style={{flexDirection: 'row', gap: 6}}>
-                {SLOTS.map((k) => (
-                  <Pressable key={k} onPress={() => { setSlot(k); setChefReq(false); }} accessibilityRole="button" accessibilityState={{selected: slot === k}}
-                    style={{flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass, backgroundColor: slot === k ? deco.brassHighlight : 'transparent'}}>
-                    <Text style={{fontFamily: fonts.mono, fontSize: 9, color: slot === k ? '#140E08' : deco.cream}}>{k}</Text>
-                  </Pressable>
-                ))}
+              <View style={{flexDirection: 'row', gap: 8}}>
+                {SLOTS.map((k) => <Pick key={k} label={cap(k.slice(0, 3)) + k.slice(3).toLowerCase().replace('pm', 'PM')} flex on={slot === k} onPress={() => { setSlot(k); setChefReq(false); }} />)}
               </View>
-              <ActionBar disabled={!(chef && slot)} color={chefReq ? deco.brass : chef && slot ? acc : 'rgba(201,169,97,0.35)'}
-                label={chefReq ? 'PREVIEW · NOT SENT · CHEF DESK NOT LIVE' : chef && slot ? `REQUEST ${slot} · ${fmt}` : 'PICK A CHEF AND A TIME'} onPress={() => setChefReq((x) => !x)} />
+              <ActionBar disabled={!(chef && slot)} color={chefReq ? ah.white : acc}
+                label={chefReq ? 'Preview · not sent · chef desk not live' : chef && slot ? `Request ${cap(slot.slice(0, 3))}${slot.slice(3)} · ${fmt === 'AT HOME' ? 'at home' : 'virtual'}` : 'Pick a chef and a time'} onPress={() => setChefReq((x) => !x)} />
             </View>
           )}
         </Animated.View>
       ) : null}
 
-      {/* The Recipe Book — a drawer that slides up from the bottom of the room */}
-      <View style={{borderWidth: 2, borderColor: deco.brass, backgroundColor: '#140E08'}}>
+      {/* The Recipe Book — a drawer at the foot of the room */}
+      <AHCard pad={0} style={{backgroundColor: ah.ink3}}>
         {bookOpen ? (
-          <Animated.View entering={FadeInDown.duration(300)}>
-            <Paper style={{padding: 12, gap: 10}}>
-              <View style={{flexDirection: 'row', gap: 2, padding: 2, backgroundColor: INK}}>
-                {(['MINE', 'TRADE'] as const).map((k) => (
-                  <Pressable key={k} onPress={() => setBookTab(k)} accessibilityRole="tab" accessibilityState={{selected: bookTab === k}}
-                    style={{flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', backgroundColor: bookTab === k ? OX : '#F2E8D2'}}>
-                    <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: bookTab === k ? deco.brassWhite : INK}}>{k === 'MINE' ? 'MY BOOK' : 'TRADE'}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              {bookTab === 'MINE' ? REC.map(([id, name, meta]) => {
-                const on = !!offered[id];
-                return (
-                  <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.25)'}}>
-                    <View style={{flex: 1}}><Text style={{fontFamily: fonts.script, fontSize: 18, lineHeight: 22, color: INK}}>{name}</Text><Text style={{fontFamily: fonts.mono, fontSize: 9, color: SEPIA}}>{meta}</Text></View>
-                    <Pressable onPress={() => setOffered((o) => ({...o, [id]: !o[id]}))} accessibilityRole="button" style={{minHeight: 44, paddingHorizontal: 10, justifyContent: 'center', borderWidth: 1, borderColor: OX, backgroundColor: on ? OX : 'transparent'}}>
-                      <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.2, color: on ? deco.brassWhite : OX}}>{on ? 'OFFERED ✓' : 'OFFER TO TRADE'}</Text>
-                    </Pressable>
-                  </View>
-                );
-              }) : (
-                <View style={{gap: 8}}>
-                  <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>YOU GIVE</Text>
-                  <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
-                    {REC.map(([id, name]) => (
-                      <Pressable key={id} onPress={() => setGive(id)} accessibilityRole="button" accessibilityState={{selected: give === id}}
-                        style={{minHeight: 44, paddingHorizontal: 12, justifyContent: 'center', borderWidth: 1, borderColor: OX, backgroundColor: give === id ? OX : 'transparent'}}>
-                        <Text style={{fontFamily: fonts.script, fontSize: 15, color: give === id ? deco.brassWhite : INK}}>{name}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>MEMBERS ARE OFFERING</Text>
-                  {MKT.map(([id, name, meta]) => {
-                    const sent = !!trades[id];
-                    return (
-                      <View key={id} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.25)'}}>
-                        <View style={{flex: 1}}><Text style={{fontFamily: fonts.script, fontSize: 18, lineHeight: 22, color: INK}}>{name}</Text><Text style={{fontFamily: fonts.mono, fontSize: 9, color: SEPIA}}>{meta}</Text></View>
-                        <Pressable onPress={() => setTrades((x) => ({...x, [id]: x[id] ? null : give}))} accessibilityRole="button" style={{minHeight: 44, paddingHorizontal: 10, justifyContent: 'center', backgroundColor: sent ? deco.brass : OX}}>
-                          <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.2, color: sent ? '#140E08' : deco.brassWhite}}>{sent ? 'SENT ✓' : 'PROPOSE TRADE'}</Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
+          <Animated.View entering={FadeInDown.duration(300)} style={{padding: 16, gap: 12, borderBottomWidth: 1, borderColor: ah.line}}>
+            <Segmented options={[['MINE', 'My book'], ['TRADE', 'Trade']]} value={bookTab} onChange={setBookTab} />
+            {bookTab === 'MINE' ? REC.map(([id, name, meta], i) => {
+              const on = !!offered[id];
+              return (
+                <Row key={id} last={i === REC.length - 1}>
+                  <View style={{flex: 1}}><Text style={t.titleI}>{name}</Text><Text style={t.meta}>{meta}</Text></View>
+                  <Pick label={on ? 'Offered' : 'Offer to trade'} on={on} rose onPress={() => setOffered((o) => ({...o, [id]: !o[id]}))} />
+                </Row>
+              );
+            }) : (
+              <View style={{gap: 10}}>
+                <Head style={{marginTop: 0}}>You give</Head>
+                <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>
+                  {REC.map(([id, name]) => <Pick key={id} label={name} on={give === id} onPress={() => setGive(id)} />)}
                 </View>
-              )}
-            </Paper>
+                <Head>Members are offering</Head>
+                {MKT.map(([id, name, meta], i) => {
+                  const sent = !!trades[id];
+                  return (
+                    <Row key={id} last={i === MKT.length - 1}>
+                      <View style={{flex: 1}}><Text style={t.titleI}>{name}</Text><Text style={t.meta}>{meta}</Text></View>
+                      <Pick label={sent ? 'Sent' : 'Propose trade'} on={!sent} rose={!sent} onPress={() => setTrades((x) => ({...x, [id]: x[id] ? null : give}))} />
+                    </Row>
+                  );
+                })}
+              </View>
+            )}
           </Animated.View>
         ) : null}
-        <Pressable onPress={() => setBookOpen((o) => !o)} accessibilityRole="button" accessibilityState={{expanded: bookOpen}}
-          style={{minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#140E08'}}>
-          <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8}}>
-            <Icon name="chefhat" size={16} />
-            <Text numberOfLines={1} style={{flexShrink: 1, fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.3, color: deco.brassHighlight}}>THE RECIPE BOOK · {REC.length} RECIPES</Text>
+        <Pressable onPress={() => setBookOpen((o) => !o)} accessibilityRole="button" accessibilityState={{expanded: bookOpen}} accessibilityLabel={`The recipe book, ${REC.length} recipes`}
+          style={({pressed}) => ({minHeight: 60, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', opacity: pressed ? 0.8 : 1})}>
+          <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12}}>
+            <Icon name="chefhat" size={18} color={ah.rose} />
+            <Text numberOfLines={1} style={[t.title, {flexShrink: 1, fontSize: 20}]}>The recipe book</Text>
+            <Text style={t.meta}>{REC.length} recipes</Text>
           </View>
-          <Text style={{fontSize: 14, color: deco.brassHighlight}}>{bookOpen ? '⌄' : '⌃'}</Text>
+          <Text style={{fontSize: 16, color: ah.mute}}>{bookOpen ? '⌄' : '⌃'}</Text>
         </Pressable>
-      </View>
-      <SampleNote>SAMPLE MENU, SHOP AND CLASSES · THE WEEKLY ORDER IS AN INTENT UNTIL YOUR GROCER AUTHORISES IT · SHOP CHECKOUT AND CHEF REQUESTS ARE PREVIEWS</SampleNote>
+      </AHCard>
+      <SampleNote>Sample menu, shop and classes · The weekly order is an intent until your grocer authorises it · Shop checkout and chef requests are previews</SampleNote>
     </View>
   );
 }
@@ -300,29 +258,25 @@ const HOUSE_GROCERIES: Grocery[] = [['Greek yogurt', '2 tubs'], ['Figs', '8'], [
 function Ledger({total, target}: {total: number; target: number | null}) {
   const goal = target ?? 0;
   return (
-    <View style={{gap: 4}}>
-      <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-        <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>CALORIE LEDGER</Text>
-        <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brass}}>{total.toLocaleString()}{goal ? ` / ${goal.toLocaleString()}` : ' · NO TARGET SET'}</Text>
+    <View style={{gap: 8}}>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline'}}>
+        <Text style={t.eyebrow}>Calorie ledger</Text>
+        <Text style={[t.num, {fontSize: 13}]}>{total.toLocaleString()}<Text style={{color: ah.mute}}>{goal ? ` / ${goal.toLocaleString()} kcal` : ' · no target set'}</Text></Text>
       </View>
-      <View style={{height: 8, borderWidth: 1, borderColor: deco.brass}}>
-        <Animated.View layout={LinearTransition.duration(500)} style={{height: '100%', width: `${goal ? Math.min(100, Math.round((total / goal) * 100)) : 0}%`, overflow: 'hidden'}}>
-          <Svg width="100%" height="100%" preserveAspectRatio="none"><Defs><LinearGradient id="kled" x1="0" y1="0" x2="1" y2="0"><Stop offset="0" stopColor={deco.brassMid} /><Stop offset="1" stopColor={deco.brassWhite} /></LinearGradient></Defs><Rect width="100%" height="100%" fill="url(#kled)" /></Svg>
-        </Animated.View>
-      </View>
+      <Meter pct={goal ? Math.min(100, Math.round((total / goal) * 100)) : 0} />
     </View>
   );
 }
 
 function DayStrip({kd, setKd}: {kd: number; setKd: (n: number) => void}) {
   return (
-    <View style={{flexDirection: 'row', borderWidth: 1, borderColor: deco.brass}}>
+    <View style={{flexDirection: 'row', gap: 4}}>
       {KDAYS.map((d, i) => {
         const on = i === kd;
         return (
-          <Pressable key={d} onPress={() => setKd(i)} accessibilityRole="button" accessibilityState={{selected: on}}
-            style={{flex: 1, minHeight: 38, alignItems: 'center', justifyContent: 'center', borderRightWidth: i < 6 ? 1 : 0, borderColor: 'rgba(201,169,97,0.3)', backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: on ? '#140E08' : deco.cream}}>{d}</Text>
+          <Pressable key={d} onPress={() => setKd(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={d}
+            style={{flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)'}}>
+            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.4, color: on ? '#000' : ah.mute}}>{cap(d)}</Text>
           </Pressable>
         );
       })}
@@ -336,7 +290,7 @@ function PlanTab({acc}: {acc: string}) {
   // The status line lives here so it survives the plan re-reading (and remounting) after a save.
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
+    <Animated.View entering={FadeIn.duration(300)} style={{gap: 14}}>
       <LiveGate live={live} reload={() => void reload()} what="your week in the Kitchen" signedOut={<SamplePlan />}>
         {(data) => <LivePlan key={`${data.weekStart}:${data.stage}:${JSON.stringify(data.meals)}:${JSON.stringify(data.groceryList)}`} data={data} acc={acc} reload={() => reload(true)} setMsg={setMsg} />}
       </LiveGate>
@@ -345,28 +299,36 @@ function PlanTab({acc}: {acc: string}) {
   );
 }
 
+function MealLine({when, children, right}: {when: string; children: React.ReactNode; right: React.ReactNode}) {
+  return (
+    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 64, paddingVertical: 12, borderBottomWidth: 1, borderColor: ah.line}}>
+      <View style={{flex: 1, gap: 3}}>
+        <Text style={[t.eyebrow, {fontSize: 10, color: ah.blush}]}>{when}</Text>
+        {children}
+      </View>
+      {right}
+    </View>
+  );
+}
+
 function SamplePlan() {
   const [kd, setKd] = useState(3);
   const menu = MENU[kd % 2], total = menu.reduce((a, m) => a + m[2], 0);
   return (
-    <View style={{gap: 12, opacity: 0.9}}>
+    <View style={{gap: 14, marginTop: 4}}>
       <DayStrip kd={kd} setKd={setKd} />
-      <Paper>
+      <AHCard pad={4} style={{paddingHorizontal: 18}}>
         <Animated.View key={kd} entering={FadeIn.duration(300)}>
           {menu.map(([when, dish, kcal]) => (
-            <View key={when} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.3)'}}>
-              <View style={{flex: 1, gap: 1}}>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{when}</Text>
-                <Text style={{fontFamily: fonts.script, fontSize: 17, lineHeight: 20, color: INK}}>{dish}</Text>
-              </View>
-              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: SEPIA}}>{kcal} KCAL</Text>
-            </View>
+            <MealLine key={when} when={when} right={<Text style={t.meta}>{kcal} kcal</Text>}>
+              <Text style={t.titleI}>{dish}</Text>
+            </MealLine>
           ))}
         </Animated.View>
-      </Paper>
-      <Ledger total={total} target={1900} />
-      <ActionBar label="SIGN IN TO PLAN YOUR WEEK" color={deco.brass} disabled />
-      <SampleNote>SAMPLE MENU · NOT YOUR PLAN · NOTHING IS ORDERED</SampleNote>
+        <View style={{paddingVertical: 16}}><Ledger total={total} target={1900} /></View>
+      </AHCard>
+      <ActionBar label="Sign in to plan your week" color={ah.white} disabled />
+      <SampleNote>Sample menu · Not your plan · Nothing is ordered</SampleNote>
     </View>
   );
 }
@@ -383,6 +345,7 @@ function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; rel
   const total = today.reduce((a, {m}) => a + (m.kcal ?? 0), 0);
   const order = data.order;
   const intent = order?.state === 'intent';
+  const addItem = () => { if (newItem.trim()) { setGroc((xs) => [...xs, {item: newItem.trim(), qty: '1'}]); setNewItem(''); } };
 
   const compose = async (nextMeals: Meal[], nextGroc: Grocery[], ok: string) => {
     setBusy(true); setMsg(null);
@@ -406,83 +369,85 @@ function LivePlan({data, acc, reload, setMsg}: {data: PlanData; acc: string; rel
 
   if (blank) {
     return (
-      <View style={{gap: 12}}>
-        <Paper>
-          <View style={{padding: 16, gap: 6, alignItems: 'center'}}>
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>WEEK OF {data.weekStart}</Text>
-            <Text style={{fontFamily: fonts.script, fontSize: 19, lineHeight: 24, color: INK, textAlign: 'center'}}>A blank menu. Nothing is planned for this week yet.</Text>
-          </View>
-        </Paper>
-        <Text style={s.small}>Start from the house menu — seven days, three plates a day and one grocery list — then change anything before you order.</Text>
-        <ActionBar label={busy ? 'SAVING…' : 'START FROM THE HOUSE MENU'} color={acc} onPress={() => compose(HOUSE_MEALS, HOUSE_GROCERIES, 'Your week is saved from the house menu. Edit any plate, then confirm the order.')} disabled={busy} />
+      <View style={{gap: 14}}>
+        <AHCard pad={24} style={{alignItems: 'center'}}>
+          <AHEyebrow>Week of {data.weekStart}</AHEyebrow>
+          <Text style={[t.voice, {textAlign: 'center', marginTop: 10}]}>A blank menu. Nothing is planned for this week yet.</Text>
+        </AHCard>
+        <Fine>Start from the house menu — seven days, three plates a day and one grocery list — then change anything before you order.</Fine>
+        <ActionBar label={busy ? 'Saving…' : 'Start from the house menu'} color={acc} onPress={() => compose(HOUSE_MEALS, HOUSE_GROCERIES, 'Your week is saved from the house menu. Edit any plate, then confirm the order.')} disabled={busy} />
       </View>
     );
   }
 
   return (
-    <View style={{gap: 12}}>
+    <View style={{gap: 14}}>
       <DayStrip kd={kd} setKd={setKd} />
-      <Paper>
+      <AHCard pad={4} style={{paddingHorizontal: 18}}>
         <Animated.View key={kd} entering={FadeIn.duration(300)}>
-          {today.length === 0 ? <Text style={{padding: 14, fontFamily: fonts.script, fontSize: 17, color: SEPIA, textAlign: 'center'}}>Nothing planned this day.</Text> : today.map(({m, i}) => (
-            <View key={i} style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 12, borderBottomWidth: 1, borderColor: 'rgba(26,18,12,0.3)'}}>
-              <View style={{flex: 1, gap: 1}}>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 9, letterSpacing: 1.8, color: OX}}>{m.slot.toUpperCase()}</Text>
-                <TextInput value={m.name} onChangeText={(v) => setMeals((xs) => xs.map((x, j) => (j === i ? {...x, name: v.slice(0, 120)} : x)))} accessibilityLabel={`${m.slot} on ${KDAYS[kd]}`}
-                  style={{fontFamily: fonts.script, fontSize: 17, lineHeight: 20, color: INK, paddingVertical: 2}} />
+          {today.length === 0 ? <Text style={[t.titleI, {color: ah.mute, textAlign: 'center', paddingVertical: 18}]}>Nothing planned this day.</Text> : today.map(({m, i}) => (
+            <MealLine key={i} when={m.slot} right={
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                <Text style={t.meta}>{m.kcal != null ? `${m.kcal} kcal` : '— kcal'}</Text>
+                <Pressable onPress={() => setMeals((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${m.name}`} style={{width: 44, height: 44, alignItems: 'center', justifyContent: 'center'}}>
+                  <Text style={{color: ah.mute, fontSize: 18}}>×</Text>
+                </Pressable>
               </View>
-              <Text style={{fontFamily: fonts.mono, fontSize: 10, color: SEPIA}}>{m.kcal != null ? `${m.kcal} KCAL` : '— KCAL'}</Text>
-              <Pressable onPress={() => setMeals((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${m.name}`} hitSlop={8} style={{width: 28, height: 28, alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{color: SEPIA, fontSize: 15}}>×</Text>
-              </Pressable>
-            </View>
+            }>
+              <TextInput value={m.name} onChangeText={(v) => setMeals((xs) => xs.map((x, j) => (j === i ? {...x, name: v.slice(0, 120)} : x)))} accessibilityLabel={`${m.slot} on ${KDAYS[kd]}`}
+                placeholder="Name this plate" placeholderTextColor={ah.faint} selectionColor={ah.rose}
+                style={{fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text, paddingVertical: 2}} />
+            </MealLine>
           ))}
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 10}}>
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 14}}>
             {SLOT_ORDER.filter((sl) => !today.some(({m}) => m.slot === sl)).map((sl) => (
-              <Pressable key={sl} onPress={() => setMeals((xs) => [...xs, {day: kd, slot: sl, name: '', kcal: null}])} accessibilityRole="button" style={{minHeight: 32, paddingHorizontal: 10, borderWidth: 1, borderColor: 'rgba(26,18,12,0.4)', justifyContent: 'center'}}>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 8.5, letterSpacing: 1.2, color: INK}}>+ {sl.toUpperCase()}</Text>
-              </Pressable>
+              <Pick key={sl} label={`+ ${cap(sl)}`} onPress={() => setMeals((xs) => [...xs, {day: kd, slot: sl, name: '', kcal: null}])} a11y={`Add ${sl}`} />
             ))}
           </View>
         </Animated.View>
-      </Paper>
-      <Ledger total={total} target={data.dailyKcalTarget} />
+        <View style={{paddingBottom: 16}}><Ledger total={total} target={data.dailyKcalTarget} /></View>
+      </AHCard>
 
-      <View style={{padding: 12, gap: 8, borderWidth: 2, borderColor: deco.brass}}>
-        <Text style={capsLabel}>ONE ORDER · {groc.length} ITEMS</Text>
-        {groc.map((g, i) => (
-          <View key={`${g.item}${i}`} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-            <Text style={[s.body, {flex: 1, fontSize: 12}]}>{g.item}</Text>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{g.qty}</Text>
-            <Pressable onPress={() => setGroc((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${g.item}`} hitSlop={8} style={{width: 28, height: 28, alignItems: 'center', justifyContent: 'center'}}>
-              <Text style={{color: deco.brass, fontSize: 15}}>×</Text>
-            </Pressable>
-          </View>
-        ))}
-        <View style={{flexDirection: 'row', gap: 6}}>
-          <TextInput value={newItem} onChangeText={(v) => setNewItem(v.slice(0, 80))} placeholder="Add to the list" placeholderTextColor="rgba(244,232,208,0.4)" accessibilityLabel="Add a grocery item"
-            onSubmitEditing={() => { if (newItem.trim()) { setGroc((xs) => [...xs, {item: newItem.trim(), qty: '1'}]); setNewItem(''); } }}
-            style={{flex: 1, minHeight: 40, paddingHorizontal: 8, borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)', fontFamily: fonts.body, fontSize: 12.5, color: deco.cream}} />
-          <RowBtn label="ADD" onPress={() => { if (newItem.trim()) { setGroc((xs) => [...xs, {item: newItem.trim(), qty: '1'}]); setNewItem(''); } }} disabled={!newItem.trim() || groc.length >= 80} />
+      <AHCard pad={20}>
+        <Head style={{marginTop: 0}} right={`${groc.length} items`}>One order</Head>
+        <View style={{marginTop: 6}}>
+          {groc.map((g, i) => (
+            <View key={`${g.item}${i}`} style={{flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44, borderBottomWidth: 1, borderColor: ah.line}}>
+              <Text style={[t.body, {flex: 1}]}>{g.item}</Text>
+              <Text style={t.meta}>{g.qty}</Text>
+              <Pressable onPress={() => setGroc((xs) => xs.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Remove ${g.item}`} style={{width: 44, height: 44, alignItems: 'center', justifyContent: 'center'}}>
+                <Text style={{color: ah.mute, fontSize: 18}}>×</Text>
+              </Pressable>
+            </View>
+          ))}
         </View>
-        <Text style={s.small}>Priced by the grocer once a partner is connected. Delivery is arranged with them, not here.</Text>
-      </View>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, padding: 4, paddingLeft: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: ah.line2}}>
+          <TextInput value={newItem} onChangeText={(v) => setNewItem(v.slice(0, 80))} placeholder="Add to the list" placeholderTextColor={ah.faint} selectionColor={ah.rose} accessibilityLabel="Add a grocery item"
+            onSubmitEditing={addItem} style={{flex: 1, minWidth: 0, minHeight: 44, fontFamily: ahFonts.sans, fontSize: 15, color: ah.text}} />
+          <Round label="+" a11y="Add" solid size={40} onPress={addItem} disabled={!newItem.trim() || groc.length >= 80} />
+        </View>
+        <Fine style={{marginTop: 12}}>Priced by the grocer once a partner is connected. Delivery is arranged with them, not here.</Fine>
+      </AHCard>
 
-      {dirty ? <ActionBar label={busy ? 'SAVING…' : 'SAVE THE PLAN'} color={acc} onPress={() => compose(meals, groc, 'The plan is saved.')} disabled={busy} /> : null}
+      {dirty ? <ActionBar label={busy ? 'Saving…' : 'Save the plan'} color={acc} onPress={() => compose(meals, groc, 'The plan is saved.')} disabled={busy} /> : null}
       {order && !intent ? (
-        <View style={{padding: 10, borderWidth: 1, borderColor: OK_GREEN}}><Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: OK_GREEN}}>ORDER {order.state.toUpperCase()}{order.partner ? ` · ${order.partner.toUpperCase()}` : ''}</Text></View>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: radius.input, borderWidth: 1, borderColor: 'rgba(122,245,184,0.35)'}}>
+          <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: OK_GREEN}} />
+          <Text style={[t.name, {color: OK_GREEN, fontSize: 13}]}>Order {order.state}{order.partner ? ` · ${order.partner}` : ''}</Text>
+        </View>
       ) : intent ? (
-        <View style={{gap: 8}}>
-          <View style={{padding: 10, gap: 3, borderWidth: 1, borderColor: deco.brassHighlight}}>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: deco.brassHighlight}}>ORDER INTENT RECORDED · NOT PLACED · NOT CHARGED</Text>
-            <Text style={s.small}>A grocery partner will ask you to authorise before anything is ordered.</Text>
-          </View>
-          <RowBtn label={busy ? 'ONE MOMENT…' : 'WITHDRAW THE INTENT'} onPress={() => orderIntent(true)} disabled={busy} />
+        <View style={{gap: 10}}>
+          <AHCard pad={16} style={{borderColor: 'rgba(232,180,160,0.35)'}}>
+            <AHEyebrow color={ah.rose}>Order intent recorded · not placed · not charged</AHEyebrow>
+            <Fine style={{marginTop: 6}}>A grocery partner will ask you to authorise before anything is ordered.</Fine>
+          </AHCard>
+          <Pick label={busy ? 'One moment…' : 'Withdraw the intent'} onPress={() => orderIntent(true)} disabled={busy} style={{minHeight: 50}} />
         </View>
       ) : (
-        <ActionBar label={busy ? 'RECORDING…' : dirty ? 'SAVE THE PLAN TO ORDER' : groc.length ? 'CONFIRM THE ORDER' : 'ADD GROCERIES TO ORDER'} color={acc} onPress={() => orderIntent(false)} disabled={busy || dirty || groc.length === 0} />
+        <ActionBar label={busy ? 'Recording…' : dirty ? 'Save the plan to order' : groc.length ? 'Confirm the order' : 'Add groceries to order'} color={acc} onPress={() => orderIntent(false)} disabled={busy || dirty || groc.length === 0} />
       )}
-      <SampleNote>YOUR PLAN · CONFIRMING RECORDS AN INTENT ONLY · NOTHING IS PLACED OR CHARGED HERE</SampleNote>
+      <SampleNote>Your plan · Confirming records an intent only · Nothing is placed or charged here</SampleNote>
     </View>
   );
 }
+

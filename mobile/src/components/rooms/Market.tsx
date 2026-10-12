@@ -1,33 +1,40 @@
 // Scale (group buys: the price falls as members pledge), The Exchange (consign with provenance and offers)
-// and Embassy (partner offers, fully disclosed) — from the design. Pledging never charges; accepting an
+// and Embassy (partner offers, fully disclosed) — After Hours skin. Pledging never charges; accepting an
 // offer or a partner deal here is a preview until the commerce partners are live.
 // Scale is live when signed in: GET /api/scale/pledges lists the member's pledges with their honest state;
 // a pledge in `payment_requested` can be paid through Stripe Checkout in the browser (physical goods —
 // allowed in-app). The app never marks anything paid: it re-reads the pledge when you come back.
 import {useEffect, useRef, useState} from 'react';
-import {AppState, Pressable, Text, View} from 'react-native';
+import {AppState, Text, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
 import {PLEDGES_PATH, PLEDGE_LABEL, formatCents, formatDate, payPledge, pledgeCopy, type Pledge} from '@/lib/billing';
-import {deco, fonts, track, type Side} from '@/lib/deco';
+import {track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
 import {useLive} from '@/lib/live';
-import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, s} from './shared';
-import {ERR_PINK, LiveGate, OK_GREEN, RowBtn, Status} from './live';
+import {AHCard, AHChip, AHEyebrow, AHTitle} from '@/components/ah';
+import {ActionBar, Chips, SampleNote} from './shared';
+import {ERR_PINK, LiveGate, OK_GREEN, Status} from './live';
+import {Fine, Head, Meter, Pick, Row, Step, Tag, Tile, ah, ahFonts, t} from './RoomKit';
 
 const LADDER: Array<[number, number]> = [[50, 520], [100, 460], [150, 412], [250, 360]];
 
 export function Scale({side}: {side: Side}) {
   const {live, reload} = useLive<{pledges: Pledge[]}>(PLEDGES_PATH);
   return (
-    <LiveGate live={live} reload={() => void reload()} what="your pledges" signedOut={<ScaleSample side={side} />}>
-      {(data) => <ScaleLive pledges={Array.isArray(data.pledges) ? data.pledges : []} side={side} reload={() => reload(true)} />}
-    </LiveGate>
+    <View style={{gap: 14}}>
+      <View style={{gap: 6}}>
+        <AHTitle size={34}>The price falls as members join.</AHTitle>
+      </View>
+      <LiveGate live={live} reload={() => void reload()} what="your pledges" signedOut={<ScaleSample side={side} />}>
+        {(data) => <ScaleLive pledges={Array.isArray(data.pledges) ? data.pledges : []} side={side} reload={() => reload(true)} />}
+      </LiveGate>
+    </View>
   );
 }
 
 const STATE_TONE: Record<Pledge['state'], string> = {
-  pledged: deco.brass, waitlisted: 'rgba(244,232,208,0.55)', goal_met: OK_GREEN, payment_requested: '#FFA96B',
-  paid: OK_GREEN, fulfilled: OK_GREEN, refunded: deco.brassHighlight, cancelled: 'rgba(244,232,208,0.45)',
+  pledged: ah.platinum, waitlisted: ah.mute, goal_met: OK_GREEN, payment_requested: ah.warn,
+  paid: OK_GREEN, fulfilled: OK_GREEN, refunded: ah.text, cancelled: ah.faint,
 };
 
 function ScaleLive({pledges, side, reload}: {pledges: Pledge[]; side: Side; reload: () => Promise<void>}) {
@@ -69,46 +76,51 @@ function ScaleLive({pledges, side, reload}: {pledges: Pledge[]; side: Side; relo
   };
 
   return (
-    <View style={{gap: 12}}>
-      <SectionHead>YOUR PLEDGES · {pledges.length}</SectionHead>
+    <View style={{gap: 14}}>
+      <Head right={String(pledges.length)}>Your pledges</Head>
       {pledges.length === 0 ? (
-        <Text style={s.body}>You haven’t pledged to a group buy yet. A pledge never charges — payment is only requested if the group reaches its goal.</Text>
+        <AHCard pad={22}>
+          <Text style={t.voice}>No pledges yet.</Text>
+          <Fine style={{marginTop: 8}}>You haven’t pledged to a group buy yet. A pledge never charges — payment is only requested if the group reaches its goal.</Fine>
+        </AHCard>
       ) : pledges.map((p) => {
         const price = formatCents(p.deal?.group_price_cents);
-        const tone = STATE_TONE[p.state] ?? deco.brass;
+        const tone = STATE_TONE[p.state] ?? ah.platinum;
         const mine = awaiting === p.id;
         const closes = formatDate(p.deal?.deadline);
         return (
-          <Animated.View key={p.id} layout={LinearTransition} style={{padding: 12, gap: 6, borderWidth: 1, borderColor: p.state === 'payment_requested' ? '#FFA96B' : 'rgba(201,169,97,0.4)'}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10}}>
-              <View style={{flex: 1, gap: 2}}>
-                {p.deal?.brand ? <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.2, color: deco.brass}}>{p.deal.brand.toUpperCase()}</Text> : null}
-                <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{p.deal?.title ?? 'Group buy'}</Text>
-              </View>
-              {price ? <Text style={{fontFamily: fonts.mono, fontSize: 13, color: deco.brassWhite}}>{price}</Text> : null}
-            </View>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: tone}}>{PLEDGE_LABEL[p.state] ?? String(p.state).toUpperCase()}</Text>
-            <Text style={s.small}>
-              {pledgeCopy(p)}
-              {p.state === 'pledged' && typeof p.deal?.current_count === 'number' && typeof p.deal?.goal_count === 'number' ? ` ${p.deal.current_count}/${p.deal.goal_count} so far${closes ? ` · closes ${closes}` : ''}.` : ''}
-            </Text>
-            {p.state === 'payment_requested' ? (
-              mine ? (
-                <View style={{gap: 6}}>
-                  <Text style={[s.small, {color: '#FFA96B'}]} accessibilityLiveRegion="polite">PROCESSING · Finish checkout in your browser. This shows Paid once the house confirms it — nothing is marked paid before then.</Text>
-                  <RowBtn label="CHECK AGAIN" onPress={() => void reload()} />
-                  <RowBtn label={busy === p.id ? 'ONE MOMENT…' : 'REOPEN CHECKOUT'} onPress={() => void pay(p.id)} disabled={busy !== null} />
+          <Animated.View key={p.id} layout={LinearTransition}>
+            <AHCard pad={18} style={p.state === 'payment_requested' ? {borderColor: 'rgba(255,207,110,0.4)'} : undefined}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10}}>
+                <View style={{flex: 1, gap: 3}}>
+                  {p.deal?.brand ? <Text style={t.eyebrow}>{p.deal.brand}</Text> : null}
+                  <Text style={t.title}>{p.deal?.title ?? 'Group buy'}</Text>
                 </View>
-              ) : (
-                <ActionBar color={acc} label={busy === p.id ? 'OPENING SECURE CHECKOUT…' : `PAY NOW${price ? ` · ${price}` : ''}`} onPress={() => void pay(p.id)} disabled={busy !== null} />
-              )
-            ) : null}
-            {mine && (p.state === 'paid' || p.state === 'fulfilled') ? <Status msg={{ok: true, text: 'Payment confirmed by the house. Thank you.'}} /> : null}
-            {msg?.id === p.id ? <Text style={[s.small, {color: msg.ok ? OK_GREEN : ERR_PINK}]} accessibilityLiveRegion="polite">{msg.text}</Text> : null}
+                {price ? <Text style={{fontFamily: ahFonts.serif, fontSize: 24, color: ah.text}}>{price}</Text> : null}
+              </View>
+              <View style={{marginTop: 10}}><Tag tone={tone}>{PLEDGE_LABEL[p.state] ?? String(p.state)}</Tag></View>
+              <Fine style={{marginTop: 10}}>
+                {pledgeCopy(p)}
+                {p.state === 'pledged' && typeof p.deal?.current_count === 'number' && typeof p.deal?.goal_count === 'number' ? ` ${p.deal.current_count}/${p.deal.goal_count} so far${closes ? ` · closes ${closes}` : ''}.` : ''}
+              </Fine>
+              {p.state === 'payment_requested' ? (
+                mine ? (
+                  <View style={{gap: 8, marginTop: 12}}>
+                    <Text style={[t.small, {color: ah.warn}]} accessibilityLiveRegion="polite">Processing · Finish checkout in your browser. This shows Paid once the house confirms it — nothing is marked paid before then.</Text>
+                    <Pick label="Check again" onPress={() => void reload()} />
+                    <Pick label={busy === p.id ? 'One moment…' : 'Reopen checkout'} onPress={() => void pay(p.id)} disabled={busy !== null} />
+                  </View>
+                ) : (
+                  <View style={{marginTop: 12}}><ActionBar color={acc} label={busy === p.id ? 'Opening secure checkout…' : `Pay now${price ? ` · ${price}` : ''}`} onPress={() => void pay(p.id)} disabled={busy !== null} /></View>
+                )
+              ) : null}
+              {mine && (p.state === 'paid' || p.state === 'fulfilled') ? <View style={{marginTop: 10}}><Status msg={{ok: true, text: 'Payment confirmed by the house. Thank you.'}} /></View> : null}
+              {msg?.id === p.id ? <Text style={[t.small, {marginTop: 10, color: msg.ok ? OK_GREEN : ERR_PINK}]} accessibilityLiveRegion="polite">{msg.text}</Text> : null}
+            </AHCard>
           </Animated.View>
         );
       })}
-      <SampleNote>LIVE · A PLEDGE NEVER CHARGES · PAYMENT IS ONLY REQUESTED IF THE BUY CLOSES · PAID SHOWS ONLY WHEN THE HOUSE CONFIRMS IT</SampleNote>
+      <SampleNote>Live · A pledge never charges · Payment is only requested if the buy closes · Paid shows only when the house confirms it</SampleNote>
     </View>
   );
 }
@@ -121,39 +133,43 @@ function ScaleSample({side}: {side: Side}) {
   const next = LADDER.find(([n]) => pledges < n);
   const pct = next ? Math.round(((pledges - cur[0]) / (next[0] - cur[0])) * 100) : 100;
   return (
-    <View style={{gap: 12}}>
-      <SectionHead>SAMPLE GROUP BUY</SectionHead>
-      <View style={{flexDirection: 'row', gap: 12, alignItems: 'center'}}>
-        <GoldFrame pad={2}><View style={{width: 76, height: 92, backgroundColor: '#140E0B', alignItems: 'center', justifyContent: 'center'}}><Icon name="shirt" size={28} color={deco.brass} strokeWidth={1.2} /></View></GoldFrame>
-        <View style={{flex: 1, gap: 3}}>
-          <Text style={{fontFamily: fonts.displayBold, fontSize: 18, color: deco.cream}}>Cashmere travel wrap</Text>
-          <Text style={s.small}>Group buy · closes Sunday</Text>
-        </View>
-      </View>
-      <View style={{alignItems: 'center', gap: 2, paddingVertical: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(201,169,97,0.35)'}}>
-        <Text style={{fontFamily: fonts.mono, fontSize: 10, color: '#7AF5B8'}}>▼ ${680 - cur[1]} FROM $680</Text>
-        <Text style={{fontFamily: fonts.displayHeavy, fontSize: 44, color: deco.brassWhite}}>${cur[1]}</Text>
-        <Text style={s.small}>{pledges} members pledged · price falls as more join</Text>
-      </View>
-      {LADDER.map(([n, p]) => {
-        const hit = pledges >= n;
-        return (
-          <View key={n} style={{flexDirection: 'row', alignItems: 'center', gap: 10, opacity: hit ? 1 : 0.6}}>
-            <View style={{width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: deco.brassHighlight, backgroundColor: hit ? deco.brassHighlight : 'transparent'}} />
-            <Text style={[s.body, {flex: 1}]}>{n} pledges</Text>
-            <Text style={{fontFamily: fonts.mono, fontSize: 12, color: cur[0] === n ? deco.brassWhite : deco.brassHighlight}}>${p}</Text>
+    <View style={{gap: 14}}>
+      <Head>Sample group buy</Head>
+      <AHCard pad={20}>
+        <View style={{flexDirection: 'row', gap: 14, alignItems: 'center'}}>
+          <Tile icon="shirt" size={64} tone={ah.mute} />
+          <View style={{flex: 1, gap: 3}}>
+            <Text style={[t.title, {fontSize: 24, lineHeight: 27}]}>Cashmere travel wrap</Text>
+            <Text style={t.small}>Group buy · closes Sunday</Text>
           </View>
-        );
-      })}
-      <View style={{gap: 5}}>
-        <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>DEMAND</Text>
-          <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>{next ? `${next[0] - pledges} TO NEXT DROP` : 'LOWEST PRICE REACHED'}</Text>
         </View>
-        <View style={{height: 6, backgroundColor: 'rgba(201,169,97,0.15)'}}><Animated.View layout={LinearTransition} style={{height: 6, width: `${pct}%`, backgroundColor: acc}} /></View>
+        <View style={{alignItems: 'center', gap: 4, paddingVertical: 22}}>
+          <Text style={[t.num, {fontSize: 13, color: ah.ok}]}>▼ ${680 - cur[1]} from $680</Text>
+          <Text style={{fontFamily: ahFonts.serif, fontSize: 72, lineHeight: 76, color: ah.text, letterSpacing: -1.5}}>${cur[1]}</Text>
+          <Text style={t.small}>{pledges} members pledged · price falls as more join</Text>
+        </View>
+        <View style={{gap: 8}}>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+            <Text style={t.eyebrow}>Demand</Text>
+            <Text style={t.meta}>{next ? `${next[0] - pledges} to next drop` : 'Lowest price reached'}</Text>
+          </View>
+          <Meter pct={pct} tone={acc} />
+        </View>
+      </AHCard>
+      <View>
+        {LADDER.map(([n, p], i) => {
+          const hit = pledges >= n;
+          return (
+            <Row key={n} last={i === LADDER.length - 1} style={{minHeight: 48, opacity: hit ? 1 : 0.55}}>
+              <View style={{width: 12, height: 12, borderRadius: 6, borderWidth: 1.5, borderColor: hit ? ah.rose : ah.line2, backgroundColor: hit ? ah.rose : 'transparent'}} />
+              <Text style={[t.body, {flex: 1}]}>{n} pledges</Text>
+              <Text style={[t.num, {color: cur[0] === n ? ah.rose : ah.text}]}>${p}</Text>
+            </Row>
+          );
+        })}
       </View>
-      <ActionBar color={pledged ? deco.brass : acc} label={pledged ? 'PLEDGED · TAP TO WITHDRAW' : `PLEDGE AT $${cur[1]}`} onPress={() => setPledged((p) => !p)} />
-      <SampleNote>SAMPLE · PREVIEW · A PLEDGE NEVER CHARGES · PAYMENT IS ONLY REQUESTED IF THE BUY CLOSES, AND YOU CONFIRM IT</SampleNote>
+      <ActionBar color={pledged ? ah.white : acc} label={pledged ? 'Pledged · tap to withdraw' : `Pledge at $${cur[1]}`} onPress={() => setPledged((p) => !p)} />
+      <SampleNote>Sample · Preview · A pledge never charges · Payment is only requested if the buy closes, and you confirm it</SampleNote>
     </View>
   );
 }
@@ -164,48 +180,46 @@ const OFFERS: Array<[string, string, string]> = [['$2,150', 'a member in Paris',
 export function Exchange() {
   const [accepted, setAccepted] = useState<number | null>(null);
   return (
-    <View style={{gap: 12}}>
-      <GoldFrame pad={4}>
-        <View style={{height: 190, backgroundColor: '#140E0B', alignItems: 'center', justifyContent: 'center', gap: 8}}>
-          <Icon name="briefcase" size={40} color={deco.brass} strokeWidth={1.1} />
-          <Text style={{fontFamily: fonts.label, fontSize: 10, color: 'rgba(244,232,208,0.5)'}}>Your listing photo</Text>
+    <View style={{gap: 14}}>
+      <AHCard pad={0}>
+        <View style={{height: 220, backgroundColor: ah.ink3, alignItems: 'center', justifyContent: 'center', gap: 10}}>
+          <Icon name="briefcase" size={44} color={ah.faint} strokeWidth={1.1} />
+          <Text style={[t.eyebrow, {color: ah.faint, fontSize: 10}]}>Your listing photo</Text>
         </View>
-      </GoldFrame>
-      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline'}}>
-        <Text style={{fontFamily: fonts.displayBold, fontSize: 20, color: deco.cream}}>Black leather tote</Text>
-        <Text style={{fontFamily: fonts.displayHeavy, fontSize: 22, color: deco.brassLight}}>$2,400</Text>
+        <View style={{padding: 20, gap: 6}}>
+          <AHChip label="On the Exchange" tone="rose" />
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginTop: 6}}>
+            <AHTitle size={30} italic={false} style={{flexShrink: 1}}>Black leather tote</AHTitle>
+            <Text style={{fontFamily: ahFonts.serif, fontSize: 30, color: ah.text}}>$2,400</Text>
+          </View>
+        </View>
+      </AHCard>
+      <Head>Provenance</Head>
+      <View>
+        {PROV.map(([when, x], i) => (
+          <Step key={when} last={i === PROV.length - 1} tone={i === PROV.length - 1 ? ah.rose : ah.platinum}>
+            <Text style={t.eyebrow}>{when}</Text>
+            <Text style={[t.body, {marginTop: 2}]}>{x}</Text>
+          </Step>
+        ))}
       </View>
-      <SectionHead>PROVENANCE</SectionHead>
-      {PROV.map(([when, t], i) => (
-        <View key={when} style={{flexDirection: 'row', gap: 12}}>
-          <View style={{alignItems: 'center', width: 12}}>
-            <View style={{width: 10, height: 10, transform: [{rotate: '45deg'}], marginTop: 4, backgroundColor: deco.brassHighlight}} />
-            {i < PROV.length - 1 ? <View style={{flex: 1, width: 1, backgroundColor: 'rgba(201,169,97,0.4)'}} /> : null}
-          </View>
-          <View style={{flex: 1, paddingBottom: 10}}>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{when}</Text>
-            <Text style={s.body}>{t}</Text>
-          </View>
-        </View>
-      ))}
-      <SectionHead>OFFERS · {accepted != null ? 'PREVIEW PICK' : `${OFFERS.length} OPEN`}</SectionHead>
+      <Head right={accepted != null ? 'Preview pick' : `${OFFERS.length} open`}>Offers</Head>
       {OFFERS.map(([amt, from, exp], i) => {
         const me = accepted === i;
         return (
-          <Animated.View key={amt} layout={LinearTransition} style={{padding: 12, gap: 6, backgroundColor: deco.cream, opacity: accepted != null && !me ? 0.4 : 1}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={{fontFamily: fonts.displayHeavy, fontSize: 22, color: '#1A120C'}}>{amt}</Text>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, color: '#6B5028'}}>{exp}</Text>
-            </View>
-            <Text style={{fontFamily: fonts.body, fontSize: 12, color: '#3A2A1A'}}>from {from}</Text>
-            <Pressable onPress={() => setAccepted(me ? null : i)} accessibilityRole="button"
-              style={{minHeight: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#1A120C', backgroundColor: me ? '#1A120C' : 'transparent'}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: me ? '#F2E8D2' : '#1A120C'}}>{me ? 'PREVIEW · NOT ACCEPTED YET' : 'ACCEPT'}</Text>
-            </Pressable>
+          <Animated.View key={amt} layout={LinearTransition} style={{opacity: accepted != null && !me ? 0.4 : 1}}>
+            <AHCard pad={18} style={me ? {borderColor: ah.white} : undefined}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                <Text style={{fontFamily: ahFonts.serif, fontSize: 34, lineHeight: 36, color: ah.text}}>{amt}</Text>
+                <Tag>{exp}</Tag>
+              </View>
+              <Text style={[t.small, {marginTop: 4}]}>from {from}</Text>
+              <Pick label={me ? 'Preview · not accepted yet' : 'Accept'} on={me} style={{marginTop: 14}} onPress={() => setAccepted(me ? null : i)} />
+            </AHCard>
           </Animated.View>
         );
       })}
-      <SampleNote>SAMPLE LISTING · FUNDS ARE HELD BY THE PAYMENT PARTNER, NEVER BY FINESSE · ACCEPTING HERE IS A PREVIEW</SampleNote>
+      <SampleNote>Sample listing · Funds are held by the payment partner, never by Finesse · Accepting here is a preview</SampleNote>
     </View>
   );
 }
@@ -223,37 +237,33 @@ export function Embassy({side}: {side: Side}) {
   const E = ENVOYS.find((e) => e[0] === ei)!;
   const state = st[ei];
   return (
-    <View style={{gap: 12}}>
+    <View style={{gap: 14}}>
       <Chips options={ENVOYS.map((e) => e[0])} value={ei} onChange={setEi} />
       <Animated.View key={ei} entering={FadeInDown.duration(400)}>
-        <GoldFrame pad={3}>
-          <View style={{backgroundColor: '#140E0B', padding: 14, gap: 14}}>
-            <View style={{gap: 2}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.2, color: deco.brass}}>PARTNER DOSSIER</Text>
-              <Text style={{fontFamily: fonts.displayHeavy, fontSize: 26, color: deco.cream}}>{E[0]}</Text>
-              <Text style={s.small}>{E[1]}</Text>
-            </View>
-            <View style={{gap: 4}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>THE OFFER</Text>
-              <Text style={{fontFamily: fonts.script, fontSize: 18, lineHeight: 24, color: deco.cream}}>{E[2]}</Text>
-            </View>
-            <View style={{gap: 6}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>WHY IT FITS YOU</Text>
-              {E[3].map((w) => <Text key={w} style={s.body}><Text style={{color: acc}}>◆ </Text>{w}</Text>)}
-            </View>
-            <Animated.View entering={FadeIn} style={{padding: 10, backgroundColor: 'rgba(232,200,122,0.08)', borderLeftWidth: 2, borderColor: deco.brassHighlight}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, lineHeight: 13, letterSpacing: 0.6, color: deco.brassHighlight}}>DISCLOSED · {E[4].toUpperCase()}</Text>
-            </Animated.View>
+        <AHCard pad={22}>
+          <AHEyebrow>Partner dossier</AHEyebrow>
+          <AHTitle size={36} italic={false} style={{marginTop: 8}}>{E[0]}</AHTitle>
+          <Text style={[t.small, {marginTop: 4}]}>{E[1]}</Text>
+          <Head style={{marginTop: 22}}>The offer</Head>
+          <Text style={[t.voice, {marginTop: 8}]}>{E[2]}</Text>
+          <Head style={{marginTop: 22}}>Why it fits you</Head>
+          <View style={{marginTop: 4}}>
+            {E[3].map((w, i) => (
+              <Row key={w} last={i === E[3].length - 1} style={{minHeight: 44, paddingVertical: 10}}>
+                <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: ah.rose}} />
+                <Text style={[t.body, {flex: 1}]}>{w}</Text>
+              </Row>
+            ))}
           </View>
-        </GoldFrame>
+          <Animated.View entering={FadeIn} style={{marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: 'rgba(232,180,160,0.08)', borderWidth: 1, borderColor: 'rgba(232,180,160,0.2)'}}>
+            <AHEyebrow color={ah.rose}>Disclosed</AHEyebrow>
+            <Text style={[t.small, {color: ah.text, marginTop: 4}]}>{E[4]}</Text>
+          </Animated.View>
+        </AHCard>
       </Animated.View>
-      <View style={{flexDirection: 'row', gap: 10}}>
-        <View style={{flex: 2}}><ActionBar color={state === 'yes' ? deco.brass : acc} label={state === 'yes' ? 'NOTED · PREVIEW, NOTHING BOOKED' : state === 'no' ? 'DECLINED · RECONSIDER' : 'ACCEPT THE OFFER'} onPress={() => setSt((x) => ({...x, [ei]: state === 'yes' ? undefined : 'yes'}))} /></View>
-        <Pressable onPress={() => setSt((x) => ({...x, [ei]: 'no'}))} accessibilityRole="button" style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: deco.brassHighlight}}>DECLINE</Text>
-        </Pressable>
-      </View>
-      <SampleNote>SAMPLE PARTNERS · EVERY OFFER SHOWS WHAT FINESSE EARNS · NO DATA IS SHARED WITH A PARTNER UNTIL YOU ACCEPT</SampleNote>
+      <ActionBar color={state === 'yes' ? ah.white : acc} label={state === 'yes' ? 'Noted · preview, nothing booked' : state === 'no' ? 'Declined · reconsider' : 'Accept the offer'} onPress={() => setSt((x) => ({...x, [ei]: state === 'yes' ? undefined : 'yes'}))} />
+      <Pick label="Decline" on={state === 'no'} onPress={() => setSt((x) => ({...x, [ei]: 'no'}))} style={{minHeight: 50}} />
+      <SampleNote>Sample partners · Every offer shows what Finesse earns · No data is shared with a partner until you accept</SampleNote>
     </View>
   );
 }

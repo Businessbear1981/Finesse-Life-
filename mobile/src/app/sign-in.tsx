@@ -1,9 +1,11 @@
 import {useState} from 'react';
 import {router} from 'expo-router';
-import {Pressable, StyleSheet, Text, TextInput, View} from 'react-native';
-import {colors, touchTarget} from '@/lib/tokens';
+import {Linking, Text, View} from 'react-native';
 import {supabase, supabaseConfigured} from '@/lib/supabase';
+import {ah, ahFonts} from '@/lib/ah';
+import {AHBody, AHCard, AHDisplay, AHEyebrow, AHInput, AHPill, AHScreen} from '@/components/ah';
 
+/** Member sign-in (After Hours, mirrors web /login). Same Supabase call and outcomes as before. */
 export default function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,25 +22,26 @@ export default function SignIn() {
   };
 
   return (
-    <View style={styles.page}>
-      <Text style={styles.eyebrow}>MEMBERS ONLY</Text>
-      <Text style={styles.title}>Sign in</Text>
-      <TextInput value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={colors.brassShadow} autoCapitalize="none" keyboardType="email-address" autoComplete="email" style={styles.input} accessibilityLabel="Email" />
-      <TextInput value={password} onChangeText={setPassword} placeholder="Password" placeholderTextColor={colors.brassShadow} secureTextEntry autoComplete="password" style={styles.input} accessibilityLabel="Password" />
-      <Pressable onPress={submit} disabled={busy} accessibilityRole="button" style={[styles.button, busy && {opacity: 0.5}]}>
-        <Text style={styles.buttonText}>{busy ? 'ONE MOMENT…' : 'ENTER'}</Text>
-      </Pressable>
-      {msg && <Text style={styles.msg} accessibilityLiveRegion="polite">{msg}</Text>}
-    </View>
+    <AHScreen bottom={40}>
+      <View style={{width: '100%', maxWidth: 420, alignSelf: 'center'}}>
+        <AHEyebrow>Members · The door</AHEyebrow>
+        <AHDisplay size={52} style={{marginTop: 8}}>Welcome back.</AHDisplay>
+        <AHBody mute style={{marginTop: 8, marginBottom: 24}}>Sign in to the house. Your table, your card and your concierge are where you left them.</AHBody>
+
+        <AHCard glass pad={22} style={{gap: 18}}>
+          <AHInput label="Email" value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" autoComplete="email"
+            textContentType="emailAddress" accessibilityLabel="Email" returnKeyType="next" />
+          <AHInput label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password"
+            textContentType="password" accessibilityLabel="Password" returnKeyType="go" onSubmitEditing={() => { if (!busy) void submit(); }} />
+          {msg && <Text accessibilityLiveRegion="polite" style={{fontFamily: ahFonts.sans, fontSize: 14, lineHeight: 20, color: ah.danger, textAlign: 'center'}}>{msg}</Text>}
+          <AHPill label={busy ? 'Opening the door…' : 'Sign in'} block disabled={busy} onPress={() => void submit()} style={{minHeight: 50, marginTop: 4}} />
+        </AHCard>
+
+        <Text style={{marginTop: 14, textAlign: 'center', fontFamily: ahFonts.sans, fontSize: 14, color: ah.mute, paddingVertical: 12}}>
+          Not on the list?{' '}
+          <Text accessibilityRole="link" style={{color: ah.rose}} onPress={() => void Linking.openURL('https://finesselife.vip/signup')}>Request an invitation</Text>
+        </Text>
+      </View>
+    </AHScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  page: {flex: 1, backgroundColor: colors.ink, paddingHorizontal: 28, paddingTop: 60, gap: 14},
-  eyebrow: {color: colors.brass, fontSize: 10, letterSpacing: 4},
-  title: {color: colors.cream, fontFamily: 'serif', fontSize: 40, marginBottom: 12},
-  input: {minHeight: touchTarget + 8, borderWidth: 1, borderColor: colors.brassShadow, color: colors.cream, paddingHorizontal: 14, fontSize: 16},
-  button: {minHeight: touchTarget + 8, borderWidth: 1, borderColor: colors.brass, alignItems: 'center', justifyContent: 'center', marginTop: 8},
-  buttonText: {color: colors.brassHighlight, letterSpacing: 4, fontSize: 12},
-  msg: {color: colors.cream, fontStyle: 'italic', marginTop: 8},
-});

@@ -2,13 +2,15 @@
 // Photos go to /api/camera/uploads, which stores them privately and only with explicit consent;
 // nothing is analysed until the member asks. The mirror note is the stylist's word, not an AI verdict.
 import {useState} from 'react';
-import {ActivityIndicator, Image, Pressable, Text, TextInput, View} from 'react-native';
+import {ActivityIndicator, Image, Pressable, Text, View} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {apiUpload} from '@/lib/api';
-import {deco, fonts, track, type Side} from '@/lib/deco';
-import {Icon} from '@/lib/icons';
-import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, s} from './shared';
+import {track, type Side} from '@/lib/deco';
+import {ah, ahFonts} from '@/lib/ah';
+import {AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
+import {ActionBar, Chips, SampleNote, s} from './shared';
+import {Consent, ERR_PINK, Meta, OK_GREEN, Tile} from './live';
 
 type Shot = {id: string; uri: string; mimeType?: string | null; fileName?: string | null; occasion: string; note: string; state: 'ready' | 'sending' | 'sent' | 'failed'; msg?: string};
 const OCCASIONS = ['Tonight', 'Work', 'Weekend', 'Event', 'Travel'];
@@ -47,71 +49,61 @@ export function Stylist({side}: {side: Side}) {
   };
 
   return (
-    <View style={{gap: 12}}>
-      <GoldFrame pad={4}>
-        <View style={{backgroundColor: '#140E0B', padding: 16, alignItems: 'center', gap: 6}}>
-          <Text style={{fontFamily: fonts.script, fontSize: 20, lineHeight: 26, color: deco.cream, textAlign: 'center'}}>“Show me what you’re thinking of wearing. I’ll tell you what to keep, swap or add.”</Text>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 9.5, letterSpacing: 2, color: deco.brassHighlight}}>— A NOTE ON THE MIRROR</Text>
-        </View>
-      </GoldFrame>
+    <View style={{gap: 16}}>
+      <AHSmoke aspect={1 / 0.82} top={<AHEyebrow color="rgba(242,201,184,0.85)">The dressing room</AHEyebrow>}>
+        <AHTitle size={30} style={{lineHeight: 33}}>“Show me what you’re thinking of wearing. I’ll tell you what to keep, swap or add.”</AHTitle>
+        <Text style={{marginTop: 12, fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,235,231,0.7)'}}>— A note on the mirror</Text>
+      </AHSmoke>
 
       <View style={{flexDirection: 'row', gap: 10}}>
-        <Pressable onPress={shoot} accessibilityRole="button" accessibilityLabel="Take a photo" style={({pressed}) => [{flex: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: acc, opacity: pressed ? 0.85 : 1}]}>
-          <Icon name="camera" size={28} color="#140508" strokeWidth={1.8} />
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: '#140508'}}>TAKE A PHOTO</Text>
-        </Pressable>
-        <Pressable onPress={choose} accessibilityRole="button" accessibilityLabel="Choose from your library" style={({pressed}) => [{flex: 1, minHeight: 92, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: deco.brassHighlight, opacity: pressed ? 0.85 : 1}]}>
-          <Icon name="image" size={28} color={deco.brassHighlight} strokeWidth={1.6} />
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: deco.brassHighlight}}>FROM LIBRARY</Text>
-        </Pressable>
+        <Tile icon="camera" label="Take a photo" solid rose={acc === ah.rose} onPress={shoot} />
+        <Tile icon="image" label="From library" a11y="Choose from your library" onPress={choose} />
       </View>
-      {err ? <Text style={[s.small, {color: '#FF8FA9'}]}>{err}</Text> : null}
+      {err ? <Text style={[s.small, {color: ERR_PINK}]}>{err}</Text> : null}
 
       {shots.length > 0 ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 10}}>
-          <SectionHead>FOR YOUR STYLIST · {shots.length}</SectionHead>
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 14}}>
+          <View style={{flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 8}}>
+            <AHEyebrow>For your stylist</AHEyebrow>
+            <Text style={{fontFamily: ahFonts.serif, fontSize: 22, color: ah.text}}>{shots.length}</Text>
+          </View>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>
             {shots.map((x) => (
-              <Animated.View key={x.id} entering={FadeInDown.duration(300)} style={{width: '31%'}}>
-                <GoldFrame pad={2}>
-                  <View style={{aspectRatio: 3 / 4, backgroundColor: '#0E0907'}}>
-                    <Image source={{uri: x.uri}} style={{width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel="Your photo" />
-                    {x.state === 'sending' ? <View style={{position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,4,6,0.55)'}}><ActivityIndicator color={deco.brassHighlight} /></View> : null}
-                    {x.state === 'ready' ? (
-                      <Pressable onPress={() => setShots((l) => l.filter((y) => y.id !== x.id))} accessibilityRole="button" accessibilityLabel="Remove photo" hitSlop={8}
-                        style={{position: 'absolute', right: 4, top: 4, width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(10,4,6,0.75)'}}>
-                        <Text style={{color: deco.cream, fontSize: 13}}>×</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                </GoldFrame>
-                <Text style={{marginTop: 3, fontFamily: fonts.mono, fontSize: 8, letterSpacing: 0.8, color: x.state === 'sent' ? '#7AF5B8' : x.state === 'failed' ? '#FF8FA9' : deco.brass}} numberOfLines={2}>
-                  {x.state === 'sent' ? `SENT · ${x.occasion.toUpperCase()}` : x.state === 'failed' ? (x.msg ?? 'NOT SENT').toUpperCase() : x.state === 'sending' ? 'SENDING…' : 'READY'}
-                </Text>
+              <Animated.View key={x.id} entering={FadeInDown.duration(300)} style={{width: '31.5%', gap: 6}}>
+                <View style={{aspectRatio: 3 / 4, borderRadius: 16, overflow: 'hidden', backgroundColor: ah.ink3, borderWidth: 1, borderColor: x.state === 'sent' ? 'rgba(126,226,184,0.5)' : ah.line}}>
+                  <Image source={{uri: x.uri}} style={{width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel="Your photo" />
+                  {x.state === 'sending' ? <View style={{position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.55)'}}><ActivityIndicator color={ah.rose} /></View> : null}
+                  {x.state === 'ready' ? (
+                    <Pressable onPress={() => setShots((l) => l.filter((y) => y.id !== x.id))} accessibilityRole="button" accessibilityLabel="Remove photo" hitSlop={10}
+                      style={{position: 'absolute', right: 6, top: 6, width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.7)'}}>
+                      <Text style={{color: ah.white, fontSize: 15, lineHeight: 17}}>×</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <Meta color={x.state === 'sent' ? OK_GREEN : x.state === 'failed' ? ERR_PINK : ah.mute} style={{fontSize: 9.5, letterSpacing: 0.8}}>
+                  {x.state === 'sent' ? `Sent · ${x.occasion}` : x.state === 'failed' ? (x.msg ?? 'Not sent') : x.state === 'sending' ? 'Sending…' : 'Ready'}
+                </Meta>
               </Animated.View>
             ))}
           </View>
 
           {pending.length > 0 ? (
             <>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>WHAT IS IT FOR?</Text>
+              <AHEyebrow style={{marginTop: 8}}>What is it for?</AHEyebrow>
               <Chips options={OCCASIONS} value={occasion} onChange={setOccasion} />
-              <TextInput value={note} onChangeText={(v) => setNote(v.slice(0, 280))} placeholder="A note for your stylist (optional)" placeholderTextColor="rgba(244,232,208,0.4)" multiline accessibilityLabel="Note for your stylist"
-                style={{minHeight: 64, padding: 10, borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)', fontFamily: fonts.body, fontSize: 13, color: deco.cream, textAlignVertical: 'top'}} />
-              <Pressable onPress={() => setConsent((c) => !c)} accessibilityRole="checkbox" accessibilityState={{checked: consent}} style={{flexDirection: 'row', gap: 10, alignItems: 'flex-start'}}>
-                <View style={{width: 22, height: 22, marginTop: 1, borderWidth: 1.5, borderColor: deco.brassHighlight, alignItems: 'center', justifyContent: 'center', backgroundColor: consent ? deco.brassHighlight : 'transparent'}}>
-                  {consent ? <Text style={{color: '#140E08', fontSize: 13, fontFamily: fonts.bodyStrong}}>✓</Text> : null}
-                </View>
-                <Text style={[s.small, {flex: 1}]}>I consent to Finesse storing these photos privately so my stylist can see them. I can delete them at any time. Nothing is analysed unless I ask.</Text>
-              </Pressable>
-              <ActionBar label={`SEND ${pending.length} TO MY STYLIST`} color={acc} onPress={send} disabled={!consent} />
+              <AHInput value={note} onChangeText={(v) => setNote(v.slice(0, 280))} placeholder="A note for your stylist (optional)" multiline accessibilityLabel="Note for your stylist"
+                style={{minHeight: 84, paddingTop: 14, textAlignVertical: 'top'}} />
+              <Consent checked={consent} onToggle={() => setConsent((c) => !c)}>
+                I consent to Finesse storing these photos privately so my stylist can see them. I can delete them at any time. Nothing is analysed unless I ask.
+              </Consent>
+              <ActionBar label={`Send ${pending.length} to my stylist`} color={acc} onPress={send} disabled={!consent} />
             </>
           ) : null}
         </Animated.View>
       ) : (
         <Text style={[s.small, {textAlign: 'center'}]}>Full-length in good light works best. Mirror selfies are perfect.</Text>
       )}
-      <SampleNote>PHOTOS ARE STORED PRIVATELY, ONLY WITH YOUR CONSENT · YOUR STYLIST’S SHORTLIST ARRIVES HERE ONCE THE STYLIST DESK IS LIVE</SampleNote>
+      <SampleNote>Photos are stored privately, only with your consent · your stylist’s shortlist arrives here once the stylist desk is live</SampleNote>
     </View>
   );
 }

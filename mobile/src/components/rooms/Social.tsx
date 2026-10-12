@@ -1,13 +1,16 @@
 // The Bag (occasion bags others can fill, drop-shipped), The Registry (wishes members can put funds toward),
 // The Lab (Nova develops posts, you approve) and the Switchboard (connected accounts + consent ledger).
-// From the design. Money moves only through the payment partner — Finesse never holds member funds — and
+// After Hours skin. Money moves only through the payment partner — Finesse never holds member funds — and
 // everything here is a labelled preview until those partners and integrations are live.
 import {useState} from 'react';
 import {Pressable, Text, View} from 'react-native';
-import Animated, {FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, withTiming} from 'react-native-reanimated';
-import {deco, fonts, track, type Side} from '@/lib/deco';
+import Animated, {FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useReducedMotion, withTiming} from 'react-native-reanimated';
+import {deco, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
-import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, Segmented, s} from './shared';
+import {AHCard, AHChip, AHEyebrow, AHSmoke, AHTitle} from '@/components/ah';
+import {radius} from '@/lib/ah';
+import {ActionBar, Chips, SampleNote, Segmented} from './shared';
+import {Fine, Head, Meter, Pick, Row, Tag, Tile, ah, ahFonts, t} from './RoomKit';
 
 type Item = [string, string, number];
 const BAGS: Record<Side, Record<string, Item[]>> = {
@@ -36,60 +39,60 @@ export function Bag({side}: {side: Side}) {
   const [sent, setSent] = useState(false);
   const items = bags[occ];
   const covered = occ === 'Night out' ? [1] : [];
-  const tot = items.reduce((t, x) => t + x[2], 0), cov = items.reduce((t, x, i) => t + (covered.includes(i) ? x[2] : 0), 0);
+  const tot = items.reduce((a, x) => a + x[2], 0), cov = items.reduce((a, x, i) => a + (covered.includes(i) ? x[2] : 0), 0);
   const gift = her ? {from: 'Ryan', for: 'your date Saturday', n: 4, day: 'FRI', items: bags['Night out']} : {from: 'Mom', for: 'church on Sunday', n: 3, day: 'SAT', items: bags['Church Sunday']};
   return (
-    <View style={{gap: 12}}>
-      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{expanded: open}}>
-        <GoldFrame pad={3}>
-          <View style={{backgroundColor: '#1C1012', padding: 14, gap: 4, alignItems: 'center'}}>
-            <Icon name="gift" size={26} color={acc} />
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2.2, color: deco.brassHighlight}}>A NEW BAG IS ON ITS WAY</Text>
-            <Text style={{fontFamily: fonts.script, fontSize: 18, color: deco.cream, textAlign: 'center'}}>{gift.from} is sending for {gift.for}</Text>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1, color: deco.brass}}>{gift.n} PIECES · ARRIVES {gift.day} · TAP TO {open ? 'CLOSE' : 'PEEK'}</Text>
-          </View>
-        </GoldFrame>
+    <View style={{gap: 16}}>
+      <Pressable onPress={() => setOpen((o) => !o)} accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={`A new bag is on its way. ${gift.from} is sending for ${gift.for}. ${open ? 'Close' : 'Peek'}`}>
+        <AHSmoke aspect={1.2} top={<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}><AHChip label="On its way" live tone="rose" /><AHChip label={`Arrives ${gift.day.charAt(0)}${gift.day.slice(1).toLowerCase()}`} tone="outline" /></View>}>
+          <Icon name="gift" size={26} color={ah.blush} />
+          <AHTitle size={32} style={{marginTop: 10}}>{gift.from} is sending for {gift.for}</AHTitle>
+          <Text style={[t.meta, {color: 'rgba(255,255,255,0.7)', marginTop: 8}]}>{gift.n} pieces · tap to {open ? 'close' : 'peek'}</Text>
+        </AHSmoke>
       </Pressable>
       {open ? (
-        <Animated.View entering={FadeInDown.duration(300)} style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>
-          {gift.items.map(([cat, name]) => <Text key={name} style={{paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', fontFamily: fonts.label, fontSize: 11, color: deco.cream}}>{name} <Text style={{color: deco.brass, fontFamily: fonts.mono, fontSize: 8}}>{cat}</Text></Text>)}
+        <Animated.View entering={FadeInDown.duration(300)} style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>
+          {gift.items.map(([cat, name]) => (
+            <View key={name} style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, minHeight: 38, borderRadius: radius.pill, borderWidth: 1, borderColor: ah.line2}}>
+              <Text style={[t.name, {fontSize: 13}]}>{name}</Text>
+              <Text style={[t.meta, {fontSize: 10, color: ah.faint}]}>{cat}</Text>
+            </View>
+          ))}
         </Animated.View>
       ) : null}
-      <SectionHead>YOUR BAGS · FOR ANY OCCASION</SectionHead>
+      <Head>Your bags · for any occasion</Head>
       <Chips options={Object.keys(bags)} value={occ} onChange={(v) => { setOcc(v); setShared(false); }} />
-      <Animated.View key={occ} entering={FadeIn.duration(300)} style={{gap: 8}}>
-        {items.map(([cat, name, p], i) => {
-          const c = covered.includes(i);
-          return (
-            <View key={name} style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(201,169,97,0.3)'}}>
-              <View style={{width: 44, height: 52, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center', backgroundColor: '#140E0B'}}><Icon name="shirt" size={18} color={deco.brass} strokeWidth={1.2} /></View>
-              <View style={{flex: 1}}>
-                <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 1, color: deco.brass}}>{cat}</Text>
-                <Text style={{fontFamily: fonts.label, fontSize: 13, color: deco.cream}}>{name}</Text>
-                <Text style={{fontFamily: fonts.mono, fontSize: 10, color: deco.brassHighlight}}>${p}</Text>
-              </View>
-              <Text style={{paddingHorizontal: 6, paddingVertical: 2, backgroundColor: c ? deco.brassHighlight : 'transparent', fontFamily: fonts.mono, fontSize: 8, letterSpacing: 0.8, color: c ? '#140E08' : 'rgba(244,232,208,0.6)'}}>{c ? `COVERED BY ${gift.from.toUpperCase()}` : 'OPEN'}</Text>
-            </View>
-          );
-        })}
-        <View style={{gap: 5}}>
+      <Animated.View key={occ} entering={FadeIn.duration(300)} style={{gap: 12}}>
+        <View>
+          {items.map(([cat, name, p], i) => {
+            const c = covered.includes(i);
+            return (
+              <Row key={name} last={i === items.length - 1}>
+                <Tile icon="shirt" size={52} tone={ah.mute} />
+                <View style={{flex: 1, gap: 2}}>
+                  <Text style={t.eyebrow}>{cat}</Text>
+                  <Text style={[t.title, {fontSize: 20, lineHeight: 23}]}>{name}</Text>
+                  <Text style={[t.num, {fontSize: 13, color: ah.blush}]}>${p}</Text>
+                </View>
+                <Tag tone={c ? ah.rose : ah.faint} fill={c}>{c ? `Covered by ${gift.from}` : 'Open'}</Tag>
+              </Row>
+            );
+          })}
+        </View>
+        <View style={{gap: 8}}>
           <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brassHighlight}}>${cov} COVERED</Text>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>${tot} TOTAL</Text>
+            <Text style={[t.num, {fontSize: 13, color: ah.rose}]}>${cov} covered</Text>
+            <Text style={[t.num, {fontSize: 13}]}>${tot} total</Text>
           </View>
-          <View style={{height: 4, backgroundColor: 'rgba(201,169,97,0.15)'}}><View style={{height: 4, width: `${Math.round((cov / tot) * 100)}%`, backgroundColor: acc}} /></View>
+          <Meter pct={Math.round((cov / tot) * 100)} tone={acc === deco.pink ? ah.rose : ah.white} />
         </View>
       </Animated.View>
-      <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>WHO CAN FILL IT</Text>
+      <Head>Who can fill it</Head>
       <Chips options={['Partner', 'Family', 'Circle']} value={vis} onChange={(v) => { setVis(v); setShared(false); }} />
-      <Text style={s.small}>No expectations. A bag just sits there until someone wants to fill a piece of it. Everything ships straight to you.</Text>
-      <View style={{flexDirection: 'row', gap: 8}}>
-        <View style={{flex: 1}}><ActionBar color={shared ? deco.brass : acc} label={shared ? `SHARED · ${vis.toUpperCase()}` : 'SHARE THIS BAG'} onPress={() => setShared((x) => !x)} /></View>
-        <Pressable onPress={() => setSent((x) => !x)} accessibilityRole="button" style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.4, color: deco.brassHighlight}}>{sent ? 'PICKING FOR MAYA…' : 'SEND ONE'}</Text>
-        </Pressable>
-      </View>
-      <SampleNote>SAMPLE BAGS · NOTHING IS ORDERED OR CHARGED HERE · DROP-SHIP PARTNERS ARE BEING CONNECTED</SampleNote>
+      <Fine>No expectations. A bag just sits there until someone wants to fill a piece of it. Everything ships straight to you.</Fine>
+      <ActionBar color={shared ? ah.white : acc} label={shared ? `Shared · ${vis.toLowerCase()}` : 'Share this bag'} onPress={() => setShared((x) => !x)} />
+      <Pick label={sent ? 'Picking for Maya…' : 'Send one'} on={sent} onPress={() => setSent((x) => !x)} style={{minHeight: 50}} />
+      <SampleNote>Sample bags · Nothing is ordered or charged here · Drop-ship partners are being connected</SampleNote>
     </View>
   );
 }
@@ -113,46 +116,51 @@ export function Registry({side}: {side: Side}) {
   const mine = [...WISH.filter((w) => w[2] === 'You'), ...Array.from({length: extra}, (_, k) => [`new${k}`, 'ANYTHING', 'You', `New wish ${k + 1}`, 1000, 0, 0] as (typeof WISH)[number])];
   const list = tab === 'mine' ? mine : WISH.filter((w) => w[2] !== 'You');
   return (
-    <View style={{gap: 12}}>
-      <Text style={[s.body, {textAlign: 'center'}]}>Wish for anything. Any member can put funds toward it.</Text>
-      <Segmented options={[['mine', 'MY WISHES'], ['circle', 'FOR OTHERS']]} value={tab} onChange={(t) => { setTab(t); setOpenId(null); }} />
+    <View style={{gap: 14}}>
+      <View style={{gap: 6}}>
+        <AHTitle size={32}>Wish for anything. Any member can put funds toward it.</AHTitle>
+      </View>
+      <Segmented options={[['mine', 'My wishes'], ['circle', 'For others']]} value={tab} onChange={(x) => { setTab(x); setOpenId(null); }} />
       {list.map(([id, cat, owner, name, goal, raised, backers]) => {
         const g = given[id] ?? 0, tot = raised + g, pct = Math.min(100, Math.round((tot / goal) * 100)), open = openId === id;
         const a = amt[id] ?? '$100', v = Number(a.slice(1));
         return (
-          <Animated.View key={id} layout={LinearTransition} style={{borderWidth: 1, borderColor: open ? deco.brassHighlight : 'rgba(201,169,97,0.3)'}}>
-            <Pressable onPress={() => setOpenId(open ? null : id)} accessibilityRole="button" accessibilityState={{expanded: open}} style={{padding: 12, gap: 4}}>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-                <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 1, color: deco.brass}}>{cat} · {owner === 'You' ? 'YOURS' : `${owner.toUpperCase()}’S`}</Text>
-                <Text style={{fontFamily: fonts.mono, fontSize: 10, color: pct >= 100 ? '#7AF5B8' : deco.brassHighlight}}>{pct}%</Text>
-              </View>
-              <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{name}</Text>
-              <Text style={s.small}>${tot.toLocaleString()} of ${goal.toLocaleString()} · {backers + (g ? 1 : 0)} members chipped in</Text>
-            </Pressable>
-            <View style={{height: 3, backgroundColor: 'rgba(201,169,97,0.15)'}}><Animated.View layout={LinearTransition} style={{height: 3, width: `${pct}%`, backgroundColor: pct >= 100 ? '#7AF5B8' : deco.brassHighlight}} /></View>
-            {open ? (
-              <Animated.View entering={FadeIn.duration(250)} style={{padding: 12, gap: 8}}>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 9.5, letterSpacing: 1.6, color: deco.brassHighlight}}>{owner === 'You' ? 'TOP IT UP YOURSELF' : `PUT FUNDS TOWARD ${owner.toUpperCase()}’S WISH`}</Text>
-                <Chips options={['$25', '$100', '$250', '$500']} value={a} onChange={(x) => setAmt((m) => ({...m, [id]: x}))} />
-                <ActionBar color={g ? deco.brass : acc} label={g ? `YOU’VE GIVEN $${g.toLocaleString()} · GIVE ${a} MORE` : `GIVE ${a}`} onPress={() => setGiven((m) => ({...m, [id]: (m[id] ?? 0) + v}))} />
-              </Animated.View>
-            ) : null}
+          <Animated.View key={id} layout={LinearTransition}>
+            <AHCard pad={0} style={open ? {borderColor: ah.line2} : undefined}>
+              <Pressable onPress={() => setOpenId(open ? null : id)} accessibilityRole="button" accessibilityState={{expanded: open}} accessibilityLabel={`${name}, ${pct}% funded`} style={{padding: 18, gap: 6}}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <Text style={t.eyebrow}>{cat} · {owner === 'You' ? 'yours' : `${owner}’s`}</Text>
+                  <Text style={{fontFamily: ahFonts.serif, fontSize: 24, color: pct >= 100 ? ah.ok : ah.text}}>{pct}%</Text>
+                </View>
+                <Text style={[t.title, {fontSize: 23, lineHeight: 26}]}>{name}</Text>
+                <Text style={t.small}>${tot.toLocaleString()} of ${goal.toLocaleString()} · {backers + (g ? 1 : 0)} members chipped in</Text>
+                <View style={{marginTop: 6}}><Meter pct={pct} tone={pct >= 100 ? ah.ok : ah.rose} /></View>
+              </Pressable>
+              {open ? (
+                <Animated.View entering={FadeIn.duration(250)} style={{paddingHorizontal: 18, paddingBottom: 18, gap: 12}}>
+                  <AHEyebrow color={ah.blush}>{owner === 'You' ? 'Top it up yourself' : `Put funds toward ${owner}’s wish`}</AHEyebrow>
+                  <Chips options={['$25', '$100', '$250', '$500']} value={a} onChange={(x) => setAmt((m) => ({...m, [id]: x}))} />
+                  <ActionBar color={g ? ah.white : acc} label={g ? `You’ve given $${g.toLocaleString()} · give ${a} more` : `Give ${a}`} onPress={() => setGiven((m) => ({...m, [id]: (m[id] ?? 0) + v}))} />
+                </Animated.View>
+              ) : null}
+            </AHCard>
           </Animated.View>
         );
       })}
       {tab === 'mine' ? (
-        <Pressable onPress={() => setExtra((n) => n + 1)} accessibilityRole="button" style={{minHeight: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderStyle: 'dashed', borderColor: deco.brassHighlight}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 11, letterSpacing: 2, color: deco.brassHighlight}}>+ MAKE A WISH</Text>
+        <Pressable onPress={() => setExtra((n) => n + 1)} accessibilityRole="button" accessibilityLabel="Make a wish"
+          style={({pressed}) => ({minHeight: 56, alignItems: 'center', justifyContent: 'center', borderRadius: radius.card, borderWidth: 1.5, borderStyle: 'dashed', borderColor: ah.line2, opacity: pressed ? 0.75 : 1})}>
+          <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>+ Make a wish</Text>
         </Pressable>
       ) : null}
-      <Text style={s.small}>Gifts are held by our payment partner until a wish is met or its owner draws them down — Finesse never holds the money. Givers can stay anonymous.</Text>
-      <SampleNote>SAMPLE WISHES · GIVING HERE IS A PREVIEW · NO MONEY MOVES UNTIL THE PAYMENT PARTNER IS LIVE</SampleNote>
+      <Fine>Gifts are held by our payment partner until a wish is met or its owner draws them down — Finesse never holds the money. Givers can stay anonymous.</Fine>
+      <SampleNote>Sample wishes · Giving here is a preview · No money moves until the payment partner is live</SampleNote>
     </View>
   );
 }
 
 type JobState = 'DEVELOPING' | 'NEEDS APPROVAL' | 'READY TO SHARE' | 'RETAKE';
-const CHIP: Record<JobState, [string, string]> = {'DEVELOPING': ['#3A1A1E', '#FF8A94'], 'NEEDS APPROVAL': ['#FF2A3A', '#140508'], 'READY TO SHARE': [deco.brassHighlight, '#140E08'], 'RETAKE': ['#3A2A1A', deco.cream]};
+const CHIP: Record<JobState, string> = {'DEVELOPING': ah.mute, 'NEEDS APPROVAL': ah.rose, 'READY TO SHARE': ah.ok, 'RETAKE': ah.warn};
 const JOBS: Array<[string, string]> = [['Tonight’s look, 3 frames', 'Instagram · carousel'], ['Amalfi recap, 22s', 'TikTok · reel'], ['Velvet season board', 'Pinterest · board']];
 
 export function Lab() {
@@ -160,32 +168,37 @@ export function Lab() {
   const [ji, setJi] = useState(1);
   const set = (v: JobState) => setStates((a) => a.map((x, i) => (i === ji ? v : x)));
   return (
-    <View style={{gap: 12}}>
-      <Text style={{fontFamily: fonts.script, fontSize: 18, color: deco.cream, textAlign: 'center'}}>Nova develops. You approve. Nothing leaves without you.</Text>
-      {JOBS.map(([t, f], i) => (
-        <Pressable key={t} onPress={() => setJi(i)} accessibilityRole="button" accessibilityState={{selected: i === ji}}
-          style={{flexDirection: 'row', gap: 12, alignItems: 'center', padding: 10, borderWidth: 1, borderColor: i === ji ? '#FF2A3A' : 'rgba(255,42,58,0.25)', backgroundColor: 'rgba(40,6,10,0.55)'}}>
-          <View style={{width: 54, height: 54, backgroundColor: '#1A0608', borderWidth: 1, borderColor: 'rgba(255,42,58,0.4)', alignItems: 'center', justifyContent: 'center'}}><Icon name="flaskconical" size={20} color="#FF6B7A" /></View>
-          <View style={{flex: 1, gap: 3}}>
-            <Text style={{fontFamily: fonts.displayBold, fontSize: 15, color: deco.cream}}>{t}</Text>
-            <Text style={s.small}>{f}</Text>
-            <Text style={{alignSelf: 'flex-start', paddingHorizontal: 6, paddingVertical: 2, backgroundColor: CHIP[states[i]][0], fontFamily: fonts.mono, fontSize: 8, letterSpacing: 1, color: CHIP[states[i]][1]}}>{states[i]}</Text>
-          </View>
-        </Pressable>
-      ))}
+    <View style={{gap: 14}}>
+      <View style={{gap: 6}}>
+        <AHTitle size={32}>Nova develops. You approve. Nothing leaves without you.</AHTitle>
+      </View>
+      {JOBS.map(([title, f], i) => {
+        const on = i === ji;
+        return (
+          <Pressable key={title} onPress={() => setJi(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${title}, ${f}, ${states[i].toLowerCase()}`}
+            style={({pressed}) => ({flexDirection: 'row', gap: 14, alignItems: 'center', padding: 14, borderRadius: 20, borderWidth: 1, borderColor: on ? ah.white : ah.line, backgroundColor: on ? 'rgba(255,255,255,0.06)' : ah.ink2, opacity: pressed ? 0.85 : 1})}>
+            <Tile icon="flaskconical" size={56} tone={ah.rose} />
+            <View style={{flex: 1, gap: 4}}>
+              <Text style={[t.title, {fontSize: 20, lineHeight: 23}]}>{title}</Text>
+              <Text style={t.small}>{f}</Text>
+              <Tag tone={CHIP[states[i]]}>{states[i]}</Tag>
+            </View>
+          </Pressable>
+        );
+      })}
       {states[ji] === 'NEEDS APPROVAL' ? (
-        <Animated.View entering={FadeInDown.duration(300)} style={{padding: 12, gap: 10, borderWidth: 1.5, borderColor: '#FF2A3A'}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: '#FF6B7A'}}>APPROVAL GATE</Text>
-          <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{JOBS[ji][0]}</Text>
-          <View style={{flexDirection: 'row', gap: 8}}>
-            <View style={{flex: 1}}><ActionBar color={deco.brassHighlight} label="APPROVE" onPress={() => set('READY TO SHARE')} /></View>
-            <Pressable onPress={() => set('RETAKE')} accessibilityRole="button" style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: deco.brass}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 1.6, color: deco.brassHighlight}}>RETAKE</Text>
-            </Pressable>
-          </View>
+        <Animated.View entering={FadeInDown.duration(300)}>
+          <AHCard pad={18} style={{borderColor: 'rgba(232,180,160,0.4)'}}>
+            <AHEyebrow color={ah.rose}>Approval gate</AHEyebrow>
+            <Text style={[t.title, {marginTop: 8}]}>{JOBS[ji][0]}</Text>
+            <View style={{gap: 10, marginTop: 14}}>
+              <ActionBar color={ah.white} label="Approve" onPress={() => set('READY TO SHARE')} />
+              <Pick label="Retake" onPress={() => set('RETAKE')} style={{minHeight: 50}} />
+            </View>
+          </AHCard>
         </Animated.View>
       ) : null}
-      <SampleNote>SAMPLE DRAFTS · NOTHING IS POSTED ANYWHERE UNTIL YOU APPROVE AND THE ACCOUNT IS CONNECTED IN THE SWITCHBOARD</SampleNote>
+      <SampleNote>Sample drafts · Nothing is posted anywhere until you approve and the account is connected in the Switchboard</SampleNote>
     </View>
   );
 }
@@ -194,11 +207,12 @@ const LINES: Array<[string, string, string]> = [['instagram', 'Instagram', 'Draf
 const LEDGER: Array<[string, string]> = [['8:12 PM', 'Nova drafted 3 captions for Instagram. Waiting on you.'], ['7:40 PM', 'Google Maps check-in at Lucian, shared with close circle only.'], ['TODAY', 'Pinterest boards read for your style read.'], ['MON', 'TikTok reel posted after your approval.']];
 
 function Toggle({on, onPress, label}: {on: boolean; onPress: () => void; label: string}) {
-  const knob = useAnimatedStyle(() => ({transform: [{translateX: withTiming(on ? 22 : 0, {duration: 200})}]}));
+  const reduce = useReducedMotion();
+  const knob = useAnimatedStyle(() => ({transform: [{translateX: reduce ? (on ? 20 : 0) : withTiming(on ? 20 : 0, {duration: 200})}]}));
   return (
-    <Pressable onPress={onPress} accessibilityRole="switch" accessibilityState={{checked: on}} accessibilityLabel={label} hitSlop={8}
-      style={{width: 48, height: 26, borderRadius: 13, borderWidth: 1, borderColor: on ? '#00FF88' : deco.brass, backgroundColor: on ? 'rgba(0,255,136,0.18)' : 'transparent', justifyContent: 'center', paddingHorizontal: 2}}>
-      <Animated.View style={[{width: 20, height: 20, borderRadius: 10, backgroundColor: on ? '#7AF5B8' : deco.brass}, knob]} />
+    <Pressable onPress={onPress} accessibilityRole="switch" accessibilityState={{checked: on}} accessibilityLabel={label} hitSlop={10}
+      style={{width: 52, height: 32, borderRadius: 16, backgroundColor: on ? ah.ok : 'rgba(255,255,255,0.14)', justifyContent: 'center', paddingHorizontal: 3}}>
+      <Animated.View style={[{width: 26, height: 26, borderRadius: 13, backgroundColor: ah.white}, knob]} />
     </Pressable>
   );
 }
@@ -206,30 +220,34 @@ function Toggle({on, onPress, label}: {on: boolean; onPress: () => void; label: 
 export function Switchboard() {
   const [conn, setConn] = useState<Record<string, boolean>>({});
   return (
-    <View style={{gap: 12}}>
-      <View style={{borderWidth: 1, borderColor: 'rgba(201,169,97,0.4)'}}>
+    <View style={{gap: 14}}>
+      <View style={{gap: 6}}>
+        <AHTitle size={32}>Every line in, every line out — on your say.</AHTitle>
+      </View>
+      <AHCard pad={4} style={{paddingHorizontal: 18}}>
         {LINES.map(([k, name, scope], i) => {
           const on = !!conn[k];
           return (
-            <View key={k} style={{flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderTopWidth: i ? 1 : 0, borderColor: 'rgba(201,169,97,0.2)'}}>
-              <View style={{width: 10, height: 10, borderRadius: 5, backgroundColor: on ? '#00FF88' : '#5A1A1E', shadowColor: '#00FF88', shadowOpacity: on ? 0.9 : 0, shadowRadius: 6}} />
-              <View style={{flex: 1}}>
-                <Text style={{fontFamily: fonts.label, fontSize: 14, color: deco.cream}}>{name}</Text>
-                <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 0.8, color: on ? '#7AF5B8' : 'rgba(244,232,208,0.5)'}}>{on ? `PREVIEW · ${scope.toUpperCase()}` : 'NOT CONNECTED'}</Text>
+            <Row key={k} last={i === LINES.length - 1}>
+              <View style={{flex: 1, gap: 2}}>
+                <Text style={t.title}>{name}</Text>
+                <Text style={[t.meta, {color: on ? ah.ok : ah.faint}]}>{on ? `Preview · ${scope.toLowerCase()}` : 'Not connected'}</Text>
               </View>
               <Toggle on={on} label={name} onPress={() => setConn((c) => ({...c, [k]: !c[k]}))} />
-            </View>
+            </Row>
           );
         })}
+      </AHCard>
+      <Head>Consent ledger</Head>
+      <View>
+        {LEDGER.map(([when, x], i) => (
+          <Row key={x} last={i === LEDGER.length - 1} style={{alignItems: 'flex-start'}}>
+            <Text style={[t.meta, {width: 64, paddingTop: 2}]}>{when}</Text>
+            <Text style={[t.body, {flex: 1}]}>{x}</Text>
+          </Row>
+        ))}
       </View>
-      <SectionHead>CONSENT LEDGER</SectionHead>
-      {LEDGER.map(([when, t]) => (
-        <View key={t} style={{flexDirection: 'row', gap: 12}}>
-          <Text style={{width: 62, fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{when}</Text>
-          <Text style={[s.small, {flex: 1}]}>{t}</Text>
-        </View>
-      ))}
-      <SampleNote>SAMPLE LEDGER · TOGGLES ARE A PREVIEW · REAL CONNECTIONS USE EACH SERVICE’S OWN SIGN-IN AND CAN BE REVOKED HERE</SampleNote>
+      <SampleNote>Sample ledger · Toggles are a preview · Real connections use each service’s own sign-in and can be revoked here</SampleNote>
     </View>
   );
 }

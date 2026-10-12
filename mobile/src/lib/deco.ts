@@ -1,42 +1,44 @@
-// Art Deco geometry + palette helpers shared by the KeyLock, the Private Lift and room plates.
+// Palette + geometry helpers shared by the KeyLock, the Private Lift and the rooms.
+// After Hours (Oct 2026): the historic "brass" keys now carry the chrome/platinum scale and "pink"
+// carries rose gold, so every screen built on these tokens moved to the new look at once.
+// New code should prefer `ah` (src/lib/ah.ts) for clearer names.
 import {Easing} from 'react-native-reanimated';
 
 export const deco = {
-  ink: '#0A0406',
-  oxblood: '#17090D',
-  burgundy: '#3A121B',
-  brassDeep: '#4A3416',
-  brassShadow: '#6B5028',
-  brassMid: '#8A6A2A',
-  brass: '#C9A961',
-  brassHighlight: '#E8C87A',
-  brassLight: '#F0D88A',
-  brassWhite: '#FFF1C2',
-  cream: '#F4E8D0',
-  champagne: '#FFE4A0',
-  lamp: '#FFA96B',
-  pink: '#FF4D7D',
+  ink: '#050505',
+  oxblood: '#0C0C0E',
+  burgundy: '#1A1517',
+  brassDeep: '#2A2A2E',
+  brassShadow: '#55575C',
+  brassMid: '#8E9298',
+  brass: '#B9BCC2',
+  brassHighlight: '#EDEBE7',
+  brassLight: '#E3E4E7',
+  brassWhite: '#FFFFFF',
+  cream: '#EDEBE7',
+  champagne: '#F2C9B8',
+  lamp: '#C9CCD2',
+  pink: '#E8B4A0',
 } as const;
 
-// Design type: Playfair Display italic (display), Cinzel (caps), Cormorant Garamond italic (script),
-// Marcellus (labels), Manrope (body), JetBrains Mono (status lines).
+// After Hours type: Instrument Serif italic (display/script), Inter Tight (labels, caps, body).
 export const fonts = {
-  display: 'PlayfairDisplay_400Regular_Italic',
-  displayBold: 'PlayfairDisplay_700Bold_Italic',
-  displayHeavy: 'PlayfairDisplay_800ExtraBold_Italic',
-  label: 'Marcellus_400Regular',
-  caps: 'Cinzel_600SemiBold',
-  capsBold: 'Cinzel_700Bold',
-  script: 'CormorantGaramond_400Regular_Italic',
-  body: 'Manrope_500Medium',
-  bodyStrong: 'Manrope_600SemiBold',
-  mono: 'JetBrainsMono_400Regular',
+  display: 'InstrumentSerif_400Regular_Italic',
+  displayBold: 'InstrumentSerif_400Regular_Italic',
+  displayHeavy: 'InstrumentSerif_400Regular_Italic',
+  label: 'InterTight_600SemiBold',
+  caps: 'InterTight_600SemiBold',
+  capsBold: 'InterTight_700Bold',
+  script: 'InstrumentSerif_400Regular_Italic',
+  body: 'InterTight_400Regular',
+  bodyStrong: 'InterTight_600SemiBold',
+  mono: 'InterTight_500Medium',
 } as const;
 
-/** Track accents from the design: Finesse (her) blush, Carpe Diem (him) amber. */
+/** Track accents: Finesse (her) rose gold, Carpe Diem (him) platinum. */
 export const track = {
-  her: {acc: deco.pink, soft: '#FFB8C8', deep: '#6B1424', name: 'Finesse'},
-  him: {acc: deco.lamp, soft: '#FFD2B0', deep: '#3E220C', name: 'Carpe Diem'},
+  her: {acc: deco.pink, soft: '#F2C9B8', deep: '#3A1A1E', name: 'Finesse'},
+  him: {acc: deco.lamp, soft: '#E3E4E7', deep: '#1E2024', name: 'Carpe Diem'},
 } as const;
 export type Side = keyof typeof track;
 
@@ -167,8 +169,9 @@ export const continental = {
 
 /** Metal stop sets: [offset, colour]. Drawn top-left → bottom-right with a bright specular band. */
 export const metals = {
-  brass: [[0, '#5A3E14'], [0.18, '#C9A961'], [0.34, '#FFF1C2'], [0.46, '#D8B66A'], [0.7, '#8A6A2A'], [0.88, '#E8C87A'], [1, '#4A3416']],
-  goldLeaf: [[0, '#6E4A10'], [0.2, '#D4A846'], [0.38, '#FFF4C8'], [0.5, '#E9C46A'], [0.75, '#9A7020'], [0.9, '#F0D88A'], [1, '#5A3C0C']],
+  // After Hours: "brass" renders as polished chrome, "goldLeaf" as rose-gold foil.
+  brass: [[0, '#3A3C41'], [0.18, '#B9BCC2'], [0.34, '#FFFFFF'], [0.46, '#C4C7CC'], [0.7, '#6D7076'], [0.88, '#E3E4E7'], [1, '#2A2A2E']],
+  goldLeaf: [[0, '#6E3840'], [0.2, '#C98B86'], [0.38, '#FBE1D3'], [0.5, '#E8B4A0'], [0.75, '#A8646C'], [0.9, '#F2C9B8'], [1, '#5A2C33']],
   platinum: [[0, '#8E9298'], [0.2, '#D9DBDE'], [0.38, '#FBFBFA'], [0.52, '#C4C7CC'], [0.74, '#9EA2A8'], [0.9, '#E6E7E9'], [1, '#7A7E85']],
   roseGold: [[0, '#7E4148'], [0.2, '#D8A08E'], [0.38, '#FBE1D3'], [0.52, '#E2AE98'], [0.74, '#A8646C'], [0.9, '#F2C9B8'], [1, '#6E3840']],
   nanoBlack: [[0, '#050506'], [0.25, '#121215'], [0.42, '#26252A'], [0.55, '#0E0E10'], [0.8, '#08080A'], [1, '#18171B']],

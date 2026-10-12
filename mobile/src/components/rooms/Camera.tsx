@@ -1,35 +1,44 @@
-// The Camera — a dark viewfinder with a brass reticle for private visual intake. Consent comes first and is
+// The Camera — a noir viewfinder with a chrome reticle for private visual intake. Consent comes first and is
 // explicit; a photo is stored privately (POST /api/camera/uploads) and nothing is analysed until the member
 // asks (POST /api/camera/identify). The reticle only "resolves" on real model output — an unrecognised
 // piece says so and the member names it. The member reviews and catalogues (POST /api/camera/catalogue),
 // then chooses where it goes (POST /api/camera/items/:id/route). Photo and record can be deleted at any time.
-import {useEffect, useState} from 'react';
-import {ActivityIndicator, Image, Pressable, Text, TextInput, View} from 'react-native';
+import {useEffect, useId, useState} from 'react';
+import {ActivityIndicator, Image, Pressable, StyleSheet, Text, View} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
-import Svg, {Path} from 'react-native-svg';
+import Svg, {Defs, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
 import {api, apiUpload} from '@/lib/api';
-import {deco, fonts, track, type Side} from '@/lib/deco';
+import {track, type Side} from '@/lib/deco';
+import {ah, ahFonts, radius} from '@/lib/ah';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
-import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, s} from './shared';
-import {ERR_PINK, LiveGate, OK_GREEN, RowBtn, Status} from './live';
+import {AHCard, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
+import {ActionBar, Chips, SampleNote, s} from './shared';
+import {Consent, ERR_PINK, LiveGate, Meta, OK_GREEN, RowBtn, Status, Tile} from './live';
 
 type Item = {id: string; viewUrl: string | null; label: string | null; category: string | null; brand_guess: string | null; confidence: number | null; model: string | null; state: string; routed_to: string | null; created_at: string};
 type CameraData = {items: Item[]};
 const CATS = ['tops', 'bottoms', 'dresses', 'outerwear', 'shoes', 'bags', 'accessories', 'jewelry', 'beauty', 'home', 'other'];
-const ROUTES: Array<['closet' | 'exchange' | 'bag', string, string]> = [['closet', 'HANG IN MY CLOSET', 'Hung privately in your Closet.'], ['exchange', 'OFFER ON THE EXCHANGE', 'Marked for the Exchange as your choice. Nothing is listed until you consign it there.'], ['bag', 'FIND A MATCH IN THE BAG', 'Marked for the Bag as your choice. Nothing is bought from here.']];
-const STATE: Record<string, string> = {uploaded: 'STORED · NOT ANALYSED', identified: 'IDENTIFIED · REVIEW IT', unidentified: 'NOT RECOGNISED · NAME IT', catalogued: 'CATALOGUED', routed: 'SENT'};
+const ROUTES: Array<['closet' | 'exchange' | 'bag', string, string]> = [['closet', 'Hang in my Closet', 'Hung privately in your Closet.'], ['exchange', 'Offer on the Exchange', 'Marked for the Exchange as your choice. Nothing is listed until you consign it there.'], ['bag', 'Find a match in the Bag', 'Marked for the Bag as your choice. Nothing is bought from here.']];
+const STATE: Record<string, string> = {uploaded: 'Stored · not analysed', identified: 'Identified · review it', unidentified: 'Not recognised · name it', catalogued: 'Catalogued', routed: 'Sent'};
 
-/** Brass reticle corners over a dark viewfinder. `resolved` tightens the corners (only on real output). */
-function Reticle({resolved, children}: {resolved?: boolean; children?: React.ReactNode}) {
-  const c = resolved ? deco.brassWhite : deco.brass, k = resolved ? 18 : 26;
+/** Chrome reticle corners over a noir viewfinder. `resolved` tightens the corners (only on real output). */
+function Reticle({resolved, small, children}: {resolved?: boolean; small?: boolean; children?: React.ReactNode}) {
+  const id = `rt${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const c = resolved ? ah.white : 'rgba(255,255,255,0.45)', k = resolved ? 18 : 26;
   return (
-    <View style={{aspectRatio: 1, backgroundColor: '#070504', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'}}>
+    <View style={{aspectRatio: small ? 1 : 1 / 0.86, borderRadius: small ? 14 : radius.hero, backgroundColor: '#070607', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderWidth: 1, borderColor: ah.line}}>
+      {!small ? (
+        <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
+          <Defs><RadialGradient id={id} cx="0.5" cy="0.55" r="0.6"><Stop offset="0" stopColor={ah.rose2} stopOpacity={0.22} /><Stop offset="1" stopColor={ah.rose2} stopOpacity={0} /></RadialGradient></Defs>
+          <Rect width="100%" height="100%" fill={`url(#${id})`} />
+        </Svg>
+      ) : null}
       {children}
-      <Svg style={{position: 'absolute', left: 0, top: 0, width: '100%', height: '100%'}} viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
-        {[[`M${k} 12 H12 V${k}`], [`M${100 - k} 12 H88 V${k}`], [`M12 ${100 - k} V88 H${k}`], [`M88 ${100 - k} V88 H${100 - k}`]].map(([d]) => <Path key={d} d={d} stroke={c} strokeWidth={1.4} fill="none" />)}
-        <Path d="M47 50 H53 M50 47 V53" stroke={c} strokeWidth={0.8} />
+      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" pointerEvents="none">
+        {[`M${k} 12 H12 V${k}`, `M${100 - k} 12 H88 V${k}`, `M12 ${100 - k} V88 H${k}`, `M88 ${100 - k} V88 H${100 - k}`].map((d) => <Path key={d} d={d} stroke={c} strokeWidth={small ? 2 : 1.2} fill="none" strokeLinecap="round" />)}
+        {!small ? <Path d="M48 50 H52 M50 48 V52" stroke={c} strokeWidth={0.6} /> : null}
       </Svg>
     </View>
   );
@@ -39,7 +48,7 @@ export function Camera({side}: {side: Side}) {
   const acc = track[side].acc;
   const {live, reload} = useLive<CameraData>('/api/camera/items');
   return (
-    <View style={{gap: 12}}>
+    <View style={{gap: 16}}>
       <LiveGate live={live} reload={() => void reload()} what="the Camera" signedOut={<CameraSample />}>
         {(data) => <CameraLive data={data} acc={acc} reload={() => reload(true)} />}
       </LiveGate>
@@ -71,43 +80,36 @@ function CameraLive({data, acc, reload}: {data: CameraData; acc: string; reload:
     void upload(await ImagePicker.launchCameraAsync({mediaTypes: ['images'], quality: 0.8, allowsEditing: false, exif: false}));
   };
   const choose = async () => void upload(await ImagePicker.launchImageLibraryAsync({mediaTypes: ['images'], quality: 0.8, allowsMultipleSelection: false, exif: false}));
+  const off = !consent || !!uploading;
 
   return (
-    <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
-      <GoldFrame pad={3}>
-        <Reticle>
-          {uploading ? <><Image source={{uri: uploading}} style={{position: 'absolute', width: '100%', height: '100%', opacity: 0.6}} resizeMode="cover" /><ActivityIndicator color={deco.brassHighlight} /></> : (
-            <View style={{alignItems: 'center', gap: 8, paddingHorizontal: 30}}>
-              <Icon name="camera" size={34} color={deco.brass} strokeWidth={1.2} />
-              <Text style={{fontFamily: fonts.script, fontSize: 18, lineHeight: 23, color: deco.cream, textAlign: 'center'}}>{consent ? 'One piece at a time, in good light.' : 'Before the shutter, your consent.'}</Text>
-            </View>
-          )}
-        </Reticle>
-      </GoldFrame>
+    <Animated.View entering={FadeIn.duration(300)} style={{gap: 16}}>
+      <Reticle>
+        {uploading ? <><Image source={{uri: uploading}} style={{position: 'absolute', width: '100%', height: '100%', opacity: 0.6}} resizeMode="cover" /><ActivityIndicator color={ah.rose} /></> : (
+          <View style={{alignItems: 'center', gap: 12, paddingHorizontal: 36}}>
+            <Icon name="camera" size={30} color={ah.platinum} strokeWidth={1.2} />
+            <AHTitle size={28} style={{textAlign: 'center'}}>{consent ? 'One piece at a time, in good light.' : 'Before the shutter, your consent.'}</AHTitle>
+          </View>
+        )}
+      </Reticle>
 
-      <Pressable onPress={() => setConsent((c) => !c)} accessibilityRole="checkbox" accessibilityState={{checked: consent}} style={{flexDirection: 'row', gap: 10, alignItems: 'flex-start', padding: 12, borderWidth: 1, borderColor: consent ? OK_GREEN : deco.brassHighlight}}>
-        <View style={{width: 22, height: 22, marginTop: 1, borderWidth: 1.5, borderColor: deco.brassHighlight, alignItems: 'center', justifyContent: 'center', backgroundColor: consent ? deco.brassHighlight : 'transparent'}}>
-          {consent ? <Text style={{color: '#140E08', fontSize: 13, fontFamily: fonts.bodyStrong}}>✓</Text> : null}
-        </View>
-        <Text style={[s.small, {flex: 1}]}>I consent to Finesse storing this photo privately and, only when I ask, letting the model describe it. I can delete the photo and its record at any time.</Text>
-      </Pressable>
+      <Consent checked={consent} onToggle={() => setConsent((c) => !c)}>
+        I consent to Finesse storing this photo privately and, only when I ask, letting the model describe it. I can delete the photo and its record at any time.
+      </Consent>
 
       <View style={{flexDirection: 'row', gap: 10}}>
-        <Pressable onPress={shoot} disabled={!consent || !!uploading} accessibilityRole="button" accessibilityLabel="Take a photo" accessibilityState={{disabled: !consent}} style={({pressed}) => [{flex: 1, minHeight: 80, alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: acc, opacity: !consent || uploading ? 0.4 : pressed ? 0.85 : 1}]}>
-          <Icon name="camera" size={24} color="#140508" strokeWidth={1.8} />
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10.5, letterSpacing: 2, color: '#140508'}}>SCAN A PIECE</Text>
-        </Pressable>
-        <Pressable onPress={choose} disabled={!consent || !!uploading} accessibilityRole="button" accessibilityLabel="Choose from your library" accessibilityState={{disabled: !consent}} style={({pressed}) => [{flex: 1, minHeight: 80, alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1.5, borderColor: deco.brassHighlight, opacity: !consent || uploading ? 0.4 : pressed ? 0.85 : 1}]}>
-          <Icon name="image" size={24} color={deco.brassHighlight} strokeWidth={1.6} />
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 10.5, letterSpacing: 2, color: deco.brassHighlight}}>FROM LIBRARY</Text>
-        </Pressable>
+        <Tile icon="camera" label="Scan a piece" a11y="Take a photo" solid rose={acc === ah.rose} onPress={shoot} disabled={off} />
+        <Tile icon="image" label="From library" a11y="Choose from your library" onPress={choose} disabled={off} />
       </View>
       <Status msg={msg} />
 
-      <SectionHead>YOUR INTAKE · {data.items.length}</SectionHead>
+      <View style={{flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 8}}>
+        <AHEyebrow>Your intake</AHEyebrow>
+        <Text style={{fontFamily: ahFonts.serif, fontSize: 22, color: ah.text}}>{data.items.length}</Text>
+      </View>
       {data.items.length === 0 ? <Text style={[s.small, {textAlign: 'center'}]}>Nothing scanned yet. Your photos stay private to you.</Text> : null}
       {data.items.map((it) => <ItemCard key={it.id} item={it} acc={acc} reload={reload} onDeleted={() => setMsg({ok: true, text: 'Deleted — the photo and its record.'})} />)}
-      <SampleNote>PRIVATE INTAKE · NOTHING IS ANALYSED UNLESS YOU ASK · NO GUESSES — UNRECOGNISED MEANS UNRECOGNISED</SampleNote>
+      <SampleNote>Private intake · nothing is analysed unless you ask · no guesses — unrecognised means unrecognised</SampleNote>
     </Animated.View>
   );
 }
@@ -133,54 +135,59 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
     return true;
   };
   const reviewing = item.state === 'uploaded' || item.state === 'identified' || item.state === 'unidentified';
+  const stateColor = item.state === 'unidentified' ? ERR_PINK : item.state === 'routed' || item.state === 'catalogued' ? OK_GREEN : ah.mute;
 
   return (
-    <Animated.View entering={FadeInDown.duration(300)} layout={LinearTransition} style={{flexDirection: 'row', gap: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(201,169,97,0.35)'}}>
-      <View style={{width: 96}}>
-        <GoldFrame pad={2}>
-          <Reticle resolved={item.state === 'identified' || item.state === 'catalogued' || item.state === 'routed'}>
-            {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: fonts.mono, fontSize: 7, color: deco.brass}}>NO PREVIEW</Text>}
-          </Reticle>
-        </GoldFrame>
-      </View>
-      <View style={{flex: 1, gap: 6}}>
-        <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 0.8, color: item.state === 'unidentified' ? ERR_PINK : item.state === 'routed' || item.state === 'catalogued' ? OK_GREEN : deco.brass}}>
-          {STATE[item.state] ?? item.state.toUpperCase()}{item.confidence !== null ? ` · ${Math.round(item.confidence * 100)}%` : ''}{item.model ? ` · ${item.model}` : ''}
-        </Text>
-        {item.label && !reviewing ? <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{item.label}{item.category ? <Text style={s.small}>  · {item.category}</Text> : null}</Text> : null}
-        {item.brand_guess ? <Text style={s.small}>Brand read from a visible logo: {item.brand_guess}</Text> : null}
+    <Animated.View entering={FadeInDown.duration(300)} layout={LinearTransition}>
+      <AHCard pad={14} style={{gap: 14}}>
+        <View style={{flexDirection: 'row', gap: 14}}>
+          <View style={{width: 92}}>
+            <Reticle small resolved={item.state === 'identified' || item.state === 'catalogued' || item.state === 'routed'}>
+              {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 10, color: ah.faint}}>No preview</Text>}
+            </Reticle>
+          </View>
+          <View style={{flex: 1, gap: 6}}>
+            <Meta color={stateColor}>
+              {STATE[item.state] ?? item.state}{item.confidence !== null ? ` · ${Math.round(item.confidence * 100)}%` : ''}{item.model ? ` · ${item.model}` : ''}
+            </Meta>
+            {item.label && !reviewing ? <Text style={{fontFamily: ahFonts.serif, fontSize: 22, lineHeight: 25, color: ah.text}}>{item.label}{item.category ? <Text style={[s.small, {fontSize: 13}]}>  · {item.category}</Text> : null}</Text> : null}
+            {item.brand_guess ? <Text style={s.small}>Brand read from a visible logo: {item.brand_guess}</Text> : null}
+            {item.state === 'uploaded' ? <RowBtn label={busy ? 'Looking…' : 'Ask the reticle'} onPress={() => call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}}, 'The model has described it. Review before it is filed.')} disabled={busy} tone={acc} /> : null}
+            {item.state === 'routed' ? <Text style={s.small}>{item.routed_to === 'closet' ? 'Hanging privately in your Closet.' : `Marked for the ${item.routed_to} as your choice.`}</Text> : null}
+          </View>
+        </View>
 
-        {item.state === 'uploaded' ? <RowBtn label={busy ? 'LOOKING…' : 'ASK THE RETICLE'} onPress={() => call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}}, 'The model has described it. Review before it is filed.')} disabled={busy} tone={acc} /> : null}
         {reviewing ? (
-          <View style={{gap: 6}}>
-            <TextInput value={label} onChangeText={(v) => setLabel(v.slice(0, 120))} placeholder={item.state === 'unidentified' ? 'Not recognised — name it yourself' : 'What is it?'} placeholderTextColor="rgba(244,232,208,0.4)" accessibilityLabel="Label"
-              style={{minHeight: 40, paddingHorizontal: 8, borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)', fontFamily: fonts.body, fontSize: 12.5, color: deco.cream}} />
+          <View style={{gap: 10}}>
+            <AHInput value={label} onChangeText={(v) => setLabel(v.slice(0, 120))} placeholder={item.state === 'unidentified' ? 'Not recognised — name it yourself' : 'What is it?'} accessibilityLabel="Label" />
             <Chips options={CATS} value={cat} onChange={setCat} />
-            <RowBtn label="CATALOGUE IT" onPress={() => call('/api/camera/catalogue', {method: 'POST', json: {itemId: item.id, label: label.trim(), category: cat}}, 'Catalogued. Choose where it goes, or leave it here.')} disabled={busy || !label.trim()} tone={deco.brassHighlight} />
+            <RowBtn label="Catalogue it" onPress={() => call('/api/camera/catalogue', {method: 'POST', json: {itemId: item.id, label: label.trim(), category: cat}}, 'Catalogued. Choose where it goes, or leave it here.')} disabled={busy || !label.trim()} tone={ah.rose} />
           </View>
         ) : null}
         {item.state === 'catalogued' ? (
-          <View style={{gap: 6}}>
+          <View style={{gap: 8}}>
             {ROUTES.map(([to, l, ok]) => <RowBtn key={to} label={l} onPress={() => call(`/api/camera/items/${item.id}/route`, {method: 'POST', json: {to}}, ok)} disabled={busy} />)}
           </View>
         ) : null}
-        {item.state === 'routed' ? <Text style={s.small}>{item.routed_to === 'closet' ? 'Hanging privately in your Closet.' : `Marked for the ${item.routed_to} as your choice.`}</Text> : null}
 
-        <Pressable onPress={async () => { if (!confirmDel) { setConfirmDel(true); return; } setConfirmDel(false); if (await call(`/api/camera/items/${item.id}`, {method: 'DELETE'}, 'Deleted — the photo and its record.')) onDeleted(); }} disabled={busy} accessibilityRole="button" style={{minHeight: 34, justifyContent: 'center'}}>
-          <Text style={{fontFamily: fonts.capsBold, fontSize: 8.5, letterSpacing: 1.3, color: confirmDel ? ERR_PINK : 'rgba(244,232,208,0.5)'}}>{confirmDel ? 'TAP AGAIN TO DELETE PHOTO AND RECORD' : 'DELETE PHOTO AND RECORD'}</Text>
+        <Pressable onPress={async () => { if (!confirmDel) { setConfirmDel(true); return; } setConfirmDel(false); if (await call(`/api/camera/items/${item.id}`, {method: 'DELETE'}, 'Deleted — the photo and its record.')) onDeleted(); }} disabled={busy} accessibilityRole="button"
+          style={{minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start'}}>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12.5, color: confirmDel ? ERR_PINK : ah.faint}}>{confirmDel ? 'Tap again to delete photo and record' : 'Delete photo and record'}</Text>
         </Pressable>
         <Status msg={msg} />
-      </View>
+      </AHCard>
     </Animated.View>
   );
 }
 
 function CameraSample() {
   return (
-    <View style={{gap: 8, opacity: 0.85}}>
-      <GoldFrame pad={3}><Reticle><Icon name="camera" size={34} color={deco.brass} strokeWidth={1.2} /></Reticle></GoldFrame>
-      <ActionBar label="SCAN THE REST OF THE CLOSET" color={deco.brass} disabled />
-      <SampleNote>SIGN IN TO SCAN · PHOTOS ARE STORED PRIVATELY, ONLY WITH YOUR CONSENT</SampleNote>
+    <View style={{gap: 12, opacity: 0.9}}>
+      <Reticle>
+        <Icon name="camera" size={34} color={ah.platinum} strokeWidth={1.2} />
+      </Reticle>
+      <ActionBar label="Scan the rest of the closet" color={ah.platinum} disabled />
+      <SampleNote>Sign in to scan · photos are stored privately, only with your consent</SampleNote>
     </View>
   );
 }

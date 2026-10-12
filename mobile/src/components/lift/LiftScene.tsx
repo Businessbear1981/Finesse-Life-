@@ -1,192 +1,222 @@
-// The Private Lift: deco canopy and fanlight, floor indicator, fluted brass columns and two lacquered
-// doors carrying the six tumblers (three per door). Display only — the server opens the doors.
-import {useEffect} from 'react';
-import {Text, View} from 'react-native';
+// The Private Lift — After Hours (mirrors web src/components/hotel/private-lift.tsx): a chrome frame around two
+// black-glass doors, three cipher cells per door, rose-gold light leaking through the seam, and the penthouse
+// at night waiting behind. Display only — the server opens the doors.
+import {useEffect, useId} from 'react';
+import {StyleSheet, Text, View} from 'react-native';
 import Animated, {Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue} from 'react-native-reanimated';
-import Svg, {Circle, Defs, G, LinearGradient, Path, RadialGradient, Rect, Stop, Text as SvgText} from 'react-native-svg';
-import {arcPath, deco, fonts, polar} from '@/lib/deco';
+import Svg, {Defs, G, LinearGradient, RadialGradient, Rect, Stop} from 'react-native-svg';
+import {ah, ahFonts} from '@/lib/ah';
 
 const ROW = 30;
 const ROWS = ['·', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+const svgId = (raw: string, p: string) => `${p}${raw.replace(/[^a-zA-Z0-9]/g, '')}`;
 
 type Props = {
   width: number;
   digits: string;
-  masked: boolean;               // enrolment: show ◆ instead of numbers
-  active: boolean;               // tumblers lit (cipher showing)
+  masked: boolean;               // enrolment: show a dot instead of numbers
+  active: boolean;               // cells lit (cipher showing)
   floor: SharedValue<number>;    // 0 = Lobby, 1 = Penthouse
   doors: SharedValue<number>;    // 0 = closed, 1 = open
   reduced: boolean;
 };
 
+/* A deterministic night skyline (no randomness at render). */
+type Tower = {x: number; w: number; h: number; lit: Array<[number, number, boolean]>};
+function skyline(width: number, maxH: number, seed0 = 23): Tower[] {
+  let seed = seed0;
+  const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  const out: Tower[] = [];
+  let x = -4;
+  while (x < width) {
+    const w = 12 + Math.round(rnd() * 20);
+    const tall = rnd() > 0.8;
+    const h = (tall ? 0.7 + rnd() * 0.3 : 0.25 + rnd() * 0.45) * maxH;
+    const lit: Array<[number, number, boolean]> = [];
+    for (let row = 6; row < h - 4; row += 6) for (let col = 3; col < w - 3; col += 4) if (rnd() > 0.86) lit.push([col, row, rnd() > 0.6]);
+    out.push({x, w, h, lit});
+    x += w + 2 + Math.round(rnd() * 3);
+  }
+  return out;
+}
+
+/** The penthouse at night, as SVG: sky, rose horizon, skyline. Shared with the Penthouse floor. */
+export function NightView({width, height, glow = 1}: {width: number; height: number; glow?: number}) {
+  const id = svgId(useId(), 'nv');
+  const towers = skyline(width, height * 0.55);
+  return (
+    <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <LinearGradient id={`${id}s`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#0B0B12" /><Stop offset="0.6" stopColor="#1A0F14" /><Stop offset="1" stopColor="#3A1D22" /></LinearGradient>
+        <RadialGradient id={`${id}h`} cx="0.5" cy="1" r="0.7"><Stop offset="0" stopColor={ah.rose} stopOpacity={0.7 * glow} /><Stop offset="1" stopColor={ah.rose} stopOpacity={0} /></RadialGradient>
+        <RadialGradient id={`${id}m`} cx="0.8" cy="0.18" r="0.35"><Stop offset="0" stopColor={ah.platinum} stopOpacity={0.22} /><Stop offset="1" stopColor={ah.platinum} stopOpacity={0} /></RadialGradient>
+        <LinearGradient id={`${id}t`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#141218" /><Stop offset="1" stopColor="#050506" /></LinearGradient>
+      </Defs>
+      <Rect width={width} height={height} fill={`url(#${id}s)`} />
+      <Rect width={width} height={height} fill={`url(#${id}h)`} />
+      <Rect width={width} height={height} fill={`url(#${id}m)`} />
+      {towers.map((t, i) => (
+        <G key={i} transform={`translate(${t.x} ${height - t.h})`}>
+          <Rect width={t.w} height={t.h} fill={`url(#${id}t)`} />
+          <Rect width={t.w} height={0.6} fill="rgba(255,255,255,0.18)" />
+          {t.lit.map(([cx, cy, warm], j) => <Rect key={j} x={cx} y={cy} width={1.6} height={2.2} fill={warm ? ah.blush : '#C9CCD2'} opacity={warm ? 0.9 : 0.55} />)}
+        </G>
+      ))}
+    </Svg>
+  );
+}
+
+/** Small black-glass floor readout: "--" in the lobby, "17" at the top. Driven by the floor value. */
+export function FloorReadout({floor, lit}: {floor: SharedValue<number>; lit: boolean}) {
+  const lobby = useAnimatedStyle(() => ({opacity: 1 - floor.value}));
+  const top = useAnimatedStyle(() => ({opacity: floor.value}));
+  return (
+    <View accessible accessibilityLabel="Floor indicator" style={{minWidth: 66, paddingHorizontal: 12, paddingTop: 8, paddingBottom: 7, borderRadius: 12, alignItems: 'center', backgroundColor: '#070708', borderWidth: 1, borderColor: ah.line2}}>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 9, letterSpacing: 2, color: ah.faint}}>FLOOR</Text>
+      <View style={{height: 28, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center'}}>
+        <Animated.Text style={[{position: 'absolute', fontFamily: ahFonts.cond, fontSize: 22, letterSpacing: 1.5, color: lit ? ah.rose : ah.faint, textShadowColor: lit ? 'rgba(232,180,160,0.55)' : 'transparent', textShadowRadius: 10}, lobby]}>{lit ? '01' : '· · ·'}</Animated.Text>
+        <Animated.Text style={[{position: 'absolute', fontFamily: ahFonts.cond, fontSize: 22, letterSpacing: 1.5, color: ah.rose, textShadowColor: 'rgba(232,180,160,0.55)', textShadowRadius: 10}, top]}>17</Animated.Text>
+      </View>
+    </View>
+  );
+}
+
 export function LiftScene({width, digits, masked, active, floor, doors, reduced}: Props) {
-  const W = width, k = W / 340;
-  const H = 470 * k;
-  const bayX = 46 * k, bayW = 248 * k, bayY = 150 * k, bayH = 300 * k;
+  const id = svgId(useId(), 'lf');
+  const W = width;
+  const pad = 6;
+  const bayW = W - pad * 2;
+  const bayH = bayW * (4.6 / 4);
+  const H = bayH + pad * 2;
   const doorW = bayW / 2;
 
-  const needle = useAnimatedStyle(() => ({transform: [{rotate: `${-80 + 160 * floor.value}deg`}]}));
   const left = useAnimatedStyle(() => ({transform: [{translateX: -doorW * doors.value}]}));
   const right = useAnimatedStyle(() => ({transform: [{translateX: doorW * doors.value}]}));
   const inside = useAnimatedStyle(() => ({opacity: interpolate(doors.value, [0, 0.3, 1], [0, 0.6, 1])}));
-  const lamp = useAnimatedStyle(() => ({opacity: 0.35 + 0.65 * floor.value}));
+  const seam = useAnimatedStyle(() => ({opacity: interpolate(doors.value, [0, 0.4], [1, 0])}));
+  const pool = useAnimatedStyle(() => ({opacity: (active ? 0.9 : 0.35) + 0.1 * floor.value}));
 
   return (
-    <View style={{width: W, height: H, alignSelf: 'center'}}>
-      {/* Architecture: canopy, fanlight, indicator, columns, frame */}
-      <Svg style={{position: 'absolute'}} width={W} height={H} viewBox="0 0 340 470">
-        <Defs>
-          <LinearGradient id="brassV" x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={deco.brassWhite} />
-            <Stop offset="0.35" stopColor={deco.brassHighlight} />
-            <Stop offset="0.7" stopColor={deco.brass} />
-            <Stop offset="1" stopColor={deco.brassShadow} />
-          </LinearGradient>
-          <LinearGradient id="flute" x1="0" y1="0" x2="1" y2="0">
-            <Stop offset="0" stopColor="#2A1A0A" />
-            <Stop offset="0.3" stopColor={deco.brass} />
-            <Stop offset="0.5" stopColor={deco.brassWhite} />
-            <Stop offset="0.7" stopColor={deco.brass} />
-            <Stop offset="1" stopColor="#2A1A0A" />
-          </LinearGradient>
-          <RadialGradient id="fan" cx="170" cy="150" r="120" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor={deco.lamp} stopOpacity={0.45} />
-            <Stop offset="1" stopColor={deco.ink} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        {/* stepped canopy */}
-        <Path d="M40 30 L300 30 M58 22 L282 22 M80 14 L260 14" stroke="url(#brassV)" strokeWidth={2} />
-        <Path d="M170 2 L180 12 L170 22 L160 12 Z" fill={deco.ink} stroke={deco.brassHighlight} strokeWidth={1.2} />
-        {/* fanlight */}
-        <Path d="M46 150 A124 110 0 0 1 294 150 Z" fill="url(#fan)" stroke="url(#brassV)" strokeWidth={2.5} />
-        <Path d="M76 150 A94 82 0 0 1 264 150" stroke={deco.brass} strokeOpacity={0.5} fill="none" />
-        {Array.from({length: 13}, (_, i) => {
-          const a = -90 + i * 15; const p = polar(170, 150, 108, a + 90 - 90); const q = polar(170, 150, 40, a + 90 - 90);
-          return <Path key={i} d={`M${q.x} ${q.y} L${p.x} ${p.y}`} stroke={deco.brass} strokeOpacity={0.35} strokeWidth={1} />;
-        })}
-        {/* floor indicator face */}
-        <Circle cx={170} cy={112} r={34} fill={deco.ink} stroke="url(#brassV)" strokeWidth={3} />
-        <Path d={arcPath(170, 112, 27, -80, 80)} stroke={deco.brass} strokeOpacity={0.6} fill="none" />
-        {Array.from({length: 9}, (_, i) => {
-          const a = -80 + i * 20; const p = polar(170, 112, 27, a), q = polar(170, 112, i % 4 === 0 ? 20 : 23, a);
-          return <Path key={i} d={`M${p.x} ${p.y} L${q.x} ${q.y}`} stroke={deco.brassHighlight} strokeWidth={i % 4 === 0 ? 1.6 : 0.8} />;
-        })}
-        <SvgText x={144} y={126} fontSize={9} fill={deco.brassHighlight} fontFamily={fonts.label} textAnchor="middle">L</SvgText>
-        <SvgText x={196} y={126} fontSize={9} fill={deco.brassHighlight} fontFamily={fonts.label} textAnchor="middle">P</SvgText>
-        {/* fluted columns */}
-        {[[14, 30], [296, 30]].map(([x, w]) => (
-          <G key={x}>
-            <Rect x={x} y={150} width={w} height={300} fill={deco.oxblood} />
-            {Array.from({length: 5}, (_, i) => <Rect key={i} x={x + 2 + i * 5.6} y={156} width={4} height={288} rx={2} fill="url(#flute)" opacity={0.85} />)}
-            <Rect x={x - 3} y={146} width={w + 6} height={6} fill="url(#brassV)" />
-            <Rect x={x - 3} y={448} width={w + 6} height={8} fill="url(#brassV)" />
-          </G>
-        ))}
-        {/* architrave */}
-        <Rect x={43} y={147} width={254} height={306} fill="none" stroke="url(#brassV)" strokeWidth={3} />
-      </Svg>
-
-      {/* needle + lamp */}
-      <Animated.View style={[{position: 'absolute', left: 170 * k - 30 * k, top: 112 * k - 30 * k, width: 60 * k, height: 60 * k}, needle]}>
-        <Svg width={60 * k} height={60 * k} viewBox="0 0 60 60">
-          <Path d="M30 30 L30 7" stroke={deco.brassWhite} strokeWidth={2} strokeLinecap="round" />
-          <Path d="M30 4 L33 10 L27 10 Z" fill={deco.pink} />
-          <Circle cx={30} cy={30} r={4} fill={deco.brassHighlight} />
+    <View style={{width: W, height: H + 30, alignSelf: 'center'}}>
+      {/* rose light pooling under the car */}
+      <Animated.View pointerEvents="none" style={[{position: 'absolute', left: W * 0.1, right: W * 0.1, top: H - 26, height: 56}, pool]}>
+        <Svg width="100%" height="100%">
+          <Defs><RadialGradient id={`${id}p`} cx="0.5" cy="0.5" r="0.5"><Stop offset="0" stopColor={ah.rose} stopOpacity={0.4} /><Stop offset="1" stopColor={ah.rose} stopOpacity={0} /></RadialGradient></Defs>
+          <Rect width="100%" height="100%" fill={`url(#${id}p)`} />
         </Svg>
       </Animated.View>
-      <Animated.View pointerEvents="none" style={[{position: 'absolute', left: 150 * k, top: 64 * k, width: 40 * k, height: 10 * k, borderRadius: 5 * k, backgroundColor: deco.lamp, shadowColor: deco.lamp, shadowOpacity: 0.9, shadowRadius: 12}, lamp]} />
 
-      {/* The bay: interior behind the doors */}
-      <View style={{position: 'absolute', left: bayX, top: bayY, width: bayW, height: bayH, overflow: 'hidden', backgroundColor: deco.ink}}>
-        <Animated.View style={[{position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center'}, inside]}>
-          <Svg style={{position: 'absolute'}} width={bayW} height={bayH}>
-            <Defs>
-              <RadialGradient id="room" cx={bayW / 2} cy={bayH * 0.35} r={bayW * 0.9} gradientUnits="userSpaceOnUse">
-                <Stop offset="0" stopColor={deco.cream} stopOpacity={0.95} />
-                <Stop offset="0.35" stopColor={deco.lamp} stopOpacity={0.5} />
-                <Stop offset="1" stopColor={deco.ink} stopOpacity={1} />
-              </RadialGradient>
-            </Defs>
-            <Rect x={0} y={0} width={bayW} height={bayH} fill="url(#room)" />
-          </Svg>
-          <Text style={{fontFamily: fonts.display, fontSize: 30 * k, color: deco.burgundy}}>The Penthouse</Text>
-          <Text style={{fontFamily: fonts.label, fontSize: 9 * k, letterSpacing: 4 * k, color: deco.burgundy, marginTop: 6}}>FLOOR XVII</Text>
-        </Animated.View>
-        <Animated.View style={[{position: 'absolute', left: 0, top: 0, width: doorW, height: bayH}, left]}>
-          <Door w={doorW} h={bayH} k={k} side="left" digits={digits.slice(0, 3)} masked={masked} active={active} reduced={reduced} />
-        </Animated.View>
-        <Animated.View style={[{position: 'absolute', left: doorW, top: 0, width: doorW, height: bayH}, right]}>
-          <Door w={doorW} h={bayH} k={k} side="right" digits={digits.slice(3, 6)} masked={masked} active={active} reduced={reduced} />
-        </Animated.View>
+      {/* chrome frame */}
+      <View style={{width: W, height: H, borderRadius: 30, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.7, shadowRadius: 40, shadowOffset: {width: 0, height: 30}, elevation: 16}}>
+        <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id={`${id}c`} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0" stopColor="#F4F4F2" /><Stop offset="0.22" stopColor="#6D7076" /><Stop offset="0.48" stopColor="#1A1A1D" /><Stop offset="0.78" stopColor="#9A9CA2" /><Stop offset="1" stopColor="#F4F4F2" />
+            </LinearGradient>
+          </Defs>
+          <Rect width={W} height={H} rx={30} fill={`url(#${id}c)`} />
+        </Svg>
+
+        {/* the bay */}
+        <View style={{position: 'absolute', left: pad, top: pad, width: bayW, height: bayH, borderRadius: 25, overflow: 'hidden', backgroundColor: '#020203'}}>
+          <Animated.View style={[StyleSheet.absoluteFill, {alignItems: 'center', justifyContent: 'center'}, inside]}>
+            <NightView width={bayW} height={bayH} />
+            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 36, color: ah.white, marginTop: -bayH * 0.25}}>The Penthouse</Text>
+            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 3, color: ah.blush, marginTop: 6}}>FLOOR 17</Text>
+          </Animated.View>
+          <Animated.View style={[{position: 'absolute', left: 0, top: 0, width: doorW, height: bayH}, left]}>
+            <Door w={doorW} h={bayH} side="left" digits={digits} masked={masked} active={active} reduced={reduced} />
+          </Animated.View>
+          <Animated.View style={[{position: 'absolute', left: doorW, top: 0, width: doorW, height: bayH}, right]}>
+            <Door w={doorW} h={bayH} side="right" digits={digits} masked={masked} active={active} reduced={reduced} />
+          </Animated.View>
+          {/* the seam: chrome hairline, rose light leaking through */}
+          <Animated.View pointerEvents="none" style={[{position: 'absolute', left: doorW - 1, top: 0, width: 2, height: bayH}, seam]}>
+            <Svg width={2} height={bayH}>
+              <Defs>
+                <LinearGradient id={`${id}s`} x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={active ? ah.rose : '#fff'} stopOpacity={0} />
+                  <Stop offset="0.3" stopColor={active ? ah.rose : '#fff'} stopOpacity={active ? 1 : 0.22} />
+                  <Stop offset="0.5" stopColor={active ? '#fff' : '#fff'} stopOpacity={active ? 0.9 : 0.22} />
+                  <Stop offset="0.7" stopColor={active ? ah.rose : '#fff'} stopOpacity={active ? 1 : 0.22} />
+                  <Stop offset="1" stopColor={active ? ah.rose : '#fff'} stopOpacity={0} />
+                </LinearGradient>
+              </Defs>
+              <Rect width={2} height={bayH} fill={`url(#${id}s)`} />
+            </Svg>
+          </Animated.View>
+          {active ? (
+            <Animated.View pointerEvents="none" style={[{position: 'absolute', left: doorW - 14, top: bayH * 0.2, width: 28, height: bayH * 0.6}, seam]}>
+              <Svg width={28} height={bayH * 0.6}>
+                <Defs><RadialGradient id={`${id}g`} cx="0.5" cy="0.5" rx="0.5" ry="0.5"><Stop offset="0" stopColor={ah.rose} stopOpacity={0.26} /><Stop offset="1" stopColor={ah.rose} stopOpacity={0} /></RadialGradient></Defs>
+                <Rect width={28} height={bayH * 0.6} fill={`url(#${id}g)`} />
+              </Svg>
+            </Animated.View>
+          ) : null}
+        </View>
       </View>
     </View>
   );
 }
 
-function Door({w, h, k, side, digits, masked, active, reduced}: {w: number; h: number; k: number; side: 'left' | 'right'; digits: string; masked: boolean; active: boolean; reduced: boolean}) {
-  const id = `door${side}`;
-  const vw = 124, vh = 300;
-  const inner = side === 'left' ? vw : 0; // the meeting stile
+function Door({w, h, side, digits, masked, active, reduced}: {w: number; h: number; side: 'left' | 'right'; digits: string; masked: boolean; active: boolean; reduced: boolean}) {
+  const id = svgId(useId(), `d${side}`);
+  const offset = side === 'left' ? 0 : 3;
+  const cell = Math.min(34, (w - 44) / 3.4);
   return (
-    <View style={{width: w, height: h}}>
-      <Svg style={{position: 'absolute'}} width={w} height={h} viewBox={`0 0 ${vw} ${vh}`} preserveAspectRatio="none">
+    <View style={{width: w, height: h, alignItems: 'center', justifyContent: 'center', gap: 16}}>
+      <Svg width={w} height={h} style={StyleSheet.absoluteFill}>
         <Defs>
-          <LinearGradient id={`${id}l`} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#4A1A24" />
-            <Stop offset="0.5" stopColor={deco.burgundy} />
-            <Stop offset="1" stopColor="#12060A" />
-          </LinearGradient>
-          <LinearGradient id={`${id}b`} x1="0" y1="0" x2="0" y2="1">
-            <Stop offset="0" stopColor={deco.brassWhite} />
-            <Stop offset="0.5" stopColor={deco.brass} />
-            <Stop offset="1" stopColor={deco.brassShadow} />
+          <LinearGradient id={`${id}b`} x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#111114" /><Stop offset="0.55" stopColor="#08080A" /><Stop offset="1" stopColor="#050506" /></LinearGradient>
+          <LinearGradient id={`${id}r`} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor="#fff" stopOpacity={0.07} /><Stop offset="0.28" stopColor="#fff" stopOpacity={0} /><Stop offset="0.62" stopColor="#fff" stopOpacity={0} /><Stop offset="0.74" stopColor="#fff" stopOpacity={0.04} /><Stop offset="0.8" stopColor="#fff" stopOpacity={0} />
           </LinearGradient>
         </Defs>
-        <Rect x={0} y={0} width={vw} height={vh} fill={`url(#${id}l)`} />
-        {/* stepped deco inlay */}
-        <Path d={`M12 ${vh - 14} L12 70 L22 70 L22 54 L36 54 L36 40 L${vw - 36} 40 L${vw - 36} 54 L${vw - 22} 54 L${vw - 22} 70 L${vw - 12} 70 L${vw - 12} ${vh - 14} Z`} fill="none" stroke={`url(#${id}b)`} strokeWidth={1.4} />
-        <Path d={`M22 ${vh - 24} L22 80 L32 80 L32 64 L46 64 L46 52 L${vw - 46} 52 L${vw - 46} 64 L${vw - 32} 64 L${vw - 32} 80 L${vw - 22} 80 L${vw - 22} ${vh - 24} Z`} fill="none" stroke={deco.brass} strokeOpacity={0.45} strokeWidth={0.8} />
-        {/* sunburst crest */}
-        {Array.from({length: 9}, (_, i) => {
-          const p = polar(vw / 2, 112, 34, -60 + i * 15), q = polar(vw / 2, 112, 8, -60 + i * 15);
-          return <Path key={i} d={`M${q.x} ${q.y} L${p.x} ${p.y}`} stroke={`url(#${id}b)`} strokeWidth={i % 2 ? 0.8 : 1.4} />;
-        })}
-        <Path d={`M${vw / 2 - 6} 112 L${vw / 2} 104 L${vw / 2 + 6} 112 L${vw / 2} 120 Z`} fill={deco.pink} opacity={0.85} />
-        {/* chevrons under the tumblers */}
-        {[0, 1, 2].map((i) => <Path key={i} d={`M30 ${236 + i * 10} L${vw / 2} ${246 + i * 10} L${vw - 30} ${236 + i * 10}`} stroke={deco.brass} strokeOpacity={0.5} fill="none" />)}
-        {/* meeting stile + pull */}
-        <Rect x={inner - (side === 'left' ? 3 : 0)} y={0} width={3} height={vh} fill={`url(#${id}b)`} />
-        <Rect x={side === 'left' ? vw - 14 : 11} y={150} width={3} height={46} rx={1.5} fill={`url(#${id}b)`} />
+        <Rect width={w} height={h} fill={`url(#${id}b)`} />
+        <Rect width={w} height={h} fill={`url(#${id}r)`} />
+        {/* a single etched hairline inset */}
+        <Rect x={14} y={18} width={w - 28} height={h - 36} rx={14} fill="none" stroke="#fff" strokeOpacity={0.05} />
+        <Rect x={side === 'left' ? w - 1 : 0} y={0} width={1} height={h} fill="#fff" fillOpacity={0.12} />
       </Svg>
-      {/* three tumblers */}
-      <View style={{position: 'absolute', top: h * 0.56, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 5 * k}}>
-        {[0, 1, 2].map((i) => <LiftTumbler key={i} k={k} value={digits[i]} masked={masked} active={active} reduced={reduced} />)}
+      <View style={{flexDirection: 'row', gap: cell * 0.22}}>
+        {[0, 1, 2].map((i) => {
+          const index = offset + i;
+          return <Cell key={i} size={cell} value={digits[index]} masked={masked} active={active} current={active && index === digits.length} reduced={reduced} />;
+        })}
       </View>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 9, letterSpacing: 3.8, color: ah.faint}}>{side === 'left' ? 'PRIVATE' : 'LIFT'}</Text>
     </View>
   );
 }
 
-function LiftTumbler({k, value, masked, active, reduced}: {k: number; value?: string; masked: boolean; active: boolean; reduced: boolean}) {
+/** A glass cipher cell; the digit rolls into place. */
+function Cell({size, value, masked, active, current, reduced}: {size: number; value?: string; masked: boolean; active: boolean; current: boolean; reduced: boolean}) {
+  const k = size / 28;
+  const H = size * 1.45;
   const row = value === undefined ? 0 : masked ? 0 : ROWS.indexOf(value);
   const y = useSharedValue(0);
   const set = useSharedValue(0);
   useEffect(() => {
-    y.value = withTiming(-row * ROW, {duration: reduced ? 0 : 520, easing: Easing.out(Easing.back(1.5))});
-    set.value = withTiming(value === undefined ? 0 : 1, {duration: reduced ? 0 : 300});
+    y.value = withTiming(-row * ROW, {duration: reduced ? 0 : 420, easing: Easing.out(Easing.back(1.4))});
+    set.value = withTiming(value === undefined ? 0 : 1, {duration: reduced ? 0 : 220});
   }, [row, value, reduced, set, y]);
   const col = useAnimatedStyle(() => ({transform: [{translateY: y.value * k}]}));
-  const ring = useAnimatedStyle(() => ({borderColor: set.value > 0.5 ? deco.brassWhite : deco.brassShadow, shadowOpacity: 0.7 * set.value}));
+  const ring = useAnimatedStyle(() => ({
+    borderColor: set.value > 0.5 ? 'rgba(232,180,160,0.75)' : current ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.1)',
+    shadowOpacity: 0.6 * set.value,
+  }));
   return (
-    <Animated.View style={[{width: 28 * k, height: 40 * k, borderRadius: 4 * k, borderWidth: 1.5, overflow: 'hidden', backgroundColor: '#0E0508',
-      shadowColor: deco.brassHighlight, shadowRadius: 8, opacity: active ? 1 : 0.45}, ring]}>
-      <Animated.View style={[{position: 'absolute', left: 0, right: 0, top: (40 - ROW) / 2 * k}, col]}>
-        {ROWS.map((r) => (
-          <Text key={r} style={{height: ROW * k, lineHeight: ROW * k, textAlign: 'center', fontFamily: fonts.label, fontSize: 20 * k,
-            color: r === '·' ? deco.brassShadow : deco.brassHighlight}}>{value !== undefined && masked && r === '·' ? '◆' : r}</Text>
-        ))}
-      </Animated.View>
-      <View pointerEvents="none" style={{position: 'absolute', left: 0, right: 0, top: 0, height: 10 * k, backgroundColor: '#000', opacity: 0.55}} />
-      <View pointerEvents="none" style={{position: 'absolute', left: 0, right: 0, bottom: 0, height: 10 * k, backgroundColor: '#000', opacity: 0.55}} />
+    <Animated.View style={[{width: size, height: H, borderRadius: 12 * k, borderWidth: 1.2, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)',
+      shadowColor: ah.rose, shadowRadius: 10, shadowOffset: {width: 0, height: 0}, opacity: active ? 1 : 0.35}, ring]}>
+      {value !== undefined && masked ? (
+        <View style={{flex: 1, alignItems: 'center', justifyContent: 'center'}}><View style={{width: 9 * k, height: 9 * k, borderRadius: 5 * k, backgroundColor: ah.rose}} /></View>
+      ) : (
+        <Animated.View style={[{position: 'absolute', left: 0, right: 0, top: (H - ROW * k) / 2}, col]}>
+          {ROWS.map((r) => (
+            <Text key={r} style={{height: ROW * k, lineHeight: ROW * k, textAlign: 'center', fontFamily: ahFonts.serif, fontSize: 24 * k, color: r === '·' ? 'rgba(255,255,255,0.3)' : ah.text}}>{r}</Text>
+          ))}
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
