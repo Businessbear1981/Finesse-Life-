@@ -9,6 +9,8 @@ import {ah, ahFonts} from '@/lib/ah';
 import {REQUEST_STATUS, askNovaToPlan, closeRequest, listRequests, novaFailure, type NovaRequest, type PlanTopic} from '@/lib/rooms/nova-plan';
 import {ActionBar, s} from './shared';
 import {Meta, RowBtn, Status} from './live';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 const WHEN: Array<[string, () => Date | null]> = [
   ['Any time', () => null],
@@ -28,6 +30,7 @@ export function PlanWithNova({room, topic, title, label, placeholder, acc, withW
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const consent = useAIConsent();
 
   const load = useCallback(async () => {
     const r = await listRequests();
@@ -70,7 +73,7 @@ export function PlanWithNova({room, topic, title, label, placeholder, acc, withW
           <RowBtn label="+" a11y="More guests" onPress={() => setParty((p) => Math.min(40, p + 1))} />
         </View>
       ) : null}
-      <ActionBar label={busy ? 'Nova is drafting…' : 'Ask Nova to plan it'} color={acc} onPress={ask} disabled={busy || !brief.trim()} />
+      <ActionBar label={busy ? 'Nova is drafting…' : 'Ask Nova to plan it'} color={acc} onPress={() => { if (brief.trim() && !busy) void consent.ensure('ai_processing', () => void ask()); }} disabled={busy || !brief.trim()} />
       <Text style={s.small}>Nova drafts options with times. No booking partner is connected, so nothing is reserved until you arrange it.</Text>
       <Status msg={msg} />
 
@@ -91,6 +94,7 @@ export function PlanWithNova({room, topic, title, label, placeholder, acc, withW
                 {on ? (
                   <Animated.View entering={FadeIn.duration(250)} style={{gap: 10}}>
                     <Text style={[s.body, {fontSize: 14}]}>{q.result?.plan ?? (q.status === 'failed' ? 'Nova could not finish this one. Nothing was booked.' : 'No plan yet.')}</Text>
+                    {q.result?.plan ? <NovaReport targetId={`request:${q.id}`} text={q.result.plan} /> : null}
                     {q.status === 'ready' ? (
                       <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap'}}>
                         <RowBtn label="I’ve arranged it" onPress={() => close(q.id, 'done')} disabled={busy} tone={ah.rose} />

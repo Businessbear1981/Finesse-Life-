@@ -9,6 +9,7 @@ import { formatCents, resultView, type ItemView } from '@/lib/nova-request-view'
 import { failureText, runNovaRequest, today, useRoomData } from '@/lib/rooms/live-room';
 import { LiveRoom, Notice, SampleLabel } from '@/components/live-room-states';
 import { useLocalPref } from '@/components/after-hours';
+import {ReportReply} from '@/components/nova/report-reply';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -233,12 +234,14 @@ function Dossier({person, accent, reload}: {person: Person; accent: string; relo
                 <button type="button" disabled={busy === 'save'} onClick={() => saveIdea(i)} className="min-h-9 px-3 font-label text-[8px] uppercase tracking-[0.2em] text-brass">Save as idea</button>
               </li>
             ))}
+            <li><ReportReply targetId={`entourage-ideas:${person.id}:${ideas.length}:${ideas[0]?.title.slice(0, 40) ?? ''}`} text={ideas.map((i) => [i.brand, i.title].filter(Boolean).join(' ')).join('; ')} /></li>
           </ul>
         ))}
         {plan && (
           <div className="border-t border-brass/10 pt-3">
             <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-brass/50">Nova’s plan · in your Diary · nothing is booked</p>
             <p className="whitespace-pre-line font-body text-sm leading-relaxed text-cream/70">{plan}</p>
+            <ReportReply key={plan} targetId={`entourage-plan:${person.id}:${plan.length}`} text={plan} />
           </div>
         )}
       </div>

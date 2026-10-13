@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useLocalPref } from '@/components/after-hours';
 import { NovaAction } from '@/components/nova/request-card';
+import { ensureAiConsent } from '@/components/nova/ai-consent';
 import type { ItemView } from '@/lib/nova-request-view';
 import { wardrobeSeedQuery } from '@/lib/wardrobe-seed';
 
@@ -357,6 +358,8 @@ function AddItemSheet({ accent, onClose, onAdded, registry }: { accent: string; 
     if (!file) return;
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    // Nova's suggestion is optional: without AI consent the photo stays a preview and the form is filled by hand.
+    if (!(await ensureAiConsent('ai_processing'))) return;
     setIdentifying(true);
     try {
       const fd = new FormData();

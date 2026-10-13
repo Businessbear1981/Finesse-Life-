@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { ModerationMenu, useHouseRules } from '@/components/moderation';
 
 type Edition = 'finesse' | 'carpe_diem';
 type TabId = 'closet' | 'feed' | 'wishlist';
@@ -17,6 +18,7 @@ interface Look {
 
 interface FeedEntry {
   id: string;
+  userId: string;
   member: string;
   city: string;
   brands: string[];
@@ -78,12 +80,16 @@ export default function WardrobePage() {
   const [brandTags, setBrandTags] = useState<string[]>([]);
   const [caption, setCaption] = useState('');
   const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
+  const rules = useHouseRules();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Feed state
   const [feed, setFeed] = useState<FeedEntry[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [feedLikes, setFeedLikes] = useState<Record<string, number>>({});
+  // Members blocked from a ••• menu leave the floor at once (the server keeps them out on the next read).
+  const [goneAuthors, setGoneAuthors] = useState<Set<string>>(new Set());
 
   // Wishlist state
   const [wishlist, setWishlist] = useState<WishItem[]>([]);
@@ -92,8 +98,11 @@ export default function WardrobePage() {
   const [wPrice, setWPrice] = useState('');
 
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
+    const id = setTimeout(() => {
+      const g = localStorage.getItem('finesse_gender');
+      setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   useEffect(() => {
@@ -118,11 +127,12 @@ export default function WardrobePage() {
     fetch('/api/wardrobe/looks?feed=true')
       .then((r) => r.json())
       .then((d: { looks?: Array<{
-        id: string; photo_url: string | null; brands: string[]; caption: string; likes_count: number;
+        id: string; user_id: string; photo_url: string | null; brands: string[]; caption: string; likes_count: number;
         profiles?: { display_name?: string; username?: string; city?: string };
       }> }) => {
         const feedData = (d.looks ?? []).map((l) => ({
           id: l.id,
+          userId: l.user_id,
           member: l.profiles?.display_name ?? l.profiles?.username ?? 'Member',
           city: l.profiles?.city ?? '—',
           brands: l.brands ?? [],
@@ -185,33 +195,58 @@ export default function WardrobePage() {
 
   async function handlePost() {
     if (posting) return;
+    setPostError(null);
+    if (!uploadFile) { setPostError('Add a photo of the look first.'); return; }
+    // House rules & terms, once, before a member's first post (Apple 1.2 / Play UGC).
+    if (!(await rules.ensure())) return;
     setPosting(true);
     let photoUrl: string | null = null;
-    if (uploadFile && userId) {
-      try {
-        const fd = new FormData();
-        fd.append('file', uploadFile);
-        fd.append('type', 'photo');
-        fd.append('userId', userId);
-        const res = await fetch('/api/upload', { method: 'POST', body: fd });
-        const data = await res.json() as { url: string };
-        photoUrl = data.url;
-      } catch {
-        // fall through with no photo
-      }
-    }
     try {
-      const res = await fetch('/api/wardrobe/looks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) }),
-      });
-      const data = await res.json() as { look?: { id: string } };
-      const newLook: Look = { id: data.look?.id ?? Date.now().toString(), url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) };
+      const fd = new FormData();
+      fd.append('file', uploadFile);
+      fd.append('type', 'photo');
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string; message?: string };
+      if (!res.ok || !data.url) {
+        const why = res.status === 401 ? 'Sign in first.' : res.status === 413 ? 'That photo is over 5 MB.' : res.status === 415 ? 'JPEG, PNG, WebP or GIF only.' : data.message ?? data.error ?? 'The photo couldn’t be uploaded.';
+        setPostError(`${why} Nothing was posted.`);
+        setPosting(false);
+        return;
+      }
+      photoUrl = data.url;
+    } catch {
+      setPostError('The house line is down. Nothing was posted.');
+      setPosting(false);
+      return;
+    }
+    const send = () => fetch('/api/wardrobe/looks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo_url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) }),
+    });
+    try {
+      let res = await send();
+      let data = (await res.json().catch(() => ({}))) as { look?: { id: string }; error?: string; message?: string };
+      if (res.status === 403 && data.error === 'terms_required') {
+        if (!(await rules.require())) {
+          setPostError('Accept the house rules to post. Nothing was posted.');
+          setPosting(false);
+          return;
+        }
+        res = await send();
+        data = (await res.json().catch(() => ({}))) as typeof data;
+      }
+      if (!res.ok || !data.look) {
+        setPostError(data.message ?? (res.status === 401 ? 'Sign in first. Nothing was posted.' : 'Something went wrong on the house side. Nothing was posted.'));
+        setPosting(false);
+        return;
+      }
+      const newLook: Look = { id: data.look.id, url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) };
       setLooks((prev) => [newLook, ...prev]);
     } catch {
-      // Optimistic add
-      setLooks((prev) => [{ id: Date.now().toString(), url: photoUrl, brands: [...brandTags], caption: caption.slice(0, 120) }, ...prev]);
+      setPostError('The house line is down. Nothing was posted.');
+      setPosting(false);
+      return;
     }
     setUploadFile(null);
     setPreviewUrl(null);
@@ -507,7 +542,7 @@ export default function WardrobePage() {
                   no looks posted yet — be the first.
                 </p>
               )}
-              {feed.map((entry) => {
+              {feed.filter((entry) => !goneAuthors.has(entry.userId)).map((entry) => {
                 const liked = likedIds.has(entry.id);
                 const initial = entry.member.charAt(0).toUpperCase();
                 return (
@@ -540,7 +575,7 @@ export default function WardrobePage() {
                         >
                           {initial}
                         </div>
-                        <div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <p
                             style={{
                               fontFamily: 'var(--font-display)',
@@ -565,6 +600,14 @@ export default function WardrobePage() {
                             {entry.city}
                           </p>
                         </div>
+                        <ModerationMenu
+                          kind="look"
+                          targetId={entry.id}
+                          memberId={entry.userId}
+                          name={entry.member}
+                          own={!!userId && entry.userId === userId}
+                          onBlocked={() => setGoneAuthors((g) => new Set(g).add(entry.userId))}
+                        />
                       </div>
 
                       {/* Brand chips */}
@@ -1010,6 +1053,16 @@ export default function WardrobePage() {
                 </span>
               </div>
 
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'rgba(244,232,208,0.4)', margin: '0 0 10px' }}>
+                Posted looks are visible to members on the Style Feed, under the house rules.
+              </p>
+              {postError && (
+                <p role="alert" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: '#FF8AA0', margin: '0 0 10px' }}>
+                  {postError}
+                </p>
+              )}
+              {rules.sheet}
+
               {/* Post button */}
               <button
                 onClick={handlePost}
@@ -1027,7 +1080,7 @@ export default function WardrobePage() {
                   cursor: posting ? 'not-allowed' : 'pointer',
                 }}
               >
-                {posting ? 'Posting…' : 'Post to Closet'}
+                {posting ? 'Posting…' : 'Post the look'}
               </button>
             </motion.div>
           </>

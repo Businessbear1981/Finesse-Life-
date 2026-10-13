@@ -13,7 +13,7 @@ import {
   type ReportKind, type ReportReason,
 } from '@/lib/rooms/moderation';
 
-const NOUN: Record<ReportKind, string> = {post: 'post', vip_post: 'post', profile: 'profile', listing: 'listing', club_table: 'table', outing: 'outing', nova_reply: 'reply'};
+const NOUN: Record<ReportKind, string> = {post: 'post', vip_post: 'post', profile: 'profile', listing: 'listing', club_table: 'table', outing: 'outing', look: 'look', nova_reply: 'reply'};
 
 /* ───────────────────────── sheet shell ───────────────────────── */
 function Sheet({visible, onClose, title, eyebrow, children}: {visible: boolean; onClose: () => void; title: string; eyebrow: string; children: ReactNode}) {
@@ -49,7 +49,7 @@ const RULES = [
   'No harassment, hate, slurs, threats or bullying.',
   'No sexual content or solicitation, and nothing illegal.',
   'No spam, scams, or phone numbers and contact handles in public posts.',
-  'Anyone can report a post, listing, table or profile from its ••• menu. The house reviews every report within 24 hours, removes what breaks the rules and removes members who break them.',
+  'Anyone can report a post, look, listing, table or profile from its ••• menu. The house reviews every report within 24 hours, removes what breaks the rules and removes members who break them.',
   'You can block any member at any time — you stop seeing each other everywhere in the house.',
 ];
 
@@ -215,8 +215,8 @@ export function ModerationMenu({kind, targetId, memberId, name, own, onBlocked, 
       <Sheet visible={view === 'block' || view === 'blocked'} onClose={close} eyebrow="Block" title={view === 'blocked' ? 'Blocked.' : `Block ${who}?`}>
         <Text accessibilityLiveRegion="polite" style={[body, view === 'blocked' ? {color: ah.ok} : null]}>
           {view === 'blocked'
-            ? 'You won’t see each other’s posts, VIP posts, listings, tables or profile anywhere in the house. They aren’t told. If they broke the rules, report them too.'
-            : 'You won’t see each other’s posts, VIP posts, listings, tables or profile anywhere in the house. They aren’t told you blocked them.'}
+            ? 'You won’t see each other’s posts, looks, listings, tables or profile anywhere in the house. They aren’t told. If they broke the rules, report them too.'
+            : 'You won’t see each other’s posts, looks, listings, tables or profile anywhere in the house. They aren’t told you blocked them.'}
         </Text>
         {err ? <Alert text={err} /> : null}
         <Row>

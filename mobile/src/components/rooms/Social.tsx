@@ -511,7 +511,7 @@ export function Switchboard() {
               </AHCard>
               <Fine>{n === 0
                 ? 'No line is connected. A line connects only through that network’s own sign-in, and the house holds a real token for it — no network’s sign-in is open yet, so nothing can post on your behalf.'
-                : 'Connected means the house holds a real sign-in token for that network. Disconnect on the web at any time.'}</Fine>
+                : 'Connected means the house holds a real sign-in token for that network.'}</Fine>
               <Head right={String(data.broadcasts.length)}>Consent ledger</Head>
               {data.broadcasts.length === 0 ? <Fine>Nothing has been sent on your behalf.</Fine> : (
                 <View>

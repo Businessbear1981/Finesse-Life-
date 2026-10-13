@@ -10,6 +10,10 @@
 //    runs, as the member, under the same owner-only policies. `viaRoute` tries the route first for
 //    writes and falls back to RLS only when the route said 401 while this device holds a session —
 //    so the moment a route learns bearer auth, the app uses it without a release.
+//
+// NEVER use `viaRoute` (or any direct insert) for content other members see — Lounge posts, Wardrobe looks,
+// Exchange listings, outings. Those go through their route only, because the route is where the house rules
+// check and the text / photo filters run (src/lib/moderation.ts). If the route refuses, the member sees why.
 import {api} from '../api';
 import {supabase} from '../supabase';
 
@@ -53,7 +57,7 @@ export async function asMember<T>(run: (uid: string) => Promise<Res<T>>): Promis
   }
 }
 
-/** Route first; RLS fallback only when a cookie-only route didn't see this device's session. */
+/** Route first; RLS fallback only when a cookie-only route didn't see this device's session. Private, owner-only rows only. */
 export async function viaRoute<T>(path: string, init: {method?: string; json?: unknown}, fallback: (uid: string) => Promise<Res<T>>): Promise<Res<T>> {
   const r = await api<T>(path, init);
   if (r.status === 401) {

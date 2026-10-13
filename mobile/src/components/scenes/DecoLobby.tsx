@@ -19,7 +19,7 @@ import {useMember} from '@/lib/member';
 import {secureStorage} from '@/lib/secure-storage';
 import {rooms, roomById, type Room} from '@/lib/registry';
 import {Icon} from '@/lib/icons';
-import {RELEASE, isRoomVisible} from '@/lib/release';
+import {IS_STORE_BUILD, RELEASE, isRoomVisible} from '@/lib/release';
 import {
   AHCard, AHChip, AHClock, AHDisplay, AHEyebrow, AHIndex, AHLiveDot, AHMemberCard, AHPill, AHRing, AHSection, AHSkeleton, AHSmoke,
   greetingFor, isFinish, type AHIndexItem, type Finish,
@@ -95,7 +95,7 @@ export function HouseIndex({onPick, bleed = 0}: {onPick: (room: Room) => void; b
     .map((rid) => roomById(rid)).filter((r): r is Room => Boolean(r))
     .map((r) => {
       const key = r.id === 'vip-room' || r.truthState === 'gated';
-      return {key: r.id, number: r.number, name: r.name, sub: r.primaryAction, tag: key ? 'Key' : TRUTH[r.truthState], tagTone: key ? 'key' as const : r.truthState === 'wired' ? 'live' as const : undefined, onPress: () => onPick(r)};
+      return {key: r.id, number: r.number, name: r.name, sub: r.primaryAction, tag: key ? 'Key' : IS_STORE_BUILD && r.truthState !== 'wired' ? undefined : TRUTH[r.truthState], tagTone: key ? 'key' as const : r.truthState === 'wired' ? 'live' as const : undefined, onPress: () => onPick(r)};
     }), [floor, onPick]);
   return (
     <View>

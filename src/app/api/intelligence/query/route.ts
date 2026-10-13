@@ -5,6 +5,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { query } from '@/lib/intelligence';
 import type { IntelligenceQuery, IntelligenceIntent } from '@/lib/intelligence';
+import { requireAiConsent } from '@/lib/ai-consent-gate';
+
+// Intents that ask the model on the member's behalf — these need the member's AI consent first.
+const MODEL_INTENTS = new Set<IntelligenceIntent>(['next_best_action', 'personalized_recs', 'price_intelligence', 'compliance_check']);
 
 const VALID_INTENTS = new Set<IntelligenceIntent>([
   'next_best_action',
@@ -43,6 +47,11 @@ export async function POST(req: Request) {
       { error: `Unknown intent: ${intent}. Valid: ${Array.from(VALID_INTENTS).join(', ')}` },
       { status: 400 },
     );
+  }
+
+  if (MODEL_INTENTS.has(intent as IntelligenceIntent)) {
+    const noConsent = await requireAiConsent(supabase, user.id);
+    if (noConsent) return noConsent;
   }
 
   const intelligenceQuery: IntelligenceQuery = {

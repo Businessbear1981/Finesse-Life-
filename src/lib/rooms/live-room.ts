@@ -4,6 +4,7 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {roomCall} from '@/lib/room-client';
 import {requestErrorText, toRequest, type NovaRequest} from '@/lib/nova-request-view';
+import {CONSENT_DECLINED_TEXT, ensureAiConsent} from '@/components/nova/ai-consent';
 
 export type RoomData<T> =
   | {state: 'loading'}
@@ -56,8 +57,9 @@ export function useRoomData<T>(url: string | null) {
 
 export type HubInput = {kind: 'find_item' | 'plan'; title: string; details: Record<string, unknown>; room: string};
 
-/** One button = one confirmed Nova request (POST /api/nova/requests {confirm: true}). */
+/** One button = one confirmed Nova request (POST /api/nova/requests {confirm: true}). Asks for AI consent first. */
 export async function runNovaRequest(input: HubInput): Promise<{ok: true; request: NovaRequest} | {ok: false; message: string}> {
+  if (!(await ensureAiConsent('ai_processing'))) return {ok: false, message: CONSENT_DECLINED_TEXT};
   const r = await roomCall<{request?: unknown; error?: string; retryAfterS?: unknown}>('/api/nova/requests', {
     method: 'POST', json: {...input, title: input.title.slice(0, 140), confirm: true},
   });

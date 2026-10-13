@@ -11,7 +11,7 @@ import {acceptTerms, blockMember, blockOwnerOf, readTerms, reportContent, safety
 import './moderation.css';
 
 const NOUN: Record<ReportKind, string> = {
-  post: 'post', vip_post: 'post', profile: 'profile', listing: 'listing', club_table: 'table', outing: 'outing', nova_reply: 'reply',
+  post: 'post', vip_post: 'post', profile: 'profile', listing: 'listing', club_table: 'table', outing: 'outing', look: 'look', nova_reply: 'reply',
 };
 
 /* ───────────────────────── sheet shell ───────────────────────── */
@@ -60,7 +60,7 @@ export function HouseRulesSheet({onAccept, onCancel}: {onAccept: () => void; onC
         <li>No harassment, hate, slurs, threats or bullying.</li>
         <li>No sexual content or solicitation, and nothing illegal.</li>
         <li>No spam, scams, or phone numbers and contact handles in public posts.</li>
-        <li>Anyone can report a post, listing, table or profile from its “…” menu. The house reviews every report within 24 hours, removes what breaks the rules and removes members who break them.</li>
+        <li>Anyone can report a post, look, listing, table or profile from its “…” menu. The house reviews every report within 24 hours, removes what breaks the rules and removes members who break them.</li>
         <li>You can block any member at any time — you stop seeing each other everywhere in the house.</li>
       </ul>
       <p className="mod-body mod-mute">These rules are part of the <Link href="/terms" className="mod-link" target="_blank">Terms of Use</Link>.</p>
@@ -226,9 +226,9 @@ function BlockSheet({kind, targetId, memberId, who, onClose, onBlocked}: {
       <p className="mod-eyebrow">Block</p>
       <h2 id={id} className="mod-title">{done ? `${who === 'this member' ? 'Member' : who} blocked.` : `Block ${who}?`}</h2>
       {done ? (
-        <p className="mod-ok" role="status">You won’t see each other’s posts, VIP posts, listings, tables or profile anywhere in the house. They aren’t told. If they broke the rules, report them too.</p>
+        <p className="mod-ok" role="status">You won’t see each other’s posts, looks, listings, tables or profile anywhere in the house. They aren’t told. If they broke the rules, report them too.</p>
       ) : (
-        <p className="mod-body">You won’t see each other’s posts, VIP posts, listings, tables or profile anywhere in the house. They aren’t told you blocked them.</p>
+        <p className="mod-body">You won’t see each other’s posts, looks, listings, tables or profile anywhere in the house. They aren’t told you blocked them.</p>
       )}
       {err && <p role="alert" className="mod-alert">{err}</p>}
       <div className="mod-actions">

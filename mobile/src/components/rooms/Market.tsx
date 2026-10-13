@@ -6,7 +6,8 @@
 //    allowed in-app). The app never marks anything paid: it re-reads the pledge when you come back.
 //  • Exchange: active listings, your listings and offers, list an item, make an offer, "Fair price" via Nova.
 //    Every listing has Report / Block (••• menu); the first listing asks for the house rules & terms.
-//    Accepting an offer needs the payment partner — the app says so instead of pretending.
+//    Accepting an offer needs the payment partner — the app says so instead of pretending (store builds: offers are
+//    recorded, nothing is sold from the app).
 //  • Embassy: the deal pipeline (scale_deals, mapped as the web Embassy maps it) and "suggest a deal"
 //    (POST /api/embassy/deals, reviewed by the house). No partner offer is shown that doesn't exist.
 // Signed out, each keeps its labelled sample.
@@ -27,6 +28,7 @@ import {NovaAskButton} from './NovaAsk';
 import {ModerationMenu, useHouseRules} from './moderation';
 import {needsTerms} from '@/lib/rooms/moderation';
 import {useMember} from '@/lib/member';
+import {IS_STORE_BUILD} from '@/lib/release';
 import {Fine, Head, Meter, Pick, Row, Step, Tag, Tile, ah, ahFonts, t} from './RoomKit';
 
 const LADDER: Array<[number, number]> = [[50, 520], [100, 460], [150, 412], [250, 360]];
@@ -419,7 +421,7 @@ function MyDeals({deals}: {deals: {mine: Listing[]; received: Offer[]; made: Off
                 <Text style={t.meta}>{o.status} · {ago(o.created_at)}</Text>
               </Row>
             ))}
-            {offers.length > 0 ? <Fine>Accepting an offer opens once the payment partner is live — nothing is sold from here yet.</Fine> : null}
+            {offers.length > 0 ? <Fine>{IS_STORE_BUILD ? 'Offers are recorded here for you to weigh. Nothing is sold or charged from the app.' : 'Accepting an offer opens once the payment partner is live — nothing is sold from here yet.'}</Fine> : null}
           </AHCard>
         );
       })}

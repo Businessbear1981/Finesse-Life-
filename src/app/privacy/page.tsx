@@ -28,14 +28,14 @@ const TOC = [
 const DATA: Array<[string, string, string]> = [
   ['Account', 'Email address, a user id, your password (stored hashed by our authentication provider, never readable by us), sign-in times.', 'To create and secure your account and sign you in.'],
   ['Profile', 'Username, display name, avatar photo, bio, city, interests, your vibe and side of the house, optional age and gender, your concierge’s name and style.', 'To show your profile to members and personalise the house.'],
-  ['What you post', 'Lounge posts and photos, likes, comments, VIP feed posts, Exchange listings and offers, Game Room tables, outings you create or join, Registry items and pledges.', 'To run the social and marketplace rooms. Posts are visible to other members.'],
+  ['What you post', 'Lounge posts and photos, likes, comments, VIP feed posts, Wardrobe looks you choose to make public, Exchange listings and offers, Game Room tables, outings you create or join, Registry items and pledges.', 'To run the social and marketplace rooms. Posts and public looks are visible to other members.'],
   ['Photos', 'Photos you take or choose in the Camera, the Stylist, the Wardrobe and your profile. Stored privately in our file storage (Cloudflare R2) under your account; only you can see Camera and Stylist photos.', 'To keep your wardrobe intake and send photos to your stylist. A photo is read by AI only when you ask (see Nova & AI).'],
   ['Recordings (app)', 'Vocals and takes you record in Starmaker’s Booth with the microphone. They stay on your device; Finesse does not receive them unless you choose to share them.', 'So you can record and play back your takes.'],
   ['Your rooms','Diary and calendar items; Kitchen plans and orders; Gym sessions and sets; Salon bookings; trips and Departures; Per Diem budgets and plans; Closet, Bag and Wardrobe items and wishlists; Scrapbook entries.', 'To keep your plans and lists, and so Nova can help with them when you ask.'],
   ['Nova requests', 'What you ask Nova, the requests it drafts, their status and results.', 'To run what you confirm and keep a history you can review.'],
-  ['Payments', 'If you buy a membership on the web: a Stripe customer id, subscription status, renewal date and payment events. Card details go directly to Stripe — we never see or store your card number.', 'To bill you, give access to what you paid for, and keep financial records the law requires.'],
+  ['Payments', 'Scale group buys (physical goods): your pledges and their payment state (pledged, payment requested, paid), and the Stripe checkout and payment ids for a pledge you pay. If you buy a membership on the web: a Stripe customer id, subscription status, renewal date and payment events. Card details go directly to Stripe’s checkout page — we never see or store your card number.', 'To run group buys, take payment only when a group reaches its goal, bill you, and keep financial records the law requires.'],
   ['Vault', 'Vault account and ledger entries (balances, transactions) for members who use it.', 'To show your balance and history.'],
-  ['Portfolio snapshot (optional)', 'If you connect an Alpaca paper-trading account: the API key and secret you enter are used once to read the account and are not stored. We store a snapshot — equity, cash, buying power and your five largest positions.', 'To show your paper portfolio in Carpe Diem.'],
+  ['Portfolio snapshot (optional)', 'If you connect an Alpaca paper-trading account: the API secret is used once to read the account and is not stored. We keep only a partial API key (its first six characters, so you can recognise which key you connected) and a snapshot — equity, cash, buying power and your five largest positions.', 'To show your paper portfolio in Carpe Diem.'],
   ['Live map (web, optional)', 'Only when you turn sharing on: your browser’s location, snapped to a cell of about 200 m before it is stored, shown to members as an anonymous dot. Each ping expires after 15 minutes; turning sharing off deletes it.', 'To show where the night is happening without identifying anyone.'],
   ['Connected services (optional)', 'If you link Telegram: your Telegram username and chat id. If a social network is connected: the access token it issues.', 'To send you messages you asked for, or post only when you tell us to.'],
   ['Usage signals', 'Records of actions in the house (for example rooms opened, things saved, liked or asked for) and AI usage records (feature, model, token counts, time).', 'To personalise suggestions, prevent abuse, enforce rate limits and understand costs.'],
@@ -77,7 +77,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section id="ai" title="Nova and AI processing">
-        <p><strong>Nova is an AI concierge, not a person.</strong> It runs on <strong>Claude, a model made by Anthropic</strong>. Our servers send requests to Anthropic through Vercel’s AI Gateway (or directly to Anthropic). Before your first message — and before your first photo is read — the app asks for your agreement, and records it.</p>
+        <p><strong>Nova is an AI concierge, not a person.</strong> It runs on <strong>Claude, a model made by Anthropic</strong>. Our servers send requests to Anthropic through Vercel’s AI Gateway (or directly to Anthropic). Before your first use of any AI feature — and before your first photo is read — the app asks for your agreement and records it. Our servers check that agreement on every AI request from the app and finesselife.vip: until you have agreed, nothing you type or choose there is sent to the AI provider.</p>
         <ul>
           <li><strong>What is sent:</strong> what you type to Nova; the context Nova needs for that request (for example your concierge’s style, relevant plans or items from your rooms, your style profile); and, only when you ask (“Read my style”, “Ask the reticle”), the photo you chose.</li>
           <li><strong>What is not sent:</strong> your password, payment card details, or your other photos.</li>
@@ -106,13 +106,13 @@ export default function PrivacyPage() {
           <li><strong>Vercel</strong> — hosting of finesselife.vip and the API, and the AI Gateway.</li>
           <li><strong>Anthropic</strong> — the Claude model behind Nova, photo reading and other AI features.</li>
           <li><strong>Cloudflare (R2)</strong> — storage of photos and media you upload.</li>
-          <li><strong>Stripe</strong> — payments, for members who buy on the web.</li>
+          <li><strong>Stripe</strong> — payments: Scale group buys of physical goods (paid on Stripe’s checkout page, in the browser) and memberships bought on the web.</li>
           <li><strong>Alpaca</strong> — only if you connect a paper-trading account.</li>
           <li><strong>Telegram</strong> — only if you link it.</li>
           <li><strong>Media generation partners</strong> (Higgsfield, Suno, ElevenLabs, Meshy) — only for generations you start.</li>
         </ul>
         <p>We may also disclose information if the law requires it, to protect someone’s safety, or as part of a sale or reorganisation of the business (in which case this policy continues to apply).</p>
-        <p>What you post in shared rooms (Lounge, VIP feed, Exchange, Game Room, outings) is visible to other members.</p>
+        <p>What you post in shared rooms (Lounge, VIP feed, Exchange, Game Room, outings), and Wardrobe looks you make public, are visible to other members.</p>
       </Section>
 
       <Section id="retention" title="How long we keep it">

@@ -54,6 +54,12 @@ too: name them like the raw files (`04-concierge.png`, …), put them in `raw/io
 | 07 | The Diary | Your night, in order. |
 | 08 | The Lounge | The room worth knowing. |
 
-Rules: only screens that exist in the store build; no Vault, VIP, Penthouse, prices or “buy” copy; the caption
-must describe what the screen shows. Current captures are signed out (sample state) — re-capture signed in with
+Rules: only screens that exist in the store build; no Vault, VIP, Penthouse, prices or “buy” copy; no build-state
+labels (Preview, In preparation, Sample room, “on the web”); the caption must describe what the screen shows.
+
+Signed-out captures, how they stay clean: the door's challenge is answered by the capture tool the way the live house
+answers it (so the frame shows the release door, not the dev-only “Rehearsal” state); the Lounge frame scrolls past
+the sign-in card onto the floor; and the in-app “sample” stamps on demo content (`SAMPLE PASS`, “Sample trip ·…”,
+“Sample page ·…”, “Sample rack ·…”) are hidden in the frame only (`hide` in `capture.cjs`) — the app always shows
+them signed out. Current captures are signed out (sample state) — re-capture signed in with
 the reviewer account before launch.

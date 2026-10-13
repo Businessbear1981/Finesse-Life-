@@ -1,5 +1,6 @@
 import {reply, sessionMember, unauthorized} from '../../billing/_member';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {cleanDetails, confirmAndDispatch, draftSchema} from '@/lib/nova-requests';
 import {z} from 'zod';
 
@@ -16,6 +17,7 @@ export async function GET() {
 }
 
 // POST /api/nova/requests {kind, title, details, room?, confirm?} → 201 {request} (draft) | 200 {request} (confirmed + dispatched)
+//   | 403 consent_required {kind:'ai_processing'}
 // A room can create and confirm in one step when the member pressed the button themselves.
 const body = draftSchema.extend({confirm: z.boolean().optional()});
 export async function POST(req: Request) {
@@ -25,6 +27,9 @@ export async function POST(req: Request) {
   if (!parsed.success) return reply({error: 'invalid'}, 400);
   const clean = cleanDetails(parsed.data.kind, parsed.data.details);
   if (!clean.ok) return reply({error: clean.error}, 400);
+  // Nova reads the request (and, on confirm, writes the result) — the member must have agreed to AI processing.
+  const noConsent = await requireAiConsent(member.supabase, member.userId);
+  if (noConsent) return noConsent;
 
   // Insert as the member (RLS: own drafts only).
   const {data: row, error} = await member.supabase.from('nova_requests')

@@ -20,10 +20,15 @@ import {LobbyRoom} from '@/components/scenes/DecoLobby';
 import {AHCard, AHEyebrow, AHLiveDot, AHPill, AHTitle} from '@/components/ah';
 import {INTERIORS, LIVE_ROOMS} from '@/components/rooms/interiors';
 import {LegalLinks} from '@/components/legal/LegalLinks';
-import {RELEASE, isRoomVisible} from '@/lib/release';
+import {SafetyPanel} from '@/components/account/SafetyPanel';
+import {IS_STORE_BUILD, RELEASE, isRoomVisible} from '@/lib/release';
 
-type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
-const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
+/** `short` is the rail label on narrow phones (the full label stays the accessibility label and the room header). */
+type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string; short?: string};
+const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta, short: SHORT[id]});
+
+// Rail labels that don't fit a 56pt phone rail at 11pt.
+const SHORT: Record<string, string> = {nightvision: 'Vision', clubhouse: 'Games', archive: 'Album', entourage: 'Circle', starmaker: 'Studio', switchboard: 'Accounts', 'carpe-diem': 'Carpe'};
 
 // Rails exactly as the design lays them out (L_HER / L_HIM / R_HER / R_HIM / D_L / D_R).
 const L_HER = [
@@ -127,7 +132,7 @@ export default function HotelScreen() {
                 <View style={{gap: 8}}>
                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
                     {live ? <AHLiveDot color={ah.ok} /> : <View style={{width: 7, height: 7, borderRadius: 4, borderWidth: 1, borderColor: ah.faintLine}} />}
-                    <AHEyebrow style={{fontSize: 11, letterSpacing: 1.6}} color={live ? ah.ok : ah.mute}>{live ? 'Room on' : 'Sample room'} · {WING[current.wing] ?? current.wing}</AHEyebrow>
+                    <AHEyebrow style={{fontSize: 11, letterSpacing: 1.6}} color={live ? ah.ok : ah.mute}>{live ? 'Room on · ' : IS_STORE_BUILD ? '' : 'Sample room · '}{WING[current.wing] ?? current.wing}</AHEyebrow>
                   </View>
                   {!SELF_HEADED.has(room) && <AHTitle size={38}>{current.label}</AHTitle>}
                   {!SELF_HEADED.has(room) && current.line ? <Text style={styles.roomLine}>{current.line}</Text> : null}
@@ -201,7 +206,7 @@ function Rail({rooms, room, onPick, edge, width}: {rooms: RoomDef[]; room: strin
             style={({pressed}) => [styles.railItem, {opacity: pressed ? 0.6 : 1}]}>
             {on ? <RoseGlow size={width - 6} /> : null}
             <Icon name={r.icon} size={19} color={on ? ah.white : ah.mute} strokeWidth={on ? 2 : 1.5} />
-            <Text style={[styles.railLabel, {color: on ? ah.white : ah.faint}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={narrow ? 0.78 : 0.9} maxFontSizeMultiplier={CHROME_MAX_SCALE}>{r.label}</Text>
+            <Text style={[styles.railLabel, {color: on ? ah.white : ah.faint}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={narrow ? 0.78 : 0.9} maxFontSizeMultiplier={CHROME_MAX_SCALE}>{narrow ? r.short ?? r.label : r.label}</Text>
             <View style={[styles.dot, on && {backgroundColor: ah.rose, shadowColor: ah.rose, shadowOpacity: 0.9}]} />
           </Pressable>
         );
@@ -248,7 +253,7 @@ function NovaButton({on, onPress}: {on: boolean; onPress: () => void}) {
   );
 }
 
-/** Account controls under This Is You: who is signed in, change side of the house, sign out. */
+/** Account controls under This Is You: who is signed in, change side of the house, sign out, and AI & safety. */
 function AccountDesk() {
   const router = useRouter();
   const [email, setEmail] = useState<string | null | undefined>(undefined);
@@ -266,6 +271,7 @@ function AccountDesk() {
   };
   const other = houseSession.getSide() === 'her' ? 'Carpe Diem' : 'Finesse';
   return (
+    <>
     <AHCard style={{marginTop: 6, gap: 12}} pad={16}>
       <AHEyebrow>Your key</AHEyebrow>
       <Text style={styles.roomLine}>{email === undefined ? 'Checking…' : email ? `Signed in as ${email}` : 'You are not signed in on this device.'}</Text>
@@ -282,6 +288,9 @@ function AccountDesk() {
       ) : null}
       <LegalLinks align="flex-start" style={{borderTopWidth: 1, borderColor: ah.line, paddingTop: 2}} />
     </AHCard>
+    {/* AI disclosure, consents with Withdraw, my reports, blocked members with Unblock — signed in only. */}
+    {email ? <SafetyPanel /> : null}
+    </>
   );
 }
 

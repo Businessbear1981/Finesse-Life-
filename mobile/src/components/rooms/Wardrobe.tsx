@@ -12,12 +12,15 @@ import {ah, ahFonts} from '@/lib/ah';
 import {useAvailableWidth} from '@/lib/layout';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
-import {addWish, postLook, readFeed, readMyLooks, readWishlist, removeWish, toggleLike, type Look, type Wish} from '@/lib/rooms/wardrobe';
+import {addWish, readFeed, readMyLooks, readWishlist, removeWish, saveLook, toggleLike, uploadLookPhoto, type Look, type Wish} from '@/lib/rooms/wardrobe';
+import {needsTerms} from '@/lib/rooms/moderation';
+import {useMember} from '@/lib/member';
 import {ago, dollars, memberName, parseDollars} from '@/lib/rooms/logic';
 import {AHCard, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, SampleNote, Segmented, s} from './shared';
 import {LiveGate, RowBtn, Status} from './live';
 import {NovaAskButton} from './NovaAsk';
+import {ModerationMenu, useHouseRules} from './moderation';
 import {Fine, Head, Row, TextBtn, t} from './RoomKit';
 
 const TOPS = {her: ['Ivory silk blouse', 'Black corset top', 'Camel knit', 'Oxblood satin cami', 'Cream vest', 'Gold-button cardigan', 'White poplin'],
@@ -89,28 +92,48 @@ function PostLook({side, onPosted}: {side: Side; onPosted: () => Promise<void>})
   const [brands, setBrands] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  // The photo already uploaded for this draft, so a retry after the house-rules sheet doesn't upload it twice.
+  const [uploaded, setUploaded] = useState<{uri: string; url: string} | null>(null);
+  const rules = useHouseRules();
   const choose = async () => {
     const r = await ImagePicker.launchImageLibraryAsync({mediaTypes: ['images'], quality: 0.8, exif: false});
     if (!r.canceled && r.assets[0]) { setFile(r.assets[0]); setMsg(null); }
   };
   const post = async () => {
-    if (!file) return;
-    setBusy(true); setMsg(null);
-    const r = await postLook(file, caption.trim(), brands.split(',').map((b) => b.trim()).filter(Boolean).slice(0, 8));
+    if (!file || busy) return;
+    setMsg(null);
+    // House rules & terms, once, before a member's first look (Apple 1.2 / Play UGC) — before anything uploads.
+    if (!(await rules.ensure())) return;
+    setBusy(true);
+    let url = uploaded?.uri === file.uri ? uploaded.url : null;
+    if (!url) {
+      const up = await uploadLookPhoto(file);
+      if (!up.ok || !up.body.url) { setBusy(false); setMsg({ok: false, text: failure(up.status, up.body, 'Nothing was posted.')}); return; }
+      url = up.body.url;
+      setUploaded({uri: file.uri, url});
+    }
+    const list = brands.split(',').map((b) => b.trim()).filter(Boolean).slice(0, 8);
+    const send = () => saveLook(url, caption.trim(), list);
+    let r = await send();
+    if (needsTerms(r)) {
+      if (!(await rules.require())) { setBusy(false); setMsg({ok: false, text: 'Accept the house rules to post. Nothing was posted.'}); return; }
+      r = await send();
+    }
     setBusy(false);
     if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was posted.')}); return; }
-    setFile(null); setCaption(''); setBrands('');
+    setFile(null); setCaption(''); setBrands(''); setUploaded(null);
     setMsg({ok: true, text: 'Posted. It’s on your rack and on the floor.'});
     void onPosted();
   };
   return (
     <AHCard style={{gap: 10}}>
+      {rules.sheet}
       <AHEyebrow>Post a look</AHEyebrow>
       {file ? <Image source={{uri: file.uri}} style={{width: '100%', aspectRatio: 3 / 4, borderRadius: 16}} resizeMode="cover" accessibilityLabel="Your look" /> : null}
       <RowBtn label={file ? 'Choose another photo' : 'Choose a photo'} onPress={() => void choose()} />
       <AHInput value={caption} onChangeText={(v) => setCaption(v.slice(0, 120))} placeholder="Caption (optional)" accessibilityLabel="Caption" />
       <AHInput value={brands} onChangeText={setBrands} placeholder="Brands, comma separated (optional)" accessibilityLabel="Brands" />
-      <Fine>Posted looks are visible to members on the floor.</Fine>
+      <Fine>Posted looks are visible to members on the floor, under the house rules. Members can report a look or block its author.</Fine>
       <ActionBar label={busy ? 'Posting…' : 'Post this look'} color={track[side].acc} onPress={() => void post()} disabled={!file || busy} />
       <Status msg={msg} />
     </AHCard>
@@ -121,10 +144,14 @@ function Feed() {
   const {live, reload} = useLive<{looks: Look[]; liked: string[]}>(null, readFeed);
   const [mine, setMine] = useState<Record<string, boolean>>({});
   const [err, setErr] = useState<string | null>(null);
+  const me = useMember()?.userId ?? null;
+  // Authors blocked from a ••• menu leave the floor at once (RLS keeps them out on the next read).
+  const [gone, setGone] = useState<string[]>([]);
   return (
     <LiveGate live={live} reload={() => void reload()} what="the floor">
       {(data) => {
-        if (data.looks.length === 0) return <AHCard pad={22}><Text style={t.voice}>The floor is quiet.</Text><Fine style={{marginTop: 8}}>No member has posted a look yet. Be the first from your rack.</Fine></AHCard>;
+        const looks = data.looks.filter((l) => !gone.includes(l.user_id));
+        if (looks.length === 0) return <AHCard pad={22}><Text style={t.voice}>The floor is quiet.</Text><Fine style={{marginTop: 8}}>No member has posted a look yet. Be the first from your rack.</Fine></AHCard>;
         const isLiked = (id: string) => mine[id] ?? data.liked.includes(id);
         const like = async (l: Look) => {
           const was = isLiked(l.id);
@@ -135,7 +162,7 @@ function Feed() {
         return (
           <View style={{gap: 12}}>
             {err ? <Status msg={{ok: false, text: err}} /> : null}
-            {data.looks.map((l) => {
+            {looks.map((l) => {
               const on = isLiked(l.id);
               const delta = mine[l.id] === undefined ? 0 : (on ? 1 : 0) - (data.liked.includes(l.id) ? 1 : 0);
               return (
@@ -143,7 +170,11 @@ function Feed() {
                   <AHCard pad={0}>
                     {l.photo_url ? <Image source={{uri: l.photo_url}} style={{width: '100%', aspectRatio: 4 / 5, borderTopLeftRadius: 20, borderTopRightRadius: 20}} resizeMode="cover" accessibilityLabel={l.caption ?? 'A member’s look'} /> : null}
                     <View style={{padding: 16, gap: 4}}>
-                      <Text style={t.eyebrow}>{memberName(l.profiles)}{l.profiles?.city ? ` · ${l.profiles.city}` : ''} · {ago(l.created_at)}</Text>
+                      <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                        <Text style={[t.eyebrow, {flex: 1}]}>{memberName(l.profiles)}{l.profiles?.city ? ` · ${l.profiles.city}` : ''} · {ago(l.created_at)}</Text>
+                        <ModerationMenu kind="look" targetId={l.id} memberId={l.user_id} name={memberName(l.profiles)} own={!!me && l.user_id === me}
+                          onBlocked={() => { setGone((g) => [...g, l.user_id]); void reload(true); }} />
+                      </View>
                       {l.caption ? <Text style={t.body}>{l.caption}</Text> : null}
                       {l.brands?.length ? <Text style={t.meta}>{l.brands.join(' · ')}</Text> : null}
                       <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>

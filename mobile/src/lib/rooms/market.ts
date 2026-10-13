@@ -57,18 +57,14 @@ export const readMyDeals = () => asMember<{mine: Listing[]; received: Offer[]; m
 
 export type NewListing = {title: string; brand?: string; size?: string; condition: string; asking_price_cents: number; category?: string; description?: string};
 
+/**
+ * POST /api/exchange/list (bearer-aware). The route is the only path for a listing: it checks the house rules
+ * (403 terms_required), runs the text filter (422) and the photo rule — no direct-insert fallback that skips them.
+ */
 export function listItem(x: NewListing): Promise<Res<{id?: string; platform_fee_cents?: number; seller_receives_cents?: number}>> {
   const json = {title: x.title.trim(), brand: x.brand?.trim() || undefined, size: x.size?.trim() || undefined, condition: x.condition, asking_price_cents: x.asking_price_cents,
     category: x.category || undefined, description: x.description?.trim() || undefined, photo_urls: [] as string[]};
-  return viaRoute('/api/exchange/list', {method: 'POST', json}, async (uid) => {
-    if (!json.title) return {ok: false, status: 400, body: {message: 'Title required.'}};
-    if (json.asking_price_cents < 100) return {ok: false, status: 400, body: {message: 'Minimum price is $1.'}};
-    const {data, error} = await supabase.from('exchange_listings').insert({
-      seller_id: uid, title: json.title, description: json.description ?? null, brand: json.brand ?? null, size: json.size ?? null,
-      condition: json.condition || 'excellent', asking_price_cents: json.asking_price_cents, category: json.category ?? null, photo_urls: [], status: 'active',
-    }).select('id, platform_fee_cents, seller_receives_cents').single();
-    return error ? pgFail(error, 'Nothing was posted.') : ok(data as {id: string; platform_fee_cents: number; seller_receives_cents: number});
-  });
+  return api<{id?: string; platform_fee_cents?: number; seller_receives_cents?: number}>('/api/exchange/list', {method: 'POST', json}) as Promise<Res<{id?: string; platform_fee_cents?: number; seller_receives_cents?: number}>>;
 }
 
 /** An offer (POST /api/exchange/offer) — with the route's own checks when it runs as the member. */

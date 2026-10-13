@@ -2,8 +2,8 @@
   "expo": {
     "name": "Finesse Life",
     "slug": "finesse-life",
-    "description": "Finesse Life — a members-only house after hours: the house lock, your side of the house, and the rooms.",
-    "version": "0.1.0",
+    "description": "Finesse Life \u2014 a members-only house after hours: the house lock, your side of the house, and the rooms.",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/brand/icon.png",
     "scheme": "finesselife",
@@ -117,6 +117,14 @@
               "NSPrivacyCollectedDataTypePurposeAppFunctionality",
               "NSPrivacyCollectedDataTypePurposeProductPersonalization"
             ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePurchaseHistory",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
           }
         ]
       }
@@ -129,7 +137,10 @@
         "backgroundColor": "#050505"
       },
       "blockedPermissions": [
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {

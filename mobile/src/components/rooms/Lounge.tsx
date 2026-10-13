@@ -224,12 +224,15 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
           <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: ah.mute}}>{members.length} members on the floor</Text>
         </View>
       </View>
-      <View accessible accessibilityLabel="The city, tonight. The live map is on the web.">
-        <AHSmoke tone="city" aspect={4 / 2.3} top={<AHChip label="Live map · on the web" />}>
-          <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 34, lineHeight: 36, color: ah.white}}>The city, tonight.</Text>
-          <Text style={{marginTop: 6, fontFamily: ahFonts.sans, fontSize: 13, color: 'rgba(255,255,255,0.72)'}}>Who’s out, and where the night is. The live map is on the web for now.</Text>
-        </AHSmoke>
-      </View>
+      {/* The live map is web-only for now; store builds leave the card out rather than point elsewhere. */}
+      {IS_STORE_BUILD ? null : (
+        <View accessible accessibilityLabel="The city, tonight. The live map is on the web.">
+          <AHSmoke tone="city" aspect={4 / 2.3} top={<AHChip label="Live map · on the web" />}>
+            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 34, lineHeight: 36, color: ah.white}}>The city, tonight.</Text>
+            <Text style={{marginTop: 6, fontFamily: ahFonts.sans, fontSize: 13, color: 'rgba(255,255,255,0.72)'}}>Who’s out, and where the night is. The live map is on the web for now.</Text>
+          </AHSmoke>
+        </View>
+      )}
       <View style={{marginTop: 6}}><Segmented options={MODES} value={mode} onChange={setMode} /></View>
 
       {mode === 'social' ? (
@@ -370,12 +373,14 @@ function LoungeSample() {
       </View>
 
       {/* the city tonight (the live map is web-only for now) */}
-      <View accessible accessibilityLabel="The city, tonight. The live map is coming to the app.">
-        <AHSmoke tone="city" aspect={4 / 2.3} top={<AHChip label="Live map · on the web" />}>
-          <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 34, lineHeight: 36, color: ah.white}}>The city, tonight.</Text>
-          <Text style={{marginTop: 6, fontFamily: ahFonts.sans, fontSize: 13, color: 'rgba(255,255,255,0.72)'}}>Who’s out, and where the night is. The live map is coming to the app.</Text>
-        </AHSmoke>
-      </View>
+      {IS_STORE_BUILD ? null : (
+        <View accessible accessibilityLabel="The city, tonight. The live map is coming to the app.">
+          <AHSmoke tone="city" aspect={4 / 2.3} top={<AHChip label="Live map · on the web" />}>
+            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 34, lineHeight: 36, color: ah.white}}>The city, tonight.</Text>
+            <Text style={{marginTop: 6, fontFamily: ahFonts.sans, fontSize: 13, color: 'rgba(255,255,255,0.72)'}}>Who’s out, and where the night is. The live map is coming to the app.</Text>
+          </AHSmoke>
+        </View>
+      )}
 
       <View style={{marginTop: 6}}>
         <Segmented options={MODES} value={mode} onChange={setMode} />

@@ -1,6 +1,7 @@
 // Nova request hub (/api/nova/requests) for the mobile rooms. Mirrors the web view model in
 // src/lib/nova-request-view.ts (keep the two in step): untrusted agent JSON → safe view data.
 import {api} from '../api';
+import {CONSENT_DECLINED_TEXT, aiApi} from '../consents';
 
 export type RequestKind = 'find_item' | 'price_check' | 'style_for_occasion' | 'procurement' | 'plan';
 export type RequestStatus = 'drafted' | 'running' | 'ready' | 'failed' | 'done' | 'cancelled';
@@ -111,6 +112,7 @@ export function draftsFromToolCalls(toolCalls: unknown): NovaRequest[] {
 export function requestErrorText(status: number, body: {error?: unknown; retryAfterS?: unknown} | null | undefined): string {
   if (status === 0) return 'The house line is offline. Nothing ran — try again when we are connected.';
   if (status === 401) return 'Sign in to send this to Nova. Nothing ran.';
+  if (status === 403 && body?.error === 'consent_required') return CONSENT_DECLINED_TEXT;
   if (status === 429) {
     const s = Number(body?.retryAfterS);
     return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
@@ -147,11 +149,11 @@ export async function listRequests(): Promise<HubReply<NovaRequest[]>> {
 }
 
 export async function createRequest(input: {kind: RequestKind; title: string; details: Record<string, unknown>; room?: string}, confirm: boolean) {
-  return one(await api<Body>('/api/nova/requests', {method: 'POST', json: {...input, title: input.title.slice(0, 140), confirm}}));
+  return one(await aiApi<Body>('/api/nova/requests', {method: 'POST', json: {...input, title: input.title.slice(0, 140), confirm}}));
 }
 
 export async function confirmRequest(id: string) {
-  return one(await api<Body>(`/api/nova/requests/${encodeURIComponent(id)}/confirm`, {method: 'POST'}));
+  return one(await aiApi<Body>(`/api/nova/requests/${encodeURIComponent(id)}/confirm`, {method: 'POST'}));
 }
 
 export async function closeRequest(id: string, to: 'cancel' | 'done') {

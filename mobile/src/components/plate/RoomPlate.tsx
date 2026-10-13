@@ -7,6 +7,7 @@ import Animated, {FadeInDown, useReducedMotion} from 'react-native-reanimated';
 import {ah, ahFonts} from '@/lib/ah';
 import type {Room} from '@/lib/registry';
 import {AHCard, AHEyebrow, AHGlow, AHLiveDot, AHPill, AHTitle} from '@/components/ah';
+import {IS_STORE_BUILD} from '@/lib/release';
 
 const TRUTH: Record<Room['truthState'], {label: string; tone: string; live?: boolean}> = {
   wired: {label: 'Live', tone: ah.ok, live: true},
@@ -21,6 +22,8 @@ export function RoomPlate({room, children}: {room: Room; children?: ReactNode}) 
   const router = useRouter();
   const reduce = useReducedMotion();
   const truth = TRUTH[room.truthState];
+  // Store builds carry no build-state labels: only "Live" and the invitation key are shown.
+  const showChip = !IS_STORE_BUILD || room.truthState === 'wired' || room.truthState === 'gated';
   const n = String(room.number).padStart(2, '0');
 
   return (
@@ -31,10 +34,10 @@ export function RoomPlate({room, children}: {room: Room; children?: ReactNode}) 
           <AHEyebrow>Room {n} · {cap(room.category)}</AHEyebrow>
           <AHTitle size={room.name.length > 14 ? 40 : 48} style={{marginTop: 10}}>{room.name}</AHTitle>
           <Text style={styles.design}>{room.design}</Text>
-          <View style={[styles.chip, {borderColor: room.truthState === 'gated' ? 'rgba(232,180,160,0.4)' : ah.line2}]}>
+          {showChip ? <View style={[styles.chip, {borderColor: room.truthState === 'gated' ? 'rgba(232,180,160,0.4)' : ah.line2}]}>
             {truth.live ? <AHLiveDot color={ah.ok} /> : null}
             <Text style={[styles.chipText, {color: truth.tone}]}>{truth.label}</Text>
-          </View>
+          </View> : null}
         </Animated.View>
         <View style={styles.body}>{children}</View>
         <AHPill label="Return to the Lobby" variant="ghost" style={{alignSelf: 'center', marginTop: 36}} onPress={() => router.push('/lobby')} />

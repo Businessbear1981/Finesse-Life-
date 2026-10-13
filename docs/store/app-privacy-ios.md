@@ -5,7 +5,8 @@ with the privacy manifest in `mobile/app.json` (`ios.privacyManifests.NSPrivacyC
 policy at https://finesselife.vip/privacy. If any of the three changes, change all three.
 
 Data processed by our service providers on our behalf (Supabase — database and auth; Vercel — hosting;
-Cloudflare R2 — photo storage; Anthropic — the AI model behind Nova) counts as collected by us. None of it is
+Cloudflare R2 — photo storage; Anthropic — the AI model behind Nova; Stripe — Scale group-buy payments) counts
+as collected by us. None of it is
 sold, used for advertising, or combined with other companies’ data.
 
 ## Do you or your third-party partners collect data from this app?
@@ -31,7 +32,7 @@ For every type below: **Linked to the user: Yes** · **Used for tracking: No**.
 | Contact Info → Other Contact Info | No | — | — |
 | Health & Fitness → Health | No | — | No medical or clinical data |
 | Health & Fitness → **Fitness** | Yes | App Functionality | Gym sets and sessions the member logs; Kitchen calorie targets |
-| Financial Info → Payment Info | No | — | The app takes no payments |
+| Financial Info → Payment Info | No | — | Card details are entered on Stripe’s checkout page and never reach Finesse; we keep only the payment state (see Purchase History) |
 | Financial Info → Credit Info | No | — | — |
 | Financial Info → **Other Financial Info** | Yes | App Functionality | Per Diem budgets and estimated costs the member enters |
 | Location → Precise / Coarse | No | — | The app doesn’t request location (the live map is web-only) |
@@ -42,12 +43,12 @@ For every type below: **Linked to the user: Yes** · **Used for tracking: No**.
 | User Content → Audio Data | No | — | Starmaker recordings stay on the device |
 | User Content → Gameplay Content | No | — | — |
 | User Content → Customer Support | No | — | Support is by email outside the app. Answer **Yes** if an in-app support form is ever added |
-| User Content → **Other User Content** | Yes | App Functionality | Lounge posts, Nova messages and drafts, Diary items, trips, Entourage notes, Kitchen plans, reports the member files |
+| User Content → **Other User Content** | Yes | App Functionality | Lounge posts, Wardrobe looks the member makes public, Nova messages and drafts, Diary items, trips, Entourage notes, Kitchen plans, reports the member files |
 | Browsing History | No | — | — |
 | Search History | No | — | Nova requests are declared under Other User Content |
 | Identifiers → **User ID** | Yes | App Functionality | The account id |
 | Identifiers → Device ID | No | — | No IDFA / IDFV collection |
-| Purchases → Purchase History | No | — | No in-app purchases |
+| Purchases → **Purchase History** | Yes | App Functionality | Scale group-buy pledges and their payment state (pledged, payment requested, paid) for physical goods paid through Stripe Checkout. No in-app purchases |
 | Usage Data → **Product Interaction** | Yes | App Functionality, **Product Personalization** | Rooms opened, things saved or asked for; AI usage records (feature, token counts) for rate limits |
 | Usage Data → Advertising Data | No | — | No ads |
 | Usage Data → Other Usage Data | No | — | — |
@@ -58,7 +59,8 @@ For every type below: **Linked to the user: Yes** · **Used for tracking: No**.
 ## Notes for the answers
 
 - **Third-party AI (Apple 5.1.2(i))**: the label has no separate “shared with AI” field; the disclosure lives in
-  the app (consent sheet before the first Nova message and before a photo is read) and in the privacy policy.
+  the app (consent sheet before the member’s first use of any AI feature — enforced by the server — and before a
+  photo is read) and in the privacy policy.
   Both must name **Anthropic**.
 - **Third-party personal data**: Entourage notes describe other people. The privacy policy discloses this: the
   information is private to the member, used only to help them, and deleted with their account.

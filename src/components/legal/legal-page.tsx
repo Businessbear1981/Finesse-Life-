@@ -11,8 +11,20 @@ export const LEGAL_UPDATED = '2026-10-12';
 
 export type TocItem = {id: string; label: string};
 
+/**
+ * Internal draft / founder-action banners (`note`) never reach the public production pages a store reviewer reads.
+ * They show in development and preview builds, or in production only when LEGAL_DRAFT_BANNER is set. The founder's
+ * reminders (counsel review, the support mailbox) live in docs/store/CHECKLIST.md.
+ */
+export function showDraftNotes(env: Record<string, string | undefined> = process.env): boolean {
+  return env.NODE_ENV !== 'production' || !!env.LEGAL_DRAFT_BANNER?.trim();
+}
+
 export function LegalPage({eyebrow, title, intro, meta, note, toc, children}: {
-  eyebrow: string; title: ReactNode; intro?: ReactNode; meta?: ReactNode; note?: ReactNode; toc?: TocItem[]; children: ReactNode;
+  eyebrow: string; title: ReactNode; intro?: ReactNode; meta?: ReactNode;
+  /** Internal draft / founder-action banner — hidden in production (see showDraftNotes). */
+  note?: ReactNode;
+  toc?: TocItem[]; children: ReactNode;
 }) {
   return (
     <AHRoom>
@@ -22,7 +34,7 @@ export function LegalPage({eyebrow, title, intro, meta, note, toc, children}: {
         <AHDisplay size="m" style={{marginTop: 10}}>{title}</AHDisplay>
         {meta ? <p className="lg-meta">{meta}</p> : null}
         {intro ? <div className="lg-sec" style={{marginTop: 18}}>{intro}</div> : null}
-        {note ? <div className="lg-note" role="note">{note}</div> : null}
+        {note && showDraftNotes() ? <div className="lg-note" role="note">{note}</div> : null}
         {toc && toc.length > 0 ? (
           <nav aria-label="On this page">
             <ul className="lg-toc">

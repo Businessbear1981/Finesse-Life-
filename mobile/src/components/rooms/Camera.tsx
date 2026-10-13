@@ -19,7 +19,7 @@ import {AHCard, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
 import {Consent, ERR_PINK, LiveGate, Meta, OK_GREEN, RowBtn, Status, Tile} from './live';
 import {useAIConsent} from './AIConsent';
-import {AI_PROCESSOR} from '@/lib/consents';
+import {AI_PROCESSOR, CONSENT_DECLINED_TEXT, aiApi} from '@/lib/consents';
 
 type Item = {id: string; viewUrl: string | null; label: string | null; category: string | null; brand_guess: string | null; confidence: number | null; model: string | null; state: string; routed_to: string | null; created_at: string};
 type CameraData = {items: Item[]};
@@ -128,10 +128,11 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
   useEffect(() => { setLabel(item.label ?? ''); setCat(item.category ?? 'other'); }, [item.label, item.category]);
   const call = async (path: string, init: {method: string; json?: unknown}, ok: string) => {
     setBusy(true); setMsg(null);
-    const r = await api<{message?: string; error?: string; item?: Item}>(path, init);
+    // The reticle's read goes through aiApi: a consent_required refusal opens the consent sheet, then retries.
+    const r = await (path.endsWith('/identify') ? aiApi : api)<{message?: string; error?: string; item?: Item}>(path, init);
     setBusy(false);
     if (!r.ok) {
-      setMsg({ok: false, text: r.body.error === 'model_unavailable' ? (r.body.message ?? 'The reticle has no lens yet — no model is connected. Name the piece yourself.') : failure(r.status, r.body)});
+      setMsg({ok: false, text: r.body.error === 'consent_required' ? CONSENT_DECLINED_TEXT : r.body.error === 'model_unavailable' ? (r.body.message ?? 'The reticle has no lens yet — no model is connected. Name the piece yourself.') : failure(r.status, r.body)});
       return false;
     }
     if (path.endsWith('/identify') && r.body.item?.state === 'unidentified') setMsg({ok: false, text: 'The model could not clearly see one piece. Nothing was guessed — name it yourself.'});
@@ -148,7 +149,7 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
         <View style={{flexDirection: 'row', gap: 14}}>
           <View style={{width: 92}}>
             <Reticle small resolved={item.state === 'identified' || item.state === 'catalogued' || item.state === 'routed'}>
-              {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 10, color: ah.faint}}>No preview</Text>}
+              {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.faint}}>No preview</Text>}
             </Reticle>
           </View>
           <View style={{flex: 1, gap: 6}}>

@@ -17,8 +17,8 @@ Play Console → **Policy → App content → Data safety** → Start. Answers f
 ## Sharing
 
 Play counts as “shared” only transfers to a third party that are **not** a service provider acting on our
-behalf. Supabase, Vercel, Cloudflare R2 and Anthropic process data for us under contract, so: **no data is
-shared**. (Lounge posts shown to other members are a user-initiated action and are not “sharing” under the
+behalf. Supabase, Vercel, Cloudflare R2, Anthropic and Stripe process data for us under contract, so: **no data
+is shared**. (Lounge posts shown to other members are a user-initiated action and are not “sharing” under the
 form’s definition.)
 
 ## Data types collected
@@ -33,7 +33,8 @@ Purposes as listed. Nothing is used for advertising, marketing or fraud preventi
 | Personal info → **User IDs** | Required | App functionality, Account management | Account id |
 | Personal info → Address / Phone / Race / Political / Sexual orientation / Other info | Not collected | — | — |
 | Financial info → **Other financial info** | Optional | App functionality | Per Diem budgets and estimates the member types |
-| Financial info → Purchase history / Credit score / Payment info | Not collected | — | No purchases in the app |
+| Financial info → **Purchase history** | Optional | App functionality | Scale group-buy pledges and their payment state for physical goods paid through Stripe Checkout (no in-app purchases, no digital goods) |
+| Financial info → Credit score / Payment info | Not collected | — | Card details are entered on Stripe’s checkout page and never reach Finesse |
 | Health and fitness → **Fitness info** | Optional | App functionality | Gym sets, Kitchen calorie targets |
 | Health and fitness → Health info | Not collected | — | — |
 | Messages → Emails / SMS | Not collected | — | — |
@@ -47,7 +48,7 @@ Purposes as listed. Nothing is used for advertising, marketing or fraud preventi
 | App activity → **App interactions** | Required | App functionality, Personalization, Analytics | Rooms opened, things saved or asked for; AI usage records |
 | App activity → In-app search history | Not collected | — | — |
 | App activity → Installed apps | Not collected | — | — |
-| App activity → **Other user-generated content** | Optional | App functionality | Lounge posts, Diary items, trips, Entourage notes, Kitchen plans, reports |
+| App activity → **Other user-generated content** | Optional | App functionality | Lounge posts, Wardrobe looks the member makes public, Diary items, trips, Entourage notes, Kitchen plans, reports |
 | App activity → Other actions | Not collected | — | — |
 | Web browsing → Web browsing history | Not collected | — | — |
 | App info and performance → Crash logs / Diagnostics / Other | Not collected | — | No crash SDK. Update if one is added |

@@ -112,13 +112,15 @@ Answer truthfully for the store build:
 | Language: crude humour or profanity in app-provided content | No |
 | Controlled substances: references to alcohol | **Yes** — references (bars, cocktails, wine, whiskey); no depiction of use encouraged to minors |
 | Controlled substances: tobacco / drugs | No |
-| Gambling (real or simulated) | No |
+| Gambling: real money / prizes | No — nothing of value can be wagered or won |
+| Simulated gambling | **Yes** — the Game Room seats members at Poker and “the Book” (with Spades, Dominoes, Rummy) for points only; no money, no prizes, no purchasable currency |
 | Users can interact or exchange content | **Yes** (Lounge posts, photos) |
 | Shares user’s current physical location with other users | No (the live map is web-only and not in the app) |
-| Allows purchase of digital goods | No |
+| Allows purchase of digital goods | No (the only payment is Scale group buys of physical goods, through Stripe Checkout in the browser) |
 | Unrestricted internet access / web browser | No |
 | Miscellaneous: promotes or depicts age-restricted products | **Yes** — alcohol references in nightlife planning |
 
-Expected result: **Mature 17+ (ESRB) / PEGI 16–18 / USK 16–18**, with “Users Interact”. The IARC outcome is
+Expected result: **Mature 17+ (ESRB) / PEGI 16–18 / USK 16–18**, with “Users Interact” (and, with the simulated
+gambling answer, the “Simulated Gambling” descriptor where the region uses it). The IARC outcome is
 computed from truthful answers — never inflate an answer. Whatever the rating, the **Target audience: 18+**
 setting is what keeps the listing to adults, together with the in-app 18+ confirmation.

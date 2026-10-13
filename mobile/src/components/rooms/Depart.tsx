@@ -17,6 +17,8 @@ import {
 } from '@/lib/rooms/departures';
 import {ActionBar, Chips, SampleNote, Segmented, s} from './shared';
 import {LiveGate, Meta, RowBtn, Status} from './live';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 type Msg = {ok: boolean; text: string} | null;
 const code = (place: string | null) => (place ? place.replace(/[^A-Za-zÀ-ÿ]/g, '').slice(0, 3).toUpperCase() || '—' : '—');
@@ -100,7 +102,9 @@ function Compose({acc, onDone}: {acc: string; onDone: (id?: string) => void}) {
   const [brief, setBrief] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
-  const go = async () => {
+  const consent = useAIConsent();
+  const go = () => { if (destination.trim() && !busy) void consent.ensure('ai_processing', () => void compose()); };
+  const compose = async () => {
     if (!destination.trim() || busy) return;
     const d = depart ? dayToIso(depart) : null, r = ret ? dayToIso(ret) : null;
     if ((depart && !d) || (ret && !r)) { setMsg({ok: false, text: 'Write dates as YYYY-MM-DD. Nothing was saved.'}); return; }
@@ -145,6 +149,7 @@ function Fly({trips, acc, reload}: {trips: Trip[]; acc: string; reload: () => vo
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const consent = useAIConsent();
   const labels = trips.map((t, i) => (trips.findIndex((x) => x.destination === t.destination) === i ? t.destination : `${t.destination} ${i + 1}`));
   const idx = Math.max(0, trips.findIndex((t) => t.id === sel));
   const T = trips[idx] ?? null;
@@ -169,10 +174,11 @@ function Fly({trips, acc, reload}: {trips: Trip[]; acc: string; reload: () => vo
             stub={[['Departs', tripDate(T.depart_at) || 'Undated'], ['Returns', tripDate(T.return_at) || '—'], ['Party', String(T.party_size)]]} />
           <AHEyebrow style={{marginTop: 4}}>Itinerary · Nova’s plan</AHEyebrow>
           {T.plan ? <Text style={[s.body, {color: ah.text}]}>{T.plan}</Text> : <Text style={s.small}>No plan yet — ask Nova to compose it.</Text>}
+          {T.plan ? <NovaReport key={`${T.id}:${T.nova_request_id ?? ''}`} targetId={`trip:${T.nova_request_id ?? T.id}`} text={T.plan} /> : null}
           <Text style={s.small}>{PARTNER_NOTE}</Text>
           {T.status !== 'cancelled' ? (
             <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap'}}>
-              <RowBtn label={busy ? 'Working…' : T.plan ? 'Re-plan with Nova' : 'Plan with Nova'} disabled={busy} tone={acc} onPress={() => act(async () => { const r = await planTrip(T); return r.ok ? null : r.text; })} />
+              <RowBtn label={busy ? 'Working…' : T.plan ? 'Re-plan with Nova' : 'Plan with Nova'} disabled={busy} tone={acc} onPress={() => void consent.ensure('ai_processing', () => void act(async () => { const r = await planTrip(T); return r.ok ? null : r.text; }))} />
               <RowBtn label="Cancel trip" disabled={busy} onPress={() => act(async () => { const r = await setTripStatus(T.id, 'cancelled'); return r.ok ? null : failure(r.status, r.body); })} />
             </View>
           ) : (
@@ -196,16 +202,18 @@ function Ride({acc}: {acc: string}) {
   const [dropoff, setDropoff] = useState('');
   const [when, setWhen] = useState('');
   const [busy, setBusy] = useState(false);
-  const [plan, setPlan] = useState<string | null>(null);
+  const [plan, setPlan] = useState<{id: string; text: string} | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
-  const go = async () => {
+  const consent = useAIConsent();
+  const go = () => { if (pickup.trim() && dropoff.trim() && !busy) void consent.ensure('ai_processing', () => void ask()); };
+  const ask = async () => {
     if (!pickup.trim() || !dropoff.trim() || busy) return;
     setBusy(true); setMsg(null); setPlan(null);
     const r = await createRequest({kind: 'plan', title: `Ride to ${dropoff.trim()}`, room: 'departures', details: {topic: 'ride', brief: rideBrief(pickup.trim(), dropoff.trim(), when.trim() || null)}}, true);
     setBusy(false);
     if (!r.ok) { setMsg({ok: false, text: requestErrorText(r.status, r.body)}); return; }
     const v = resultView(r.data.result);
-    setPlan(v.type === 'plan' ? v.text : null);
+    setPlan(v.type === 'plan' ? {id: `request:${r.data.id}`, text: v.text} : null);
     setMsg(v.type === 'plan' ? {ok: true, text: 'Nova’s ride plan is in your Diary. No car has been requested.'} : {ok: false, text: 'Nova returned an empty plan. No car has been requested.'});
   };
   return (
@@ -229,7 +237,8 @@ function Ride({acc}: {acc: string}) {
       {plan ? (
         <Animated.View entering={FadeIn.duration(300)} style={{paddingLeft: 14, borderLeftWidth: 2, borderColor: acc, gap: 6}}>
           <Meta>Nova’s ride plan · nothing requested</Meta>
-          <Text style={[s.body, {color: ah.text}]}>{plan}</Text>
+          <Text style={[s.body, {color: ah.text}]}>{plan.text}</Text>
+          <NovaReport key={plan.id} targetId={plan.id} text={plan.text} />
         </Animated.View>
       ) : null}
       <AHCard pad={16} style={{gap: 6, backgroundColor: 'transparent'}}>

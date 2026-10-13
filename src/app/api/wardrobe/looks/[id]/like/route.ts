@@ -7,17 +7,16 @@ const service = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-async function getUser() {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createSessionClient();
   const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const user = await getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
+
+  // Only a look this member can see (RLS: not hidden by staff, author not blocked either way) can be liked.
+  const { data: visible } = await supabase.from('wardrobe_looks').select('id').eq('id', id).maybeSingle();
+  if (!visible) return NextResponse.json({ error: 'not_found', message: 'That look is no longer on the floor.' }, { status: 404 });
 
   const { data: existing } = await service
     .from('wardrobe_look_likes')

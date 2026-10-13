@@ -31,7 +31,8 @@ then open the app with these credentials yourself on a TestFlight / internal-tes
 WHAT FINESSE LIFE IS
 Finesse Life is a members-only lifestyle app for adults (18+). Members plan their evenings, trips, wardrobe,
 meals and training, keep their plans in a Diary, and talk to Nova, an AI concierge that drafts options for them.
-Nothing in the app books, buys or pays for anything: Nova drafts, the member decides and acts outside the app.
+Nova never books, buys or pays for anything: Nova drafts, the member decides and acts. The one payment in the
+app is for physical goods in a Scale group buy (see PAYMENTS).
 
 HOW TO ENTER (2 steps)
 1) The door. The first screen is the house door. Type the house code: ‹HOUSE CODE›
@@ -43,8 +44,9 @@ HOW TO ENTER (2 steps)
    On first sign-in the app asks you to confirm you are 18 or older.
 
 WHAT TO TRY (all seeded on the review account)
-- Nova (bell at the bottom of the Lobby, or the Concierge room): send any message. Before the first message the
-  app explains that Nova is an AI (Claude, made by Anthropic) and asks for consent. "Your requests" shows four
+- Nova (bell at the bottom of the Lobby, or the Concierge room): send any message. Before your first use of any
+  AI feature (a message, a "plan it with Nova" button, a photo read) the app explains that Nova is an AI (Claude,
+  made by Anthropic) and asks for consent; the server refuses AI requests from members who haven't agreed. "Your requests" shows four
   finished drafts (a dress search, a price check, a Friday evening plan, a Tulum trip plan). Every Nova reply has
   "Report this reply".
 - Diary: this week's plans, including items waiting on the member's approval.
@@ -68,8 +70,10 @@ USER-GENERATED CONTENT (Guideline 1.2)
 
 AI (Guideline 5.1.2)
 Nova runs on Claude by Anthropic (a third-party AI provider), routed through our servers. The app names the
-provider and asks for explicit consent before the first message, and separately before a photo is sent for AI
-reading. Members can report any AI reply. Disclosed in the privacy policy: finesselife.vip/privacy
+provider and asks for explicit consent before your first use of any AI feature, and separately before a photo
+is sent for AI reading. The consent is enforced on our servers: every AI endpoint refuses a member who hasn't
+agreed (and opens the consent sheet in the app). Members can report any AI reply. Disclosed in the privacy
+policy: finesselife.vip/privacy
 
 WHAT IS NOT IN THIS BUILD, AND WHY
 To make sure everything you can open works end to end, this build hides features that depend on partners or
@@ -77,10 +81,14 @@ approvals we don't have yet: a paid membership tier, a stored-value/card feature
 dating features, and some rooms still being built. None of them are reachable, and the app has no links or
 copy pointing to them.
 
-PAYMENTS
-The app sells nothing. There are no in-app purchases, subscriptions or digital goods, and no links or buttons
-that send members to buy anything elsewhere. Retail links in Nova's drafts open the retailer's own website for
-physical goods; we take no payment.
+PAYMENTS (Guideline 3.1.3(e) — goods and services used outside the app)
+The app sells no digital goods, content, subscriptions or in-app features, and has no in-app purchases.
+The one payment is for PHYSICAL goods: Scale (in the Market room) is a group buy for physical products. A pledge
+never charges. Only if the group reaches its goal does the pledge move to "payment requested", and the member
+can then pay for those physical goods through Stripe Checkout, opened in the browser. The app never marks a
+pledge paid itself: it shows "Paid" only after Stripe confirms the payment to our server. Physical goods are
+outside In-App Purchase under 3.1.3(e).
+Retail links in Nova's drafts open the retailer's own website for physical goods; we take no payment there.
 
 PRIVACY, SUPPORT, DELETION
 Privacy policy: https://finesselife.vip/privacy
@@ -95,8 +103,10 @@ Finesse Life is members-only. To review:
 1) On the door screen, enter the house code ‹HOUSE CODE› on the keypad and choose either floor.
 2) In the Lobby, tap Sign in: review@demo.finesselife.vip / ‹REVIEWER PASSWORD›. Confirm you are 18+.
 The account is seeded with Diary plans, Wardrobe looks, a trip, a Per Diem night, Entourage, Kitchen, Gym and
-finished Nova drafts. Nova (AI, by Anthropic) asks for consent before the first message.
-No purchases exist in the app. Account deletion: This Is You → Your key → Delete account.
+finished Nova drafts. Nova (AI, by Anthropic) asks for consent before your first use of any AI feature.
+No digital goods are sold. The only payment is for physical goods in a Scale group buy (Market room), paid
+through Stripe Checkout in the browser after the group reaches its goal. Account deletion: This Is You → Your
+key → Delete account.
 ```
 
 Play asks for the instructions to work **without** contacting you: keep the code and password current, and
@@ -109,5 +119,6 @@ re-run the seed before each review.
   that the reviewer password still works (re-run the seed: it resets the password to `REVIEWER_PASSWORD`).
 - **4.2 (minimum functionality)** — the review account must have content: re-run the seed.
 - **3.1.1 / 3.1.3** — confirm the store build shows no VIP / Penthouse / membership copy (`RELEASE.vip` is
-  false in store builds; see `mobile/src/lib/release.ts`).
+  false in store builds; see `mobile/src/lib/release.ts`). If Scale's browser checkout is questioned, reply that
+  it pays only for physical goods delivered outside the app (3.1.3(e)); no digital content is unlocked.
 - **1.2** — confirm Report / Block are visible on Lounge posts on the release build.

@@ -32,11 +32,14 @@ const SHOTS = [
   {name: '02-floors', path: '/side', wait: 3500},
   {name: '03-lobby', path: '/hotel', wait: 4500},
   {name: '04-concierge', path: '/room/concierge', wait: 4500},
-  {name: '05-wardrobe', path: '/room/wardrobe', wait: 4500, play: {anchor: '^TOP$', at: 64}},
+  // `hide` (signed-out only): the in-app "sample" stamps on demo content are left out of the marketing frame, the way
+  // a signed-in capture of the reviewer's seeded data would look. The app itself always shows them.
+  {name: '05-wardrobe', path: '/room/wardrobe', wait: 4500, hide: ['^Sample rack ·'], play: {anchor: '^TOP$', at: 64}},
   // Play frames are cropped (9:16), so those scroll further down to keep the sample content in view.
-  {name: '06-departures', path: '/room/departures', wait: 4500, play: {anchor: '^Fly$', at: 70}},
-  {name: '07-diary', path: '/room/diary', wait: 4500, play: {anchor: '^LIVE$', at: 70}},
-  {name: '08-lounge', path: '/room/lounge', wait: 4500},
+  {name: '06-departures', path: '/room/departures', wait: 4500, hide: ['^SAMPLE PASS$', '^Sample trip ·'], play: {anchor: '^Fly$', at: 70}},
+  {name: '07-diary', path: '/room/diary', wait: 4500, hide: ['^Sample page ·'], play: {anchor: '^LIVE$', at: 70}},
+  // The Lounge scrolls past its sign-in card and the sample headcount, onto the floor itself.
+  {name: '08-lounge', path: '/room/lounge', wait: 4500, anchor: '^Lounge$', at: 70},
 ];
 
 /** Scroll the tallest scroll container so the element whose own text matches `re` lands `at` px from the top. */
@@ -56,6 +59,22 @@ async function scrollTo(p, re, at) {
   await p.waitForTimeout(900);
 }
 
+/** Hide (visibility only, layout kept) the innermost elements whose own text matches one of `res`. */
+async function hideText(p, res) {
+  const n = await p.evaluate((srcs) => {
+    let hits = 0;
+    for (const src of srcs) {
+      const rx = new RegExp(src);
+      for (const e of document.querySelectorAll('div,span')) {
+        const txt = (e.textContent || '').trim();
+        if (rx.test(txt) && ![...e.children].some((c) => rx.test((c.textContent || '').trim()))) { e.style.visibility = 'hidden'; hits++; }
+      }
+    }
+    return hits;
+  }, res);
+  if (!n) console.log('  (nothing hidden for', res.join(', ') + ')');
+}
+
 (async () => {
   const only = (process.env.DEVICE || 'ios,play').split(',');
   const pick = process.env.SHOTS ? new Set(process.env.SHOTS.split(',')) : null;
@@ -66,6 +85,11 @@ async function scrollTo(p, re, at) {
     fs.mkdirSync(path.join(OUT, dev), {recursive: true});
     const ctx = await b.newContext({viewport: {width: d.width, height: d.height}, deviceScaleFactor: d.scale, isMobile: true, hasTouch: true, userAgent: d.ua, reducedMotion: 'reduce'});
     const p = await ctx.newPage();
+    // Signed out with no house line, the dev build "rehearses" the door and says so. Answer the door's challenge the
+    // way the live house does, so the capture shows the release door (ready for six digits), not the rehearsal.
+    if (!(process.env.REVIEWER_EMAIL && process.env.REVIEWER_PASSWORD)) {
+      await p.route('**/api/keylock/entrance/challenge', (r) => r.fulfill({status: 200, contentType: 'application/json', body: JSON.stringify({state: 'ready', challengeId: 'store-capture'})}));
+    }
     p.on('pageerror', (e) => errors.push(`${dev} [pageerror] ${String(e).slice(0, 200)}`));
     // Warm the bundle (first load can take a while after --clear).
     for (let i = 0; i < 40; i++) { try { await p.goto(BASE + '/', {waitUntil: 'networkidle', timeout: 90000}); break; } catch { await p.waitForTimeout(3000); } }
@@ -94,6 +118,7 @@ async function scrollTo(p, re, at) {
       await p.waitForTimeout(s.wait);
       const pos = s[dev] ?? s;
       if (!signedIn) await scrollTo(p, pos.anchor, pos.at);
+      if (!signedIn && s.hide) await hideText(p, s.hide);
       const file = path.join(OUT, dev, `${s.name}.png`);
       await p.screenshot({path: file});
       console.log(dev, s.name, '→', path.relative(process.cwd(), file));

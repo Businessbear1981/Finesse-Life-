@@ -158,6 +158,7 @@ export function draftsFromToolCalls(toolCalls: unknown): NovaRequest[] {
 export function requestErrorText(status: number, body: {error?: unknown; retryAfterS?: unknown} | null | undefined): string {
   if (status === 0) return 'Couldn’t reach Nova. Nothing ran — try again when you’re connected.';
   if (status === 401) return 'Sign in to send this to Nova. Nothing ran.';
+  if (status === 403 && body?.error === 'consent_required') return 'Nova needs your OK before it can help with this. Nothing was sent.';
   if (status === 429) {
     const s = Number(body?.retryAfterS);
     return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';

@@ -12,7 +12,7 @@ export type Trip = {
 export type TripInput = {destination: string; origin: string | null; depart_at: string | null; return_at: string | null; party_size: number; brief: string | null};
 type Err = {message?: string; error?: string};
 
-export const PARTNER_NOTE = 'Booking partners connect soon — your plan is saved. Nothing has been booked.';
+export const PARTNER_NOTE = 'Your plan is saved. Nothing has been booked — book each leg yourself.';
 
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : null);
 

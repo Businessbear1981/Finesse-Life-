@@ -29,6 +29,8 @@ export const RELEASE = {
   foodScan: !IS_STORE_BUILD,
   /** Gym "Wellness": prescription programmes need a licensed clinician partner — nothing can be started yet. */
   wellness: !IS_STORE_BUILD,
+  /** Switchboard connects social networks — no network's sign-in is open yet, so nothing can be connected. */
+  switchboard: !IS_STORE_BUILD,
 } as const;
 
 /** Rooms hidden from navigation in the store build (manifest ids; hotel ids that differ are mapped below). */
@@ -38,6 +40,7 @@ export const HIDDEN_ROOMS: ReadonlySet<string> = new Set([
   ...(RELEASE.vip ? [] : ['vip-room', 'penthouse']),
   ...(RELEASE.labStudios ? [] : ['lab']),
   ...(RELEASE.club ? [] : ['club']),
+  ...(RELEASE.switchboard ? [] : ['switchboard']),
 ]);
 
 /**

@@ -16,6 +16,9 @@ import {AHCard, AHChip, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
 import {LiveGate, Meta, NumRow, RowBtn, Status} from './live';
 import {Fine} from './RoomKit';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
+import {IS_STORE_BUILD} from '@/lib/release';
 
 export function Scrapbook({side}: {side: Side}) {
   const {live, reload} = useLive<{entries: Entry[]}>(null, readScrapbook);
@@ -110,7 +113,8 @@ function Film({side, entry, onChange}: {side: Side; entry: Entry; onChange: () =
           <Meta color={ah.warn}>Developing · the studio is working on it</Meta>
           <RowBtn label={busy ? 'Checking…' : 'Check on it'} onPress={() => void check()} disabled={busy} />
         </View>
-      ) : (
+      ) : IS_STORE_BUILD ? null : (
+        // The film endpoint takes the web session only, so the store build leaves "Make a film" out.
         <View style={{gap: 8}}>
           {status === 'failed' ? <Meta color={ah.danger}>The last film didn’t finish</Meta> : null}
           <Text style={s.small}>Turns this moment into a short cinematic film.</Text>
@@ -130,18 +134,20 @@ function LogMoment({side, onSaved}: {side: Side; onSaved: () => Promise<void>}) 
   const [desc, setDesc] = useState('');
   const [busy, setBusy] = useState<'nova' | 'save' | null>(null);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const [novaLine, setNovaLine] = useState<{id: string; text: string} | null>(null);
+  const consent = useAIConsent();
   const nova = async () => {
     setBusy('nova'); setMsg(null);
     const r = await writeWithNova(title, type);
     setBusy(null);
-    if (r.ok) setDesc(r.text); else setMsg({ok: false, text: r.text});
+    if (r.ok) { setDesc(r.text); setNovaLine({id: `scrapbook:${Date.now()}`, text: r.text}); } else setMsg({ok: false, text: r.text});
   };
   const save = async () => {
     setBusy('save'); setMsg(null);
     const r = await logMoment({entry_type: type, title, description: desc});
     setBusy(null);
     if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was saved.')}); return; }
-    setTitle(''); setDesc(''); setType('nova_moment');
+    setTitle(''); setDesc(''); setType('nova_moment'); setNovaLine(null);
     setMsg({ok: true, text: `Saved to ${r.body.season ?? 'your seasons'}.`});
     void onSaved();
   };
@@ -152,7 +158,8 @@ function LogMoment({side, onSaved}: {side: Side; onSaved: () => Promise<void>}) 
       <Chips options={labels} value={ENTRY_LABEL[type]} onChange={(l) => setType(TYPES[labels.indexOf(l)] ?? 'nova_moment')} />
       <AHInput value={title} onChangeText={(v) => setTitle(v.slice(0, 200))} placeholder="What happened? (e.g. Dinner at Lucian)" accessibilityLabel="Moment" />
       <AHInput value={desc} onChangeText={(v) => setDesc(v.slice(0, 4000))} placeholder="A line about it (optional)" multiline style={{minHeight: 70, paddingTop: 12}} accessibilityLabel="Description" />
-      <RowBtn label={busy === 'nova' ? 'Nova is writing…' : 'Write it with Nova'} onPress={() => void nova()} disabled={busy !== null || !title.trim()} tone={ah.rose} />
+      <RowBtn label={busy === 'nova' ? 'Nova is writing…' : 'Write it with Nova'} onPress={() => void consent.ensure('ai_processing', () => void nova())} disabled={busy !== null || !title.trim()} tone={ah.rose} />
+      {novaLine && desc === novaLine.text ? <NovaReport key={novaLine.id} targetId={novaLine.id} text={novaLine.text} /> : null}
       <ActionBar label={busy === 'save' ? 'Saving…' : 'Log this moment'} color={track[side].acc} onPress={() => void save()} disabled={busy !== null || !title.trim()} />
       <Status msg={msg} />
     </AHCard>

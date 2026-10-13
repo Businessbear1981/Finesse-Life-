@@ -1,6 +1,6 @@
 // Unified Agent Dispatch API — members only, rate limited.
 // POST { agent: 'scout'|'stylist'|'outing-planner'|'procurement'|'price-hunter', payload: {...} }
-// → 200 agent result | 400 invalid | 401 signed_out | 429 rate_limited | 502/503 nova_unavailable
+// → 200 agent result | 400 invalid | 401 signed_out | 403 consent_required | 429 rate_limited | 502/503 nova_unavailable
 
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
@@ -19,6 +19,7 @@ import {
 import {emit} from '@/lib/intelligence';
 import {createClient} from '@/lib/supabase/server';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {novaImageSchema} from '@/lib/nova';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -77,6 +78,8 @@ export async function POST(req: Request) {
   // Procurement makes no model call; every other agent does (scout-by-image sends an image).
   if (body.agent !== 'procurement') {
     const bucket = body.agent === 'scout' && 'image' in body.payload ? 'image' : 'nova';
+    const noConsent = await requireAiConsent(supabase, user.id, {photo: bucket === 'image'});
+    if (noConsent) return noConsent;
     const limited = await guardAiCall(user.id, bucket);
     if (limited) return limited;
   }

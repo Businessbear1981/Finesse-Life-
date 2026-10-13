@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { NovaAction } from '@/components/nova/request-card';
 import { useSignedIn } from '@/components/nova/requests-api';
+import { CONSENT_DECLINED_TEXT, ensureAiConsent } from '@/components/nova/ai-consent';
+import { ReportReply } from '@/components/nova/report-reply';
 import {
   brandSignals, categoryTrends, fromEmbassy, fromScale,
   type BrandSignal, type CategoryTrend, type PipelineDeal,
@@ -334,10 +336,13 @@ function DerivedNote() {
 // ─── Tab 2: Buying Trends (derived from the pipeline) ─────────────────────────
 function BuyingTrends({ trends, state }: { trends: CategoryTrend[]; state: LoadState }) {
   const [briefing, setBriefing] = useState<string | null>(null);
+  const [briefingId, setBriefingId] = useState<string | null>(null); // set only when the text is Nova's
   const [loading, setLoading] = useState(false);
 
   async function getIntel() {
     if (trends.length === 0) return;
+    setBriefingId(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setBriefing(CONSENT_DECLINED_TEXT); return; }
     setLoading(true);
     try {
       const trendSummary = trends.map((t) => `- ${t.category}: ${t.deals} deals (${t.live} live), avg member savings ${t.avg_savings_pct}%, ${t.joins} group-buy joins, most deals from ${t.top_brand}`).join('\n');
@@ -353,6 +358,7 @@ function BuyingTrends({ trends, state }: { trends: CategoryTrend[]; state: LoadS
         return;
       }
       setBriefing(data.text);
+      setBriefingId(`embassy-trends:${Date.now()}`);
     } catch {
       setBriefing('Intelligence feed unavailable. Check back shortly.');
     } finally {
@@ -421,6 +427,7 @@ function BuyingTrends({ trends, state }: { trends: CategoryTrend[]; state: LoadS
               <div className="h-px bg-[#69C9D0]/10 mb-4" />
               <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova&apos;s read, not market data</p>
               <p className="font-body text-sm text-cream/60 italic leading-relaxed whitespace-pre-wrap">{briefing}</p>
+              {briefingId && <ReportReply key={briefingId} targetId={briefingId} text={briefing} />}
             </motion.div>
           )}
         </AnimatePresence>

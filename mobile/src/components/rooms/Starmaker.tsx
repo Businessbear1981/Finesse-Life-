@@ -8,13 +8,15 @@ import {ActivityIndicator, Linking, Platform, Pressable, Text, TextInput, View} 
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import * as DocumentPicker from 'expo-document-picker';
 import {type RecordingInput, type RecordingOptions, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState} from 'expo-audio';
-import {api} from '@/lib/api';
+import {CONSENT_DECLINED_TEXT, aiApi} from '@/lib/consents';
 import {track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
 import {AHCard, AHChip, AHEyebrow, AHSmoke, AHTitle} from '@/components/ah';
 import {radius} from '@/lib/ah';
 import {ActionBar, Chips, SampleNote, Segmented} from './shared';
 import {Fine, Head, Num, Pick, Row, TextBtn, Tile, ah, ahFonts, t} from './RoomKit';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 type Stage = 'write' | 'booth' | 'crate' | 'studio' | 'release';
 type Take = {id: string; uri: string; ms: number; at: string; kind: 'VOCAL' | 'PODCAST'; title: string; marks: number[]; clean: boolean};
@@ -125,6 +127,8 @@ export function Starmaker({side}: {side: Side}) {
   const [idea, setIdea] = useState('');
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [writing, setWriting] = useState(false);
+  const [lyricsId, setLyricsId] = useState<string | null>(null); // set only when the text is Nova's (reportable)
+  const consent = useAIConsent();
 
   useEffect(() => { if (ps.didJustFinish) setPlaying(null); }, [ps.didJustFinish]);
 
@@ -169,8 +173,11 @@ export function Starmaker({side}: {side: Side}) {
     if (writing) return;
     setWriting(true);
     const prompt = `Genre: ${genre}. Mood: ${mood}. ${idea.trim() ? `Idea: ${idea.trim().slice(0, 300)}` : ''}`;
-    const r = await api<{text?: string}>('/api/nova', {method: 'POST', json: {prompt, persona: 'lyricist', system: SYSTEM}});
-    setLyrics(r.ok && r.body.text ? r.body.text : r.status === 0 ? 'The house line is offline. Nova will write when we are connected.' : r.status === 401 ? 'Sign in and Nova will write with you.' : 'Nova is in another session. Try again in a moment.');
+    const r = await aiApi<{text?: string; error?: string}>('/api/nova', {method: 'POST', json: {prompt, persona: 'lyricist', system: SYSTEM}});
+    const ok = !!(r.ok && r.body.text);
+    setLyricsId(ok ? `lyrics:${Date.now()}` : null);
+    setLyrics(ok ? r.body.text! : r.status === 0 ? 'The house line is offline. Nova will write when we are connected.' : r.status === 401 ? 'Sign in and Nova will write with you.'
+      : r.status === 403 && r.body.error === 'consent_required' ? CONSENT_DECLINED_TEXT : 'Nova is in another session. Try again in a moment.');
     setWriting(false);
   };
   const inCrate = sounds.filter((x) => x.crate === crate);
@@ -280,13 +287,14 @@ export function Starmaker({side}: {side: Side}) {
           <Chips options={MOODS} value={mood} onChange={setMood} />
           <TextInput value={idea} onChangeText={setIdea} placeholder="The idea, a line, a feeling…" placeholderTextColor={ah.faint} selectionColor={ah.rose} multiline accessibilityLabel="Song idea"
             style={{minHeight: 96, padding: 16, borderRadius: radius.input, borderWidth: 1, borderColor: ah.line2, backgroundColor: 'rgba(0,0,0,0.35)', fontFamily: ahFonts.sans, fontSize: 16, lineHeight: 22, color: ah.text, textAlignVertical: 'top'}} />
-          <ActionBar label={writing ? 'Nova is writing…' : 'Write with Nova'} color={acc} onPress={write} disabled={writing} />
+          <ActionBar label={writing ? 'Nova is writing…' : 'Write with Nova'} color={acc} onPress={() => { if (!writing) void consent.ensure('ai_processing', () => void write()); }} disabled={writing} />
           {writing ? <ActivityIndicator color={ah.rose} /> : null}
           {lyrics ? (
             <Animated.View entering={FadeInDown.duration(400)}>
               <AHCard pad={22} style={{backgroundColor: ah.ink3}}>
                 <AHEyebrow color={ah.blush}>Nova · {genre} · {mood.toLowerCase()}</AHEyebrow>
                 <Text selectable style={[t.voice, {fontSize: 21, lineHeight: 29, marginTop: 12}]}>{lyrics}</Text>
+                {lyricsId ? <View style={{marginTop: 8}}><NovaReport key={lyricsId} targetId={lyricsId} text={lyrics} /></View> : null}
               </AHCard>
             </Animated.View>
           ) : null}

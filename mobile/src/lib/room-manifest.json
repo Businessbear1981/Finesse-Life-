@@ -232,7 +232,7 @@
         "no attention-selling at launch"
       ],
       "phase": "2",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
         "architecture": "Low seating islands divided by smoked-glass privacy screens",
         "focalObject": "Presence lamps that appear only for consented friends",

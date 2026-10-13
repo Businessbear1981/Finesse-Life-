@@ -20,6 +20,8 @@ import {BALLROOM_STAGE, dollars} from '@/lib/rooms/logic';
 import {AHCard, AHChip, AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote} from './shared';
 import {LiveGate, RowBtn, Status} from './live';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 import {Fine, Head, Meter, Row, Tag, TextBtn, Tile, ah, ahFonts, t} from './RoomKit';
 
 const PLAT = deco.lamp;
@@ -49,11 +51,13 @@ function CarpeLive({acc, profile, reload}: {acc: string; profile: CarpeProfile |
   const day = diary.live.state === 'ready' ? diary.live.data : null;
   const [brief, setBrief] = useState<Msg>(null);
   const [briefing_, setBriefing] = useState(false);
+  const [briefId, setBriefId] = useState('');
+  const consent = useAIConsent();
   const askBrief = async () => {
     setBriefing(true); setBrief(null);
     const r = await briefing(profile, {today: day?.items.length ?? 0, needsYou: day?.counts.needsYou ?? 0});
     setBriefing(false);
-    setBrief({ok: r.ok, text: r.text});
+    setBrief({ok: r.ok, text: r.text}); setBriefId(`carpe-diem-brief:${Date.now()}`);
   };
   return (
     <View style={{gap: 16}}>
@@ -81,7 +85,8 @@ function CarpeLive({acc, profile, reload}: {acc: string; profile: CarpeProfile |
         <AHEyebrow color={ah.platinum}>Nova briefing</AHEyebrow>
         {brief ? <Text style={[brief.ok ? t.voice : t.small, !brief.ok && {color: ah.danger}]} accessibilityLiveRegion="polite">{brief.text}</Text>
           : <Fine>Built from your Diary, portfolio and garage — nothing invented.</Fine>}
-        <ActionBar color={acc} label={briefing_ ? 'Nova is reading your week…' : brief?.ok ? 'Brief me again' : 'Brief me'} onPress={() => void askBrief()} disabled={briefing_} />
+        {brief?.ok ? <NovaReport key={briefId} targetId={briefId} text={brief.text} /> : null}
+        <ActionBar color={acc} label={briefing_ ? 'Nova is reading your week…' : brief?.ok ? 'Brief me again' : 'Brief me'} onPress={() => void consent.ensure('ai_processing', () => void askBrief())} disabled={briefing_} />
       </AHCard>
     </View>
   );

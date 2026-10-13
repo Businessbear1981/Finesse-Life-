@@ -33,6 +33,10 @@ export const unblockMember = (member_id: string) =>
 
 export const readBlocks = () => call<{blocks?: Array<{member_id: string; name: string; blocked_at: string}>}>('/api/moderation/blocks');
 
+export type MyReport = {id: string; target_kind: ReportKind; target_id: string; reason: ReportReason; note: string | null; status: 'open' | 'actioned' | 'dismissed'; status_label: string; created_at: string};
+/** The member's own reports and where each one stands (GET /api/moderation/reports). */
+export const readMyReports = () => call<{reports?: MyReport[]}>('/api/moderation/reports');
+
 export const readTerms = () => call<{accepted?: boolean}>('/api/account/accept-terms');
 export const acceptTerms = () => call<{accepted?: boolean}>('/api/account/accept-terms', {method: 'POST', json: {accept: true}});
 

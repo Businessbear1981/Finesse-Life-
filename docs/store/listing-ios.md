@@ -120,7 +120,7 @@ App Store Connect → App Information → **Age Ratings** → Edit. Answer truth
 | Medical or treatment information | None | Wellness programmes are hidden in the store build |
 | Health or wellness topics | **Yes** | Gym logging, Kitchen calorie targets |
 | Alcohol, tobacco, or drug use or references | **Frequent/Intense** | Bars, nightcaps, whiskey and wine throughout |
-| Simulated gambling | None | — |
+| Simulated gambling | **Infrequent/Mild** | The Game Room: members sit at Poker, Spades, Dominoes, Rummy and “the Book” tables played for points only — no money, no prizes, no purchase of chips |
 | Contests | None | — |
 | Sexual content or nudity | None | Dating features are not in the store build |
 | Graphic sexual content and nudity | None | — |

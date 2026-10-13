@@ -158,8 +158,14 @@ export function AHSmoke({children, tone = 'rose', aspect = 1 / 1.05, top, style}
   const c = tone === 'city'
     ? [['#00C8FF', 0.45, '0.75', '0.2'], ['#FF2EA0', 0.4, '0.15', '0.8'], ['#E6FF00', 0.18, '0.85', '0.85']] as const
     : [['#B76E79', 0.85, '0.7', '0.25'], ['#8E4B55', 0.9, '0.2', '0.7'], ['#B9BCC2', 0.35, '0.85', '0.85']] as const;
+  // The aspect is a minimum: on a narrow phone (or with large text) the card grows instead of the copy running up
+  // under the top chip. Until the width is measured the plain aspect ratio holds the space.
+  const [w, setW] = useState(0);
+  const [topH, setTopH] = useState(0);
   return (
-    <View style={[{borderRadius: radius.hero, overflow: 'hidden', borderWidth: 1, borderColor: ah.line, aspectRatio: aspect, backgroundColor: tone === 'city' ? '#03070D' : '#0B0708'}, style]}>
+    <View onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      style={[{borderRadius: radius.hero, overflow: 'hidden', borderWidth: 1, borderColor: ah.line, justifyContent: 'flex-end', backgroundColor: tone === 'city' ? '#03070D' : '#0B0708'},
+        w ? {minHeight: w / aspect} : {aspectRatio: aspect}, style]}>
       <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" pointerEvents="none">
         <Defs>
           {c.map(([col, op, cx, cy], i) => (
@@ -170,8 +176,8 @@ export function AHSmoke({children, tone = 'rose', aspect = 1 / 1.05, top, style}
         {c.map((_, i) => <Rect key={i} width="100%" height="100%" fill={`url(#${id}${i})`} />)}
         <Rect width="100%" height="100%" fill={`url(#${id}sh)`} />
       </Svg>
-      {top && <View style={{position: 'absolute', top: 18, left: 18, right: 18}}>{top}</View>}
-      <View style={{position: 'absolute', left: 0, right: 0, bottom: 0, padding: 22}}>{children}</View>
+      {top && <View onLayout={(e) => setTopH(e.nativeEvent.layout.height)} style={{position: 'absolute', top: 18, left: 18, right: 18}}>{top}</View>}
+      <View style={{padding: 22, paddingTop: top ? Math.max(22, 18 + topH + 14) : 22}}>{children}</View>
     </View>
   );
 }

@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server';
 import { complete } from '@/lib/ai';
+import { guardAiCall } from '@/lib/ai-rate-limit';
+import { requireAiConsent } from '@/lib/ai-consent-gate';
+import { sessionMember, unauthorized } from '@/app/api/billing/_member';
 
+// POST /api/registry/identify (multipart: file) — members only, AI consent required, rate limited.
+// Only the photo's type and size reach the model (not the image), so ai_processing is the consent needed.
+// → 200 suggestion | 400 | 401 signed_out | 403 consent_required | 429
 export async function POST(req: Request) {
+  const member = await sessionMember();
+  if (!member) return unauthorized();
+  const noConsent = await requireAiConsent(member.supabase, member.userId);
+  if (noConsent) return noConsent;
+  const limited = await guardAiCall(member.userId, 'nova');
+  if (limited) return limited;
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

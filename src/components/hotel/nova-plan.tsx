@@ -7,6 +7,8 @@
  */
 import {useCallback, useEffect, useState} from 'react';
 import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+import {CONSENT_DECLINED_TEXT, isConsentRefusal, useAiGate} from '@/components/nova/ai-consent';
+import {ReportReply} from '@/components/nova/report-reply';
 
 export type PlanTopic = 'table' | 'ride' | 'trip' | 'evening' | 'appointment' | 'other';
 export type NovaRequest = {
@@ -19,6 +21,7 @@ const STATUS: Record<string, string> = {drafted: 'Draft', running: 'Nova is work
 
 export function novaError(status: number, body: {error?: string; message?: string}) {
   if (status === 401) return 'Sign in to ask Nova. Nothing was sent.';
+  if (isConsentRefusal(status, body)) return CONSENT_DECLINED_TEXT;
   if (status === 429) return 'Nova needs a breather — try again in a minute. Nothing was sent.';
   if (body.error === 'nova_unavailable') return 'Nova is unavailable right now. Your request is saved as failed — nothing was booked.';
   if (status === 0) return body.message ?? 'The house line is down. Nothing was sent.';
@@ -51,10 +54,15 @@ export function NovaPlan({room, topic, title, label, placeholder, accent, withWh
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const gate = useAiGate();
 
-  const ask = async (e: React.FormEvent) => {
+  // Nothing is sent until the member has agreed to AI processing (ai-consent.tsx).
+  const ask = (e: React.FormEvent) => {
     e.preventDefault();
     if (!brief.trim() || busy) return;
+    gate(() => void send());
+  };
+  const send = async () => {
     setBusy(true); setMsg(null);
     const details: Record<string, unknown> = {topic, brief: brief.trim()};
     if (withWhen && when) details.when = new Date(when).toISOString();
@@ -73,7 +81,7 @@ export function NovaPlan({room, topic, title, label, placeholder, accent, withWh
 
   return (
     <section aria-label={label} className="mb-8 border p-4" style={{borderColor: `${accent}40`}}>
-      <h2 className="font-label text-[10px] uppercase tracking-[0.4em]" style={{color: accent}}>{label}</h2>
+      <h2 className="font-label text-[11px] uppercase tracking-[0.4em]" style={{color: accent}}>{label}</h2>
       <form onSubmit={ask} className="mt-3 flex flex-col gap-2">
         <label className="sr-only" htmlFor={`nova-${room}-brief`}>What should Nova plan?</label>
         <textarea id={`nova-${room}-brief`} value={brief} onChange={(e) => setBrief(e.target.value)} placeholder={placeholder} maxLength={600} rows={2} className={`${fieldCls} py-2`} />
@@ -98,11 +106,11 @@ export function NovaPlan({room, topic, title, label, placeholder, accent, withWh
             <li key={q.id} id={`request-${q.id}`} className="border border-brass/15 p-3">
               <button type="button" onClick={() => setOpen(open === q.id ? null : q.id)} className="flex w-full items-start justify-between gap-3 text-left" aria-expanded={open === q.id}>
                 <span className="font-body text-sm text-cream/85">{q.details.brief ?? q.title}</span>
-                <span className="shrink-0 font-label text-[8px] uppercase tracking-[0.2em] text-cream/55">{STATUS[q.status] ?? q.status}</span>
+                <span className="shrink-0 font-label text-[11px] uppercase tracking-[0.2em] text-cream/55">{STATUS[q.status] ?? q.status}</span>
               </button>
               {open === q.id && (
                 <div className="mt-3 space-y-3">
-                  {q.result?.plan ? <NovaPlanText text={q.result.plan} /> : <p className="font-body text-sm italic text-cream/55">{q.status === 'failed' ? 'Nova could not finish this one. Nothing was booked.' : 'No plan yet.'}</p>}
+                  {q.result?.plan ? <><NovaPlanText text={q.result.plan} /><ReportReply targetId={`request:${q.id}`} text={q.result.plan} /></> : <p className="font-body text-sm italic text-cream/55">{q.status === 'failed' ? 'Nova could not finish this one. Nothing was booked.' : 'No plan yet.'}</p>}
                   {q.status === 'ready' && (
                     <div className="flex gap-2">
                       <button type="button" onClick={() => close(q.id, 'done')} className={`${btnCls} border-brass/40 text-cream/80`}>I&apos;ve arranged it</button>

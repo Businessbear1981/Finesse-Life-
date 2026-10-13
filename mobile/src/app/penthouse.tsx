@@ -1,7 +1,7 @@
 // The Private Lift → the Penthouse — After Hours (mirrors web src/components/hotel/private-lift.tsx).
 // The doors open ONLY when POST /api/vip-keylock/verify answers "unlocked"; nothing on this screen can open them.
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {Link} from 'expo-router';
+import {Link, Redirect} from 'expo-router';
 import {AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useSharedValue, withDelay, withTiming} from 'react-native-reanimated';
@@ -12,11 +12,18 @@ import {FloorReadout, LiftScene} from '@/components/lift/LiftScene';
 import {PenthouseFloor} from '@/components/rooms/Penthouse';
 import {supabase} from '@/lib/supabase';
 import {api, liftToken} from '@/lib/api';
+import {RELEASE} from '@/lib/release';
 
 type Phase = 'dormant' | 'calling' | 'ready' | 'confirm' | 'verifying' | 'unlocked' | 'closed';
 const IDLE = 'A room above the room.';
 
-export default function PenthouseElevator() {
+/** Store builds hide VIP (lib/release.ts): a deep link to the lift goes back to the hotel. A wrapper keeps hook order fixed. */
+export default function PenthouseRoute() {
+  if (!RELEASE.vip) return <Redirect href="/hotel" />;
+  return <PenthouseElevator />;
+}
+
+function PenthouseElevator() {
   const input = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
@@ -57,8 +64,8 @@ export default function PenthouseElevator() {
         floor.value = 1; doors.value = 1;
         setMsg('The lift remembers you. Penthouse — floor 17.');
         setPhase('unlocked');
-      } else if (r.status !== 0) {
-        await liftToken.clear(); // inactive, expired or refused — an offline check keeps it for later
+      } else if (r.status !== 0 && r.status !== 408) {
+        await liftToken.clear(); // inactive, expired or refused — an offline or timed-out check keeps it for later
       }
     })();
     return () => { live = false; };

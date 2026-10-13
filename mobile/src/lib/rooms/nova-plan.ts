@@ -1,6 +1,7 @@
 // The orchestrator hub, as the signed-in member: GET /api/nova/requests and POST {kind:'plan', …, confirm:true}.
 // Nova drafts options; nothing is booked (result.booked is always false) and a Diary item is created for review.
 import {api} from '../api';
+import {CONSENT_DECLINED_TEXT, aiApi} from '../consents';
 
 export type PlanTopic = 'table' | 'ride' | 'trip' | 'evening' | 'appointment' | 'other';
 export type NovaRequest = {
@@ -20,7 +21,7 @@ export function askNovaToPlan(input: {room: string; topic: PlanTopic; title: str
   const details: Record<string, unknown> = {topic: input.topic, brief: input.brief.trim().slice(0, 600)};
   if (input.when) details.when = input.when;
   if (input.partySize) details.party_size = Math.max(1, Math.min(40, input.partySize));
-  return api<{request?: NovaRequest} & Err>('/api/nova/requests', {method: 'POST', json: {kind: 'plan', title: `${input.title}: ${input.brief.trim()}`.slice(0, 140), details, room: input.room, confirm: true}});
+  return aiApi<{request?: NovaRequest} & Err>('/api/nova/requests', {method: 'POST', json: {kind: 'plan', title: `${input.title}: ${input.brief.trim()}`.slice(0, 140), details, room: input.room, confirm: true}});
 }
 
 export function closeRequest(id: string, to: 'done' | 'cancel') {
@@ -31,6 +32,7 @@ export function closeRequest(id: string, to: 'done' | 'cancel') {
 export function novaFailure(status: number, body: Err) {
   if (status === 0) return 'The house line is down. Nothing was sent.';
   if (status === 401) return 'Sign in first. Nothing was sent.';
+  if (status === 403 && body.error === 'consent_required') return CONSENT_DECLINED_TEXT;
   if (status === 429) return 'Nova needs a breather — try again in a minute. Nothing was sent.';
   if (body.error === 'nova_unavailable') return 'Nova is unavailable right now. Nothing was booked.';
   return 'Nova could not draft that. Nothing was booked.';

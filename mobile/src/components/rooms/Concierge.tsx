@@ -9,7 +9,7 @@ import {ActivityIndicator, Pressable, ScrollView, Text, TextInput, View} from 'r
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import Svg, {Defs, LinearGradient, Rect, Stop} from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import {api} from '@/lib/api';
+import {CONSENT_DECLINED_TEXT, aiApi} from '@/lib/consents';
 import {draftsFromToolCalls, type NovaRequest} from '@/lib/rooms/nova-requests';
 import {AHEyebrow, AHLiveDot, AHTitle} from '@/components/ah';
 import {radius} from '@/lib/ah';
@@ -67,13 +67,14 @@ export function Concierge() {
     const prompt = (override ?? ask).trim();
     if (!prompt || busy) return;
     setBusy(true); setPending(prompt);
-    const r = await api<{text?: string; error?: string; tool_calls?: unknown}>('/api/nova', {method: 'POST', json: {prompt, persona: 'concierge'}});
+    const r = await aiApi<{text?: string; error?: string; tool_calls?: unknown}>('/api/nova', {method: 'POST', json: {prompt, persona: 'concierge'}});
     const drafts = draftsFromToolCalls(r.body.tool_calls);
     // Only a 2xx with text is Nova's reply. A 502/503 carries {error, text} where text explains Nova is
     // unreachable — shown as an error, never as if she had answered.
     const failed = !(r.ok && r.body.text);
     const reply = !failed ? r.body.text! : r.status === 0 ? 'The house line is offline. Nothing was sent; ask again when we are connected.'
       : r.status === 401 ? 'Sign in to ring for Nova. Nothing was sent.'
+      : r.status === 403 && r.body.error === 'consent_required' ? CONSENT_DECLINED_TEXT
       : drafts.length > 0 ? 'Nova’s reply didn’t come through, but her draft is below. Nothing runs until you confirm it.'
       : r.body.text ?? 'Nova could not be reached. Nothing was arranged; please try again in a moment.';
     setDockets((d) => [{id: Date.now(), ask: prompt, reply, failed, drafts, at: new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}, ...d]);

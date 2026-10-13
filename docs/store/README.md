@@ -36,7 +36,7 @@ Do these first — D-U-N-S and organization verification take days to weeks.
    Profiles → Identifiers if it isn’t offered), SKU e.g. `finesse-life-ios`. Note the **Apple ID** of the app
    (App Information → General → Apple ID, a number) — that is `ascAppId`.
    Then: Agreements, Tax and Banking → accept the Free Apps agreement (no paid agreement is needed — the app
-   sells nothing).
+   sells no digital goods; Scale group buys of physical goods are paid through Stripe, outside IAP).
 4. **Google Play Console — Organization account** (US$25 one-time) at play.google.com/console/signup, with the
    same D-U-N-S number and legal name. An organization account is not subject to the “12 testers for 14 days”
    closed-test rule that new personal accounts get before production access. Complete identity and website
@@ -68,7 +68,8 @@ The app talks to the web server at `https://finesselife.vip`. Reviewers can’t 
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT`, `R2_PUBLIC_URL`, `CLOUDFLARE_ACCOUNT_ID` | Photo uploads |
 | `ADMIN_EMAIL` | Moderation queue access |
 
-Stripe keys are only needed for the web; the app sells nothing.
+Stripe keys are needed for web memberships and for Scale group-buy checkout (physical goods — the app opens
+Stripe Checkout in the browser). The app sells no digital goods and has no in-app purchases.
 
 Supabase → Authentication → URL configuration: add `https://finesselife.vip/reset-password` to the redirect
 allow-list (used by “Forgot password?” in the app).

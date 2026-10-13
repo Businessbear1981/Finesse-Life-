@@ -489,10 +489,10 @@ export default function EditProfilePage() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as {error?: string};
+      const data = (await res.json().catch(() => ({}))) as {error?: string; message?: string};
 
       if (!res.ok) {
-        setError(data.error ?? 'Save failed.');
+        setError(data.message ?? data.error ?? 'Save failed.');
       } else {
         setSavedFlash(true);
         setTimeout(() => setSavedFlash(false), 2200);

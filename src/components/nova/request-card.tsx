@@ -15,6 +15,7 @@ import {
 } from '@/lib/nova-request-view';
 import {closeRequest, confirmRequest, createRequest, listRequests, type NewRequest} from './requests-api';
 import {ReportReply} from './report-reply';
+import {useAiGate} from './ai-consent';
 import './request-card.css';
 
 /** What Nova produced for a request, as plain text for a report. */
@@ -203,8 +204,11 @@ export function NovaAction({label, build, accent, itemActions, className, style,
   const [busy, setBusy] = useState(false);
   const [req, setReq] = useState<NovaRequest | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const gate = useAiGate();
 
-  const go = async () => {
+  // Nothing is sent until the member has agreed to AI processing (ai-consent.tsx).
+  const go = () => { if (!busy) gate(() => void run()); };
+  const run = async () => {
     const input = build();
     if (!input || busy) return;
     setBusy(true); setErr(null);

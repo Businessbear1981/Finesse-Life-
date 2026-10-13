@@ -1,5 +1,7 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
+import {screenFields} from '@/lib/moderation';
+import {contentRejected} from '@/lib/moderation-server';
 
 async function getServiceClient() {
 
@@ -109,6 +111,16 @@ export async function PATCH(request: Request) {
       has_private_profile?: boolean;
     };
 
+    // Member safety (Apple 1.2 / Play UGC): the name, bio, vibe and city other members see in the Lounge (and
+    // the VIP-floor versions) go through the same text filter as posts. 422 content_rejected; nothing is saved.
+    const asText = (v: unknown) => (typeof v === 'string' ? v : null);
+    const verdict = screenFields(
+      [display_name, bio, vibe, city, private_display_name, private_bio, private_vibe].map(asText),
+    );
+    if (verdict.verdict === 'reject') {
+      return contentRejected({...verdict, message: verdict.message.replace('Nothing was posted.', 'Your profile wasn’t changed.')});
+    }
+
     // If any private fields are being written, verify the user is VIP
     const touchesPrivate =
       private_display_name !== undefined ||
@@ -145,7 +157,7 @@ export async function PATCH(request: Request) {
     };
 
     // Public fields
-    if (display_name !== undefined) update.display_name = display_name;
+    if (display_name !== undefined) update.display_name = typeof display_name === 'string' ? display_name.slice(0, 60) : display_name;
     if (gender !== undefined) update.gender = gender;
     if (age !== undefined) update.age = age;
     if (city !== undefined) update.city = city;

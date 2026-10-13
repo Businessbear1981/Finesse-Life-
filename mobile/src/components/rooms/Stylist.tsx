@@ -90,7 +90,7 @@ export function Stylist({side}: {side: Side}) {
                     </Pressable>
                   ) : null}
                 </View>
-                <Meta color={x.state === 'sent' ? OK_GREEN : x.state === 'failed' ? ERR_PINK : ah.mute} style={{fontSize: 9.5, letterSpacing: 0.8}}>
+                <Meta color={x.state === 'sent' ? OK_GREEN : x.state === 'failed' ? ERR_PINK : ah.mute} style={{fontSize: 11, letterSpacing: 0.8}}>
                   {x.state === 'sent' ? `Sent · ${x.occasion}` : x.state === 'failed' ? (x.msg ?? 'Not sent') : x.state === 'sending' ? 'Sending…' : 'Ready'}
                 </Meta>
               </Animated.View>

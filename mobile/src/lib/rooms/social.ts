@@ -80,14 +80,13 @@ export const addRegistryWish = (w: {title: string; brand?: string; price_cents: 
   return error ? pgFail(error, 'Nothing was saved.') : ok({id: (data as {id: string}).id}, 201);
 });
 
-export function addOuting(o: {title: string; partner?: string; occasion_type?: string; date?: string; note?: string}): Promise<Res<{outing?: Outing}>> {
+/**
+ * POST /api/registry/outings (bearer-aware). Outings are seen by other members, so the route — with the text
+ * filter on the title and note — is the only path; there is no direct-insert fallback.
+ */
+export async function addOuting(o: {title: string; partner?: string; occasion_type?: string; date?: string; note?: string}): Promise<Res<{outing?: Outing}>> {
   const json = {title: o.title.trim(), partner: o.partner?.trim() || undefined, occasion_type: o.occasion_type || undefined, date: o.date || undefined, note: o.note?.trim() || undefined};
-  return viaRoute<{outing?: Outing}>('/api/registry/outings', {method: 'POST', json}, async (uid) => {
-    const {data, error} = await supabase.from('outings').insert({
-      host_id: uid, title: json.title, partner: json.partner ?? null, occasion_type: json.occasion_type ?? null, date_at: json.date || null, note: json.note ?? null, status: 'open',
-    }).select('id').single();
-    return error ? pgFail(error, 'Nothing was saved.') : ok({outing: {id: (data as {id: string}).id, title: json.title, partner: json.partner ?? '', occasion_type: json.occasion_type ?? '', date: json.date ?? null, note: json.note ?? '', status: 'open'}}, 201);
-  });
+  return (await api<{outing?: Outing}>('/api/registry/outings', {method: 'POST', json})) as Res<{outing?: Outing}>;
 }
 
 /* ─────────────── Lab (src/app/api/lab/jobs — bearer-aware) ─────────────── */

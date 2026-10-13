@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { roomCall } from '@/lib/room-client';
+import { CONSENT_DECLINED_TEXT, ensureAiConsent } from '@/components/nova/ai-consent';
 
 const TOOLS = [
   { id: 'voice', name: 'Voice Studio', sub: 'Text to speech', icon: '🎙', placeholder: 'Type what you want Nova to say...' },
@@ -100,7 +101,9 @@ export default function Lab() {
 
   const draftWithNova = async () => {
     if (!activeTool || busy) return;
-    setBusy('nova'); setMsg(null);
+    setMsg(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setMsg({ ok: false, text: CONSENT_DECLINED_TEXT }); return; }
+    setBusy('nova');
     const idea = prompt.trim() || 'Surprise me with something on-brand for a members-only after-hours club.';
     const r = await roomCall<{ text?: string; error?: string }>('/api/nova', {
       method: 'POST',

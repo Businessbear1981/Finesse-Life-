@@ -12,6 +12,7 @@ import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
 import {eveningBrief, totals, type PerDiemItem, type PerDiemPlan} from '@/lib/per-diem';
 import {formatCents, resultView, type ItemView} from '@/lib/nova-request-view';
 import {failureText, runNovaRequest, today, useRoomData} from '@/lib/rooms/live-room';
+import {ReportReply} from '@/components/nova/report-reply';
 
 /* ─── Types ─── */
 
@@ -386,6 +387,7 @@ export default function PerDiemPage() {
                       <details className="mt-6" open={plan.items.length === 0}>
                         <summary className="min-h-9 cursor-pointer font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova’s plan, as written</summary>
                         <p className="mt-3 whitespace-pre-line font-body text-sm leading-relaxed text-cream/65">{plan.plan_text}</p>
+                        <ReportReply targetId={`perdiem:${plan.nova_request_id ?? plan.id}`} text={plan.plan_text} />
                       </details>
                     )}
 

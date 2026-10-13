@@ -55,6 +55,7 @@ function IdentityLive({data, accent, reload, onLens}: LiveCtx<IdentityData> & {o
           {data.projection.visibility.lounge === 'nobody' ? 'Show me in the Lounge' : 'Hide me from the Lounge'}
         </button>
         <a href="/api/identity/export" className={`${btnCls} inline-flex items-center border-brass/40 text-cream/80`}>Download my data</a>
+        <a href="/account#ai-safety-title" className={`${btnCls} inline-flex items-center border-brass/40 text-cream/80`}>AI &amp; safety · blocks, reports, consents</a>
       </div>
       <p className="font-body text-xs italic text-cream/55">Never shown to anyone: {data.neverProjected.join(', ')}. Profile traffic is yours alone.</p>
       {msg && <p role="status" className="font-body text-sm italic text-cream/80">{msg}</p>}

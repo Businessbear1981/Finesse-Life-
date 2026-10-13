@@ -16,6 +16,7 @@ import {Anton_400Regular} from '@expo-google-fonts/anton';
 import {colors} from '@/lib/tokens';
 import {ah, ahFonts} from '@/lib/ah';
 import {AHDisplay, AHEyebrow, AHGlow, AHPill} from '@/components/ah';
+import {AIConsentHost} from '@/components/rooms/AIConsent';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -71,6 +72,8 @@ export default function RootLayout() {
         <Stack.Screen name="sign-in" options={{title: 'Members', presentation: 'modal'}} />
         <Stack.Screen name="delete-account" options={{title: 'Delete account'}} />
       </Stack>
+      {/* One AI consent sheet for the whole app — every Nova button and every consent_required refusal. */}
+      <AIConsentHost />
     </>
   );
 }

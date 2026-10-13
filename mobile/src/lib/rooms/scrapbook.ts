@@ -1,7 +1,7 @@
 // The Scrapbook (web: src/app/(hotel)/archive/page.tsx). Entries are read exactly as the web archive reads
 // them — scrapbook_entries for the member, under RLS (owner_only). New moments go through POST /api/scrapbook/log
 // (bearer-aware). Films: POST /api/scrapbook/generate-video + GET /api/scrapbook/video-status — both still read
-// the cookie only, so from the app they answer 401; the room says films are made on the web for now.
+// the cookie only, so from the app they answer 401; the room says the studio can't be reached (store builds leave the control out).
 import {api} from '../api';
 import {supabase} from '../supabase';
 import {asMember, ok, pgFail, type Res} from './db';
@@ -35,7 +35,7 @@ export type FilmResult = {state: 'started' | 'web_only' | 'failed'; text: string
 export async function makeFilm(entryId: string): Promise<FilmResult> {
   const r = await api<{job_id?: string; status?: string; error?: string}>('/api/scrapbook/generate-video', {method: 'POST', json: {entry_id: entryId}});
   if (r.ok) return {state: 'started', text: 'The film is developing. It appears here when the studio finishes.'};
-  if (r.status === 401) return {state: 'web_only', text: 'Films are made from the Scrapbook on the web for now — open it at finesselife.vip. Nothing was started.'};
+  if (r.status === 401) return {state: 'web_only', text: 'The film studio can’t be reached from the app yet. Nothing was started.'};
   if (r.status === 0) return {state: 'failed', text: 'The house line is down. Nothing was started.'};
   if (r.status === 404) return {state: 'failed', text: 'That moment is no longer here.'};
   return {state: 'failed', text: 'The film studio couldn’t start this one. Nothing was made — try again later.'};

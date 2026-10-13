@@ -4,6 +4,7 @@ import {useState, useEffect} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
 import {createClient} from '@/lib/supabase/client';
+import {ensureAiConsent} from '@/components/nova/ai-consent';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -778,8 +779,11 @@ export default function NightvisionPage() {
   // ── edition ──
   const [edition, setEdition] = useState<Edition>('finesse');
   useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
+    const id = setTimeout(() => {
+      const g = localStorage.getItem('finesse_gender');
+      setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
+    }, 0);
+    return () => clearTimeout(id);
   }, []);
 
   // ── auth ──
@@ -907,6 +911,8 @@ export default function NightvisionPage() {
 
   // ── run analysis ──
   async function runAnalysis() {
+    // Nothing is sent to Nova until the member agrees (and agrees to her reading photos, when there are any).
+    if (!(await ensureAiConsent(photos.length > 0 ? 'photo_ai' : 'ai_processing'))) return;
     setPageState('analyzing');
 
     // Animate scan checks sequentially

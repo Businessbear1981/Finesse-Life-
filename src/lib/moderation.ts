@@ -1,12 +1,12 @@
 // Member-safety rules shared by the UGC routes (Apple 1.2 / Play UGC): the text filter applied before a
-// post, VIP post, Exchange listing or Game Room table is saved, the media-URL rule for posts, and the
+// post, VIP post, Exchange listing, Game Room table, Wardrobe look, outing or Lounge profile is saved, the media-URL rule for posts, and the
 // report/block vocabulary the API, the web rooms and the app share. Pure — no I/O, safe to unit test.
 //
 // The filter is a first line, not the whole system: anything it misses can be reported by members, three
 // distinct reports hide the item pending review (20261017_s1_moderation.sql), and staff act from
 // /api/moderation/queue. It errs toward letting ordinary conversation through.
 
-export const REPORT_KINDS = ['post', 'vip_post', 'profile', 'listing', 'club_table', 'outing', 'nova_reply'] as const;
+export const REPORT_KINDS = ['post', 'vip_post', 'profile', 'listing', 'club_table', 'outing', 'look', 'nova_reply'] as const;
 export type ReportKind = (typeof REPORT_KINDS)[number];
 
 export const REPORT_REASONS = ['spam', 'harassment', 'hate', 'sexual', 'violence', 'self_harm', 'illegal', 'impersonation', 'scam', 'other'] as const;
@@ -34,6 +34,8 @@ export const MODERATION_TARGETS: Record<Exclude<ReportKind, 'nova_reply'>, {tabl
   listing: {table: 'exchange_listings', owner: 'seller_id', snapshot: 'id, seller_id, title, description, photo_urls, status, moderation_hidden, moderation_note, created_at', hideable: true},
   club_table: {table: 'club_tables', owner: 'host_id', snapshot: 'id, host_id, title, note, status, moderation_hidden, moderation_note, created_at', hideable: true},
   outing: {table: 'outings', owner: 'host_id', snapshot: 'id, host_id, title, note, status, moderation_hidden, moderation_note, created_at', hideable: true},
+  // Wardrobe floor looks (20261019_r1_ugc.sql).
+  look: {table: 'wardrobe_looks', owner: 'user_id', snapshot: 'id, user_id, photo_url, caption, brands, moderation_hidden, moderation_note, created_at', hideable: true},
 };
 
 export const REPORTED_MESSAGE = 'Thank you. The house reviews every report within 24 hours and removes content that breaks the rules.';

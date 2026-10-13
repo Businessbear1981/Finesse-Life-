@@ -7,6 +7,8 @@ import {createClient} from '@/lib/supabase/client';
 import {useLocalPref} from '@/components/after-hours';
 import {NovaAction, RequestCard, RequestsList} from '@/components/nova/request-card';
 import {createRequest, useSignedIn} from '@/components/nova/requests-api';
+import {CONSENT_DECLINED_TEXT, ensureAiConsent} from '@/components/nova/ai-consent';
+import {ReportReply} from '@/components/nova/report-reply';
 import {requestErrorText, type ItemView, type NovaRequest} from '@/lib/nova-request-view';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -155,8 +157,9 @@ function OccasionStylist({accent}: {accent: string}) {
     e.preventDefault();
     const o = occasion.trim();
     if (!o || busy) return;
-    setBusy(true);
     setErr(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setErr(CONSENT_DECLINED_TEXT); return; }
+    setBusy(true);
     const out = await createRequest({kind: 'style_for_occasion', title: `Style me: ${o}`, details: {occasion: o, occasion_type: type}, room: 'stylist'}, true);
     if (out.ok) {
       setLatest(out.data);
@@ -619,6 +622,8 @@ export default function StylistPage() {
 
   async function handleAnalyze() {
     if (!fileInputRef.current?.files?.[0]) return;
+    // Nothing leaves the browser until the member agrees to AI processing and to Nova reading the photo.
+    if (!(await ensureAiConsent('photo_ai'))) { setAnalysisError(CONSENT_DECLINED_TEXT); return; }
     setAnalyzing(true);
     setAnalysisResult(null);
     setAnalysisError(null);
@@ -1149,6 +1154,11 @@ export default function StylistPage() {
                           {analysisResult.price_range}
                         </span>
                       </div>
+
+                      <ReportReply
+                        targetId={`stylist-photo:${analysisResult.style_labels.join(',').slice(0, 80)}`}
+                        text={`${analysisResult.style_labels.join(', ')} · ${analysisResult.similar_brands.join(', ')} · ${analysisResult.price_range}`}
+                      />
 
                       {/* Action buttons */}
                       <div style={{display: 'flex', gap: '8px'}}>

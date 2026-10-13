@@ -11,6 +11,7 @@ import {daysUntil, PARTNER_NOTE, rideBrief, tripBrief, tripDate, type Trip} from
 import {resultView} from '@/lib/nova-request-view';
 import {failureText, runNovaRequest, useRoomData} from '@/lib/rooms/live-room';
 import {LiveRoom, Notice, SampleLabel} from '@/components/live-room-states';
+import {ReportReply} from '@/components/nova/report-reply';
 
 type TripsData = {trips: Trip[]};
 const ACCENT = '#C9A961';
@@ -141,6 +142,7 @@ function TripCard({trip, reload}: {trip: Trip; reload: () => void}) {
         <div className="mt-3">
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="min-h-9 font-label text-[8px] uppercase tracking-[0.25em] text-brass/70">{open ? 'Hide Nova’s plan' : 'Show Nova’s plan'}</button>
           {open && <p className="mt-2 whitespace-pre-line border-t border-brass/10 pt-3 font-body text-sm leading-relaxed text-cream/70">{trip.plan}</p>}
+          {open && <ReportReply targetId={`trip:${trip.nova_request_id ?? trip.id}`} text={trip.plan} />}
         </div>
       )}
       {trip.status !== 'cancelled' && (
@@ -198,6 +200,7 @@ function Ride() {
         <div className="border-t border-brass/10 pt-3">
           <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-brass/40">Nova’s ride plan · in your Diary</p>
           <p className="whitespace-pre-line font-body text-sm leading-relaxed text-cream/70">{plan}</p>
+          <ReportReply key={plan} targetId={`ride:${dropoff.trim().slice(0, 60)}:${plan.length}`} text={plan} />
         </div>
       )}
       <p className="font-body text-xs italic text-cream/40">Ride partners connect soon — your plan is saved. No car has been requested.</p>

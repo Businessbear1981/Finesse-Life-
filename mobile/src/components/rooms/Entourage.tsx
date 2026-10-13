@@ -16,6 +16,8 @@ import {
 import {createRequest, formatCents, requestErrorText, resultView, type ItemView} from '@/lib/rooms/nova-requests';
 import {ActionBar, Chips, SampleNote, s} from './shared';
 import {LiveGate, Meta, RowBtn, Status} from './live';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 type Msg = {ok: boolean; text: string} | null;
 
@@ -116,8 +118,10 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
   const [busy, setBusy] = useState<'gifts' | 'plan' | 'save' | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const [ideas, setIdeas] = useState<ItemView[] | null>(null);
-  const [plan, setPlan] = useState<string | null>(null);
+  const [ideasId, setIdeasId] = useState('');
+  const [plan, setPlan] = useState<{id: string; text: string} | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const consent = useAIConsent();
 
   if (editing) return <PersonForm person={person} acc={acc} onSaved={() => { setEditing(false); reload(); }} onCancel={() => setEditing(false)} />;
 
@@ -127,7 +131,7 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
     setBusy(null);
     if (!r.ok) { setMsg({ok: false, text: requestErrorText(r.status, r.body)}); return; }
     const v = resultView(r.data.result);
-    setIdeas(v.type === 'items' ? v.items : []);
+    setIdeas(v.type === 'items' ? v.items : []); setIdeasId(`request:${r.data.id}`);
   };
   const planBirthday = async () => {
     setBusy('plan'); setMsg(null); setPlan(null);
@@ -137,7 +141,7 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
     setBusy(null);
     if (!r.ok) { setMsg({ok: false, text: requestErrorText(r.status, r.body)}); return; }
     const v = resultView(r.data.result);
-    setPlan(v.type === 'plan' ? v.text : null);
+    setPlan(v.type === 'plan' ? {id: `request:${r.data.id}`, text: v.text} : null);
     setMsg(v.type === 'plan' ? {ok: true, text: 'Nova’s plan is in your Diary for approval. Nothing is booked.'} : {ok: false, text: 'Nova returned an empty plan. Nothing was booked.'});
   };
   const keep = async (i: ItemView) => {
@@ -197,7 +201,7 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
       <View style={{gap: 10}}>
         <Meta>Gift ideas · budget</Meta>
         <Chips options={Object.keys(BUDGETS)} value={budget} onChange={setBudget} />
-        <RowBtn label={busy === 'gifts' ? 'Nova is looking…' : 'Gift ideas from Nova'} onPress={giftIdeas} disabled={!!busy} tone={acc} />
+        <RowBtn label={busy === 'gifts' ? 'Nova is looking…' : 'Gift ideas from Nova'} onPress={() => void consent.ensure('ai_processing', () => void giftIdeas())} disabled={!!busy} tone={acc} />
         {ideas ? (ideas.length === 0 ? <Text style={s.small}>Nova didn’t find anything that fits — try another budget, or add more of what they love.</Text> : (
           <Animated.View layout={LinearTransition} style={{gap: 8}}>
             {ideas.map((i, k) => (
@@ -210,6 +214,7 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
                 </View>
               </AHCard>
             ))}
+            {ideasId ? <NovaReport key={ideasId} targetId={ideasId} text={ideas.map((i) => [i.brand, i.title].filter(Boolean).join(' ')).join('; ')} /> : null}
           </Animated.View>
         )) : null}
       </View>
@@ -217,10 +222,11 @@ function Dossier({person, acc, reload}: {person: Person; acc: string; reload: ()
       {plan ? (
         <Animated.View entering={FadeIn.duration(300)} style={{paddingLeft: 14, borderLeftWidth: 2, borderColor: acc, gap: 6}}>
           <Meta>Nova’s plan · nothing booked</Meta>
-          <Text style={[s.body, {color: ah.text}]}>{plan}</Text>
+          <Text style={[s.body, {color: ah.text}]}>{plan.text}</Text>
+          <NovaReport key={plan.id} targetId={plan.id} text={plan.text} />
         </Animated.View>
       ) : null}
-      <ActionBar color={acc} label={busy === 'plan' ? 'Nova is planning…' : `Plan ${person.name}’s birthday`} onPress={planBirthday} disabled={!!busy} />
+      <ActionBar color={acc} label={busy === 'plan' ? 'Nova is planning…' : `Plan ${person.name}’s birthday`} onPress={() => void consent.ensure('ai_processing', () => void planBirthday())} disabled={!!busy} />
       <Status msg={msg} />
 
       <View style={{flexDirection: 'row', gap: 8, flexWrap: 'wrap'}}>

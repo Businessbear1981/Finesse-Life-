@@ -26,6 +26,8 @@ import {LiveGate, Status, Tick} from './live';
 import {ModerationMenu, useHouseRules} from './moderation';
 import {needsTerms} from '@/lib/rooms/moderation';
 import {Fine, Head, Meter, Num, Pick, Row, Step, Tag, TextBtn, ah, ahFonts, t} from './RoomKit';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 /* ─────────────── NightVision ─────────────── */
 type Kind = 'center' | 'mutual' | 'work' | 'close' | 'public';
@@ -58,7 +60,7 @@ function NetMap({b, sel, onPick}: {b: Brief; sel: number; onPick: (i: number) =>
           <Pressable key={i} disabled={c} onPress={() => onPick(i)} accessibilityRole="button" accessibilityLabel={b.nodes[i][0]} accessibilityState={{selected: on}} hitSlop={14}
             style={{position: 'absolute', left: p.x - size / 2, top: p.y - size / 2, alignItems: 'center'}}>
             <View style={{width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: COL[p.kind], backgroundColor: c ? COL.center : on ? COL[p.kind] : ah.ink2, shadowColor: COL[p.kind], shadowOpacity: on || c ? 0.9 : 0, shadowRadius: 8}} />
-            <Text style={{position: 'absolute', top: size + 4, width: 90, textAlign: 'center', fontFamily: ahFonts.sansMedium, fontSize: 10.5, color: on ? ah.white : ah.mute}}>{b.nodes[i][0]}</Text>
+            <Text style={{position: 'absolute', top: size + 4, width: 90, textAlign: 'center', fontFamily: ahFonts.sansMedium, fontSize: 11, color: on ? ah.white : ah.mute}}>{b.nodes[i][0]}</Text>
           </Pressable>
         );
       })}
@@ -306,7 +308,7 @@ function NightVisionLive({data}: {data: NightVisionData}) {
       ) : (
         <AHCard style={{gap: 6}}>
           <AHEyebrow>No profile yet</AHEyebrow>
-          <Text style={t.small}>You haven’t taken the NightVision intake. Take it on finesselife.vip and your style DNA appears here.</Text>
+          <Text style={t.small}>No style profile has been written for you yet. When one is, your style DNA appears here.</Text>
         </AHCard>
       )}
       <Head right={`${data.signalCount} in 90 days`}>Signals</Head>
@@ -455,10 +457,6 @@ function Board({tables, acc, reload}: {tables: ClubTable[]; acc: string; reload:
         <AHCard style={{gap: 6}}><AHTitle size={26}>No tables open yet.</AHTitle><Text style={t.small}>Host the first one — members see it on the board and take seats.</Text></AHCard>
       ) : tables.map((tb, i) => <BoardTable key={tb.id} tb={tb} n={i + 1} acc={acc} reload={reload} />)}
       <HostTable acc={acc} onDone={reload} />
-      <AHCard pad={16} style={{gap: 6, backgroundColor: 'transparent'}}>
-        <Text style={t.eyebrow}>Partner offers coming</Text>
-        <Fine>No sportsbook, fantasy league or game partner is connected, and live scores need a sports feed we don’t have yet — so none is shown. The Book is members’ picks for points; real wagers wait for a licensed partner with age and location checks.</Fine>
-      </AHCard>
     </View>
   );
 }
@@ -493,6 +491,7 @@ function Night({date, label}: {date: string; label: string}) {
   const [budget, setBudget] = useState(600);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const consent = useAIConsent();
   const nudge = (d: number) => setBudget((b) => Math.max(0, Math.min(10000, b + d)));
   return (
     <LiveGate live={live} reload={() => void reload()} what="Per Diem" signedOut={<PerDiemSample />}>
@@ -500,7 +499,8 @@ function Night({date, label}: {date: string; label: string}) {
         const plan = d.plan ?? null;
         const shown = plan ? plan.budget_cents / 100 : budget;
         const tot = totals(plan?.items ?? [], plan ? plan.budget_cents : budget * 100);
-        const draw = async () => {
+        const draw = () => void consent.ensure('ai_processing', () => void drawNow());
+        const drawNow = async () => {
           setBusy('Nova is drawing the night…'); setMsg(null);
           const r = await planNight(date, budget * 100, occ);
           setBusy(null);
@@ -566,9 +566,10 @@ function Night({date, label}: {date: string; label: string}) {
                 {plan.budget_cents > 0 ? <Meter pct={Math.min(100, Math.round((tot.planned / plan.budget_cents) * 100))} tone={tot.over ? ah.danger : ah.ok} /> : null}
               </View>
             ) : null}
+            {plan?.plan_text ? <NovaReport key={`${plan.id}:${plan.updated_at}`} targetId={`perdiem:${plan.nova_request_id ?? plan.id}`} text={plan.plan_text} /> : null}
             <ActionBar color={ah.rose} label={busy ?? (plan?.items.length ? 'Plan it again with Nova' : 'Plan the night with Nova')} onPress={draw} disabled={!!busy} />
             <Status msg={msg} />
-            <Fine>Reservation partners connect soon — your plan is saved and in your Diary. Nothing is reserved or paid.</Fine>
+            <Fine>Your plan is saved and in your Diary. Nothing is reserved or paid — book each stop yourself.</Fine>
           </View>
         );
       }}
