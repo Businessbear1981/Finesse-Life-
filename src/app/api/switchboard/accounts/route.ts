@@ -1,59 +1,33 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import {NextRequest} from 'next/server';
+import {dbFailure, json, requireMember} from '@/lib/api/room';
+import {NETWORK_IDS, networkStatus} from '@/lib/switchboard';
 
-const service = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// The member's own session client (RLS: 20261016_w3_switchboard.sql) — no service role. Members can read and
+// disconnect their links; only a server-side OAuth callback can create one, and none is configured yet.
 
-async function getUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
-// GET — return connected platforms for this user
+// GET /api/switchboard/accounts → {accounts: [{platform, label, connected, canBroadcast, username, connectedAt, oauth}]}
 export async function GET() {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ accounts: [] });
-
-  const { data } = await service
-    .from('social_accounts')
-    .select('platform, connected, platform_username, connected_at')
-    .eq('user_id', user.id);
-
-  return NextResponse.json({ accounts: data ?? [] });
+  const ctx = await requireMember();
+  if (!('userId' in ctx)) return ctx;
+  const {data, error} = await ctx.supabase.from('social_accounts').select('*').eq('user_id', ctx.userId);
+  if (error) return dbFailure(error, ctx.traceId, 'switchboard');
+  return json({accounts: networkStatus(data ?? [])}, ctx.traceId);
 }
 
-// POST — toggle platform connected state (for manual connection without OAuth)
-export async function POST(req: Request) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+// POST /api/switchboard/accounts — there is no OAuth app yet, so nothing can be connected. Honest 501, nothing saved.
+export async function POST() {
+  const ctx = await requireMember();
+  if (!('userId' in ctx)) return ctx;
+  return json({error: 'oauth_not_available', message: 'Connecting a network needs its OAuth sign-in, which is coming soon. Nothing was saved.'}, ctx.traceId, 501);
+}
 
-  const { platform, connected } = await req.json();
-
-  if (!platform) return NextResponse.json({ error: 'platform required' }, { status: 400 });
-
-  const payload: Record<string, unknown> = {
-    user_id: user.id,
-    platform,
-    connected: connected ?? true,
-  };
-  if (connected) payload.connected_at = new Date().toISOString();
-
-  const { data, error } = await service
-    .from('social_accounts')
-    .upsert(payload, { onConflict: 'user_id,platform' })
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ account: data });
+// DELETE /api/switchboard/accounts?platform=twitter — disconnect (removes the link and its sealed token).
+export async function DELETE(req: NextRequest) {
+  const ctx = await requireMember();
+  if (!('userId' in ctx)) return ctx;
+  const platform = req.nextUrl.searchParams.get('platform') ?? '';
+  if (!(NETWORK_IDS as string[]).includes(platform)) return json({error: 'bad_request'}, ctx.traceId, 400);
+  const {error} = await ctx.supabase.from('social_accounts').delete().eq('user_id', ctx.userId).eq('platform', platform);
+  if (error) return dbFailure(error, ctx.traceId, 'switchboard');
+  return json({disconnected: platform}, ctx.traceId);
 }

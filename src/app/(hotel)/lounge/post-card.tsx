@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {motion} from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import {ModerationMenu} from '@/components/moderation';
 import {CallingCard} from './calling-card';
 
 interface Profile {
@@ -16,6 +17,7 @@ interface Profile {
 
 export interface Post {
   id: string;
+  author_id?: string | null;
   content: string;
   media_urls: string[] | null;
   like_count: number;
@@ -34,10 +36,8 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
-const TILT = [0.5, -0.4, 0.7, -0.6];
-
-/** A full calling card: letterpress name, the note, photographs in deckled mounts, a wax-red heart. */
-export function PostCard({post, userId, index}: {post: Post; userId: string | null; index: number}) {
+/** A full post: the note, photos, and a heart (After Hours). */
+export function PostCard({post, userId, index, onBlocked}: {post: Post; userId: string | null; index: number; onBlocked?: (memberId: string) => void}) {
   const [liked, setLiked] = useState(post.liked_by_me);
   const [count, setCount] = useState(post.like_count);
   const [liking, setLiking] = useState(false);
@@ -72,7 +72,7 @@ export function PostCard({post, userId, index}: {post: Post; userId: string | nu
         vibe={profile?.vibe}
         time={timeAgo(post.created_at)}
         avatar={profile?.avatar_url}
-        tilt={TILT[index % TILT.length]}
+        menu={userId ? <PostMenu post={post} userId={userId} onBlocked={onBlocked} /> : undefined}
         footer={
           <div className="flex items-center gap-2">
             <button
@@ -81,34 +81,31 @@ export function PostCard({post, userId, index}: {post: Post; userId: string | nu
               disabled={!userId}
               aria-pressed={liked}
               aria-label={liked ? 'Unlike' : 'Like'}
-              className={`flex min-h-11 items-center gap-1.5 font-label text-[11px] uppercase tracking-[0.2em] transition-colors duration-300 ${
-                liked ? 'text-[var(--oxblood-600)]' : 'text-[var(--ivory-ink-soft)] hover:text-[var(--oxblood-600)]'
-              } ${!userId ? 'cursor-default' : 'cursor-pointer'}`}
+              className="ah-focus"
+              style={{display: 'flex', alignItems: 'center', gap: 6, minHeight: 44, padding: '0 4px', border: 0, background: 'none', fontSize: 14, fontWeight: 600, color: liked ? '#ff5c8a' : 'var(--ah-mute)', cursor: userId ? 'pointer' : 'default'}}
             >
-              <span className="text-[18px] leading-none">{liked ? '♥' : '♡'}</span>
-              <span>{count > 0 ? count : ''}</span>
+              <span style={{fontSize: 20, lineHeight: 1}}>{liked ? '♥' : '♡'}</span>
+              <span className="ah-num">{count > 0 ? count : ''}</span>
             </button>
             {!userId && (
-              <Link href="/signup" className="ml-auto inline-flex min-h-11 items-center font-label text-[9px] uppercase tracking-[0.2em] text-[var(--ivory-ink-soft)] transition-colors hover:text-[var(--ivory-ink)]">
+              <Link href="/signup" style={{marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', minHeight: 44, fontSize: 13, color: 'var(--ah-rose)', textDecoration: 'none'}}>
                 Join to like →
               </Link>
             )}
           </div>
         }
       >
-        <p className="font-body text-[17px] italic leading-relaxed text-[var(--ivory-ink)]">{post.content}</p>
+        <p style={{margin: 0, fontSize: 15, lineHeight: 1.5, color: 'var(--ah-text)'}}>{post.content}</p>
 
-        {/* Media — photographs in mounts */}
+        {/* Media */}
         {post.media_urls && post.media_urls.length > 0 && (
-          <div className={`mt-3 grid gap-2 ${post.media_urls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          <div style={{marginTop: 12, display: 'grid', gap: 6, gridTemplateColumns: post.media_urls.length === 1 ? '1fr' : '1fr 1fr'}}>
             {post.media_urls.slice(0, 4).map((url, i) => (
-              <div key={i} className="relative aspect-square overflow-hidden bg-[var(--ivory-2)] p-1.5 shadow-[0_2px_6px_rgb(0_0_0/0.35)]">
-                <div className="relative h-full w-full overflow-hidden">
-                  <Image src={url} alt="" fill className="object-cover" />
-                </div>
+              <div key={i} style={{position: 'relative', aspectRatio: '1', overflow: 'hidden', borderRadius: 14, background: 'var(--ah-ink-3)'}}>
+                <Image src={url} alt="" fill className="object-cover" />
                 {i === 3 && post.media_urls!.length > 4 && (
-                  <div className="absolute inset-1.5 flex items-center justify-center bg-[rgb(30_20_12/0.7)]">
-                    <span className="font-display text-xl text-[var(--ivory)]">+{post.media_urls!.length - 4}</span>
+                  <div style={{position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,.6)'}}>
+                    <span style={{fontSize: 22, fontWeight: 700}}>+{post.media_urls!.length - 4}</span>
                   </div>
                 )}
               </div>
@@ -117,5 +114,14 @@ export function PostCard({post, userId, index}: {post: Post; userId: string | nu
         )}
       </CallingCard>
     </motion.div>
+  );
+}
+
+/** Report / block for a Lounge post (hidden on your own). */
+export function PostMenu({post, userId, onBlocked}: {post: Post; userId: string | null; onBlocked?: (memberId: string) => void}) {
+  const authorId = post.author_id ?? post.profiles?.id ?? null;
+  return (
+    <ModerationMenu kind="post" targetId={post.id} memberId={authorId} name={post.profiles?.display_name || 'this member'}
+      own={!!userId && authorId === userId} onBlocked={() => { if (authorId) onBlocked?.(authorId); }} />
   );
 }

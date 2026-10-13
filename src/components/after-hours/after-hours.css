@@ -1,0 +1,359 @@
+/* After Hours — Finesse's visual language (founder pick, Oct 2026).
+   Noir + chrome, editorial serif italics, rose-gold heat, nightlife light. Luxury that reads
+   to 18–27 (drops, guest lists, the night) and to older members (restraint, black-card calm).
+   Fonts come from src/lib/fonts-after-hours.ts on <html>: --d-serif, --d-sans, --d-cond. */
+
+:root {
+  --ah-ink: #050505;
+  --ah-ink-2: #0c0c0e;
+  --ah-ink-3: #141417;
+  --ah-line: rgba(255, 255, 255, 0.08);
+  --ah-line-2: rgba(255, 255, 255, 0.14);
+  --ah-text: #edebe7;
+  --ah-mute: #8a8a8f;
+  --ah-faint: #808086; /* quiet text: >= 4.5:1 on --ah-ink/ink2/ink3 (WCAG AA) */
+  --ah-faint-line: #5c5c62; /* non-text hairlines and idle marks only */
+  --ah-rose: #e8b4a0;
+  --ah-rose-2: #b76e79;
+  --ah-rose-3: #8e4b55;
+  --ah-blush: #f2c9b8;
+  --ah-platinum: #b9bcc2;
+  --ah-ok: #7ee2b8;
+  --ah-warn: #ffcf6e;
+  --ah-chrome: linear-gradient(180deg, #fff 10%, #b9bcc2 55%, #6d7076 90%);
+  --ah-chrome-h: linear-gradient(90deg, #fff, #8e9298 45%, #fff 60%, #9a9ca2);
+  --ah-rose-grad: linear-gradient(90deg, #f2c9b8, #b76e79);
+  --ah-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+  --ah-serif: var(--d-serif), 'Instrument Serif', Georgia, serif;
+  --ah-sans: var(--d-sans), 'Inter Tight', system-ui, sans-serif;
+  --ah-cond: var(--d-cond), Impact, sans-serif;
+}
+
+.ah-room {
+  position: relative;
+  min-height: 100vh;
+  background: var(--ah-ink);
+  color: var(--ah-text);
+  font-family: var(--ah-sans);
+  overflow-x: hidden;
+}
+.ah-room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ah-grain);
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.ah-room-glow {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 520px;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 55% at 85% 0%, rgba(183, 110, 121, 0.22), transparent 70%),
+    radial-gradient(40% 40% at 0% 10%, rgba(185, 188, 194, 0.08), transparent 70%);
+}
+.ah-wrap {
+  position: relative;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top, 0px) + 28px) 20px 140px;
+}
+.ah-wrap-wide { max-width: 72rem; }
+
+/* Type */
+.ah-mark {
+  font-family: var(--ah-sans);
+  font-weight: 700;
+  letter-spacing: 0.42em;
+  font-size: 12px;
+  background: var(--ah-chrome-h);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ah-eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ah-mute);
+}
+.ah-display {
+  margin: 0;
+  font-family: var(--ah-serif);
+  font-style: italic;
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  background: var(--ah-chrome);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-bottom: 0.06em;
+}
+.ah-display-xl { font-size: clamp(64px, 20vw, 96px); }
+.ah-display-l { font-size: clamp(44px, 12vw, 64px); }
+.ah-display-m { font-size: clamp(32px, 8.5vw, 42px); }
+.ah-serif { font-family: var(--ah-serif); font-weight: 400; }
+.ah-serif-i { font-family: var(--ah-serif); font-style: italic; font-weight: 400; }
+.ah-rose-text {
+  background: var(--ah-rose-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.ah-num { font-variant-numeric: tabular-nums; }
+.ah-mute { color: var(--ah-mute); }
+.ah-faint { color: var(--ah-faint); }
+
+/* Surfaces */
+.ah-card {
+  position: relative;
+  border-radius: 24px;
+  background: var(--ah-ink-2);
+  border: 1px solid var(--ah-line);
+  padding: 20px;
+}
+.ah-card-glass {
+  background: rgba(22, 22, 24, 0.72);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+.ah-smoke {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  border: 1px solid var(--ah-line);
+  background:
+    radial-gradient(60% 50% at 70% 25%, rgba(183, 110, 121, 0.85), transparent 70%),
+    radial-gradient(50% 45% at 20% 70%, rgba(142, 75, 85, 0.9), transparent 70%),
+    radial-gradient(40% 35% at 85% 85%, rgba(185, 188, 194, 0.35), transparent 70%),
+    #0b0708;
+}
+.ah-smoke::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ah-grain);
+  opacity: 0.25;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.ah-smoke-blue {
+  background:
+    radial-gradient(60% 50% at 75% 20%, rgba(0, 200, 255, 0.45), transparent 70%),
+    radial-gradient(50% 45% at 15% 80%, rgba(255, 46, 160, 0.4), transparent 70%),
+    radial-gradient(35% 30% at 85% 85%, rgba(230, 255, 0, 0.18), transparent 70%),
+    #03070d;
+}
+.ah-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(180deg, transparent 30%, rgba(0, 0, 0, 0.78));
+}
+.ah-over { position: relative; z-index: 2; }
+.ah-divider { height: 1px; background: var(--ah-line); border: 0; margin: 0; }
+
+/* Controls */
+.ah-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-family: var(--ah-sans);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s;
+}
+.ah-pill:active { transform: scale(0.98); }
+.ah-pill:disabled { opacity: 0.45; cursor: not-allowed; }
+.ah-pill-solid { background: #fff; color: #000; }
+.ah-pill-solid:hover { background: #e9e9ea; }
+.ah-pill-rose { background: var(--ah-rose-grad); color: #2a1014; }
+.ah-pill-ghost { background: transparent; color: var(--ah-text); border-color: var(--ah-line-2); }
+.ah-pill-ghost:hover { border-color: rgba(255, 255, 255, 0.3); }
+.ah-pill-block { width: 100%; }
+.ah-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ah-text);
+  background: rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.ah-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ah-rose);
+  box-shadow: 0 0 12px var(--ah-rose);
+  display: inline-block;
+}
+.ah-live-dot-pulse { animation: ah-blink 1.6s ease-in-out infinite; }
+@keyframes ah-blink { 50% { opacity: 0.3; } }
+.ah-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--ah-line-2);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ah-text);
+  font: 15px/1.4 var(--ah-sans);
+  outline: none;
+}
+.ah-input:focus { border-color: rgba(232, 180, 160, 0.6); }
+.ah-input::placeholder { color: var(--ah-faint); }
+.ah-focus:focus-visible, .ah-pill:focus-visible, .ah-index a:focus-visible {
+  outline: 2px solid var(--ah-rose);
+  outline-offset: 2px;
+}
+
+/* Story ring */
+.ah-ring {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  padding: 2px;
+  background: conic-gradient(from 200deg, #f4f4f2, #b76e79, #e8b4a0, #8e9298, #f4f4f2);
+  text-decoration: none;
+}
+.ah-ring > span, .ah-ring > img {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 3px solid var(--ah-ink);
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  object-fit: cover;
+  background: #1b1b1f;
+}
+.ah-ring-quiet { background: #26262b; }
+.ah-ring-label {
+  display: block;
+  margin-top: 6px;
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 11px;
+  color: var(--ah-mute);
+}
+
+/* Numbered index */
+.ah-index { list-style: none; margin: 0; padding: 0; }
+.ah-index a {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: baseline;
+  gap: 12px;
+  min-height: 56px;
+  padding: 14px 2px;
+  border-bottom: 1px solid var(--ah-line);
+  color: inherit;
+  text-decoration: none;
+}
+.ah-index a:hover .ah-index-name { color: #fff; }
+.ah-index-num { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--ah-faint); }
+.ah-index-name { font-family: var(--ah-serif); font-size: 24px; line-height: 1.05; color: var(--ah-text); transition: color 0.2s; }
+.ah-index-sub { display: block; margin-top: 3px; font-family: var(--ah-sans); font-size: 12px; color: var(--ah-mute); }
+.ah-index-tag {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ah-mute);
+  white-space: nowrap;
+}
+.ah-index-tag-live { color: var(--ah-ok); }
+.ah-index-tag-key { color: var(--ah-rose); }
+
+/* Member card */
+.ah-cardstage { perspective: 900px; }
+.ah-member-card {
+  position: relative;
+  aspect-ratio: 1.586;
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transform: rotateX(12deg) rotateZ(-2.5deg);
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.ah-member-card-flat { transform: none; }
+.ah-member-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.16) 48%, transparent 60%);
+  pointer-events: none;
+}
+.ah-member-card-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+}
+.ah-member-card-chip { width: 34px; height: 26px; border-radius: 6px; background: linear-gradient(135deg, #e3e4e7, #7d8086); }
+.ah-member-card-big { position: relative; z-index: 1; font-size: 32px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+
+/* Fixed bottom action */
+.ah-dock {
+  position: fixed;
+  left: var(--hf-rail, 0px);
+  right: var(--hf-rail, 0px);
+  bottom: var(--hotel-dock, 0px);
+  z-index: 45;
+  padding: 16px 20px 18px;
+  background: linear-gradient(to top, var(--ah-ink) 55%, transparent);
+  pointer-events: none;
+}
+.ah-dock > * { pointer-events: auto; max-width: 34rem; margin: 0 auto; }
+
+/* Skeleton */
+.ah-skel {
+  border-radius: 12px;
+  background: linear-gradient(90deg, #121214, #1c1c20, #121214);
+  background-size: 200% 100%;
+  animation: ah-shimmer 1.4s linear infinite;
+}
+@keyframes ah-shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ah-live-dot-pulse, .ah-skel { animation: none; }
+  .ah-member-card { transition: none; }
+}
+
+/* Inside the hotel frame the frame's top bar carries the wordmark; rooms don't repeat it. */
+.ah-in-frame .ah-topbar-mark { display: none; }
+.ah-in-frame .ah-room { min-height: calc(100vh - var(--hotel-top, 0px) - var(--hotel-dock, 0px)); }
+.ah-in-frame .ah-wrap { padding-top: 22px; }
+.ah-topbar-right { margin-left: auto; }

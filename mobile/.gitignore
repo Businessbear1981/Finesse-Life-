@@ -8,3 +8,5 @@ dist/
 
 expo-env.d.ts
 # @end expo-cli
+# Store credentials (EAS Submit service-account key etc.) — never committed
+secrets/

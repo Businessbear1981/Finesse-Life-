@@ -1,96 +1,74 @@
-// Shared frame for every room: a deco proscenium with the room's number and name, an honest
-// build-truth badge, then the room's own content. Each room keeps its own scene below.
-import {type ReactNode, useEffect} from 'react';
-import {ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
-import {Link} from 'expo-router';
-import Animated, {useAnimatedStyle, useSharedValue, withTiming} from 'react-native-reanimated';
-import Svg, {Defs, LinearGradient, Path, RadialGradient, Rect, Stop, Text as SvgText} from 'react-native-svg';
-import {deco, easeCine, fonts, polar} from '@/lib/deco';
+// Shared frame for every room, After Hours edition: an editorial header (eyebrow with the room number and
+// wing, serif room name, short line) with an honest build-truth chip, then the room's own content.
+import {type ReactNode} from 'react';
+import {ScrollView, StyleSheet, Text, View} from 'react-native';
+import {useRouter} from 'expo-router';
+import Animated, {FadeInDown, useReducedMotion} from 'react-native-reanimated';
+import {ah, ahFonts} from '@/lib/ah';
 import type {Room} from '@/lib/registry';
+import {AHCard, AHEyebrow, AHGlow, AHLiveDot, AHPill, AHTitle} from '@/components/ah';
+import {IS_STORE_BUILD} from '@/lib/release';
 
-const TRUTH: Record<Room['truthState'], {label: string; tone: string}> = {
-  wired: {label: 'LIVE', tone: deco.brassLight},
-  preview: {label: 'PREVIEW', tone: deco.lamp},
-  specified: {label: 'IN PREPARATION', tone: deco.brass},
-  gated: {label: 'BY INVITATION', tone: deco.pink},
+const TRUTH: Record<Room['truthState'], {label: string; tone: string; live?: boolean}> = {
+  wired: {label: 'Live', tone: ah.ok, live: true},
+  preview: {label: 'Preview', tone: ah.text},
+  specified: {label: 'In preparation', tone: ah.mute},
+  gated: {label: 'By invitation', tone: ah.rose},
 };
 
+const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
 export function RoomPlate({room, children}: {room: Room; children?: ReactNode}) {
-  const {width} = useWindowDimensions();
-  const W = Math.min(width, 520);
-  const arrive = useSharedValue(0);
-  useEffect(() => { arrive.value = withTiming(1, {duration: 900, easing: easeCine}); }, [arrive]);
-  const headStyle = useAnimatedStyle(() => ({opacity: arrive.value, transform: [{translateY: 12 * (1 - arrive.value)}]}));
+  const router = useRouter();
+  const reduce = useReducedMotion();
   const truth = TRUTH[room.truthState];
+  // Store builds carry no build-state labels: only "Live" and the invitation key are shown.
+  const showChip = !IS_STORE_BUILD || room.truthState === 'wired' || room.truthState === 'gated';
   const n = String(room.number).padStart(2, '0');
 
   return (
-    <ScrollView style={{backgroundColor: deco.ink}} contentContainerStyle={styles.page}>
-      <Animated.View style={[{width: W, alignSelf: 'center'}, headStyle]}>
-        <Svg width={W} height={W * 0.62} viewBox="0 0 360 224">
-          <Defs>
-            <LinearGradient id="pb" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor={deco.brassWhite} />
-              <Stop offset="0.5" stopColor={deco.brass} />
-              <Stop offset="1" stopColor={deco.brassShadow} />
-            </LinearGradient>
-            <RadialGradient id="pl" cx="180" cy="210" r="190" gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor={deco.lamp} stopOpacity={0.32} />
-              <Stop offset="1" stopColor={deco.ink} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Rect x={0} y={0} width={360} height={224} fill="url(#pl)" />
-          {Array.from({length: 17}, (_, i) => {
-            const a = -80 + i * 10; const p = polar(180, 214, 196, a), q = polar(180, 214, 70, a);
-            return <Path key={i} d={`M${q.x} ${q.y} L${p.x} ${p.y}`} stroke={deco.champagne} strokeOpacity={0.12} />;
-          })}
-          {/* stepped proscenium */}
-          <Path d="M20 222 L20 92 L44 92 L44 68 L72 68 L72 46 L288 46 L288 68 L316 68 L316 92 L340 92 L340 222" fill="none" stroke="url(#pb)" strokeWidth={2} />
-          <Path d="M34 222 L34 104 L56 104 L56 80 L84 80 L84 58 L276 58 L276 80 L304 80 L304 104 L326 104 L326 222" fill="none" stroke={deco.brass} strokeOpacity={0.4} />
-          <Path d="M180 30 L190 40 L180 50 L170 40 Z" fill={deco.ink} stroke={deco.brassHighlight} />
-          <Path d="M120 40 L160 40 M200 40 L240 40" stroke={deco.brass} strokeOpacity={0.5} />
-          <SvgText x={180} y={104} fontSize={11} letterSpacing={6} fill={deco.brass} fontFamily={fonts.label} textAnchor="middle">{`ROOM ${n}`}</SvgText>
-          <SvgText x={180} y={150} fontSize={room.name.length > 16 ? 30 : 38} fill={deco.brassLight} fontFamily={fonts.display} textAnchor="middle">{room.name}</SvgText>
-          <Path d="M130 172 L172 172 M188 172 L230 172" stroke={deco.brass} strokeOpacity={0.5} />
-          <Path d="M180 168 L184 172 L180 176 L176 172 Z" fill={deco.brassHighlight} />
-        </Svg>
-      </Animated.View>
-      <View style={styles.badgeRow}>
-        <View style={[styles.badge, {borderColor: truth.tone}]}><Text style={[styles.badgeText, {color: truth.tone}]}>{truth.label}</Text></View>
-      </View>
-      <Text style={styles.design}>{room.design}</Text>
-      <View style={styles.body}>{children}</View>
-      <Link href="/lobby" style={styles.back}>RETURN TO THE LOBBY</Link>
-    </ScrollView>
-  );
-}
-
-/** Brass-edged panel used inside rooms. */
-export function Panel({title, children}: {title?: string; children: ReactNode}) {
-  return (
-    <View style={styles.panel}>
-      {title ? <Text style={styles.panelTitle}>{title}</Text> : null}
-      {children}
+    <View style={{flex: 1, backgroundColor: ah.ink}}>
+      <AHGlow height={380} />
+      <ScrollView contentContainerStyle={styles.page} showsVerticalScrollIndicator={false}>
+        <Animated.View entering={reduce ? undefined : FadeInDown.duration(600)} style={styles.head}>
+          <AHEyebrow>Room {n} · {cap(room.category)}</AHEyebrow>
+          <AHTitle size={room.name.length > 14 ? 40 : 48} style={{marginTop: 10}}>{room.name}</AHTitle>
+          <Text style={styles.design}>{room.design}</Text>
+          {showChip ? <View style={[styles.chip, {borderColor: room.truthState === 'gated' ? 'rgba(232,180,160,0.4)' : ah.line2}]}>
+            {truth.live ? <AHLiveDot color={ah.ok} /> : null}
+            <Text style={[styles.chipText, {color: truth.tone}]}>{truth.label}</Text>
+          </View> : null}
+        </Animated.View>
+        <View style={styles.body}>{children}</View>
+        <AHPill label="Return to the Lobby" variant="ghost" style={{alignSelf: 'center', marginTop: 36}} onPress={() => router.push('/lobby')} />
+      </ScrollView>
     </View>
   );
 }
 
+/** Panel used inside rooms (an After Hours card with an optional eyebrow). */
+export function Panel({title, children}: {title?: string; children: ReactNode}) {
+  return (
+    <AHCard style={{gap: 12}}>
+      {title ? <AHEyebrow style={{fontSize: 11}}>{title}</AHEyebrow> : null}
+      {children}
+    </AHCard>
+  );
+}
+
 export const plateText = StyleSheet.create({
-  lead: {fontFamily: fonts.display, fontSize: 22, lineHeight: 30, color: deco.cream},
-  body: {fontFamily: fonts.body, fontSize: 15, lineHeight: 23, color: deco.cream, opacity: 0.85},
-  small: {fontFamily: fonts.body, fontSize: 13, lineHeight: 19, color: deco.cream, opacity: 0.7},
-  label: {fontFamily: fonts.label, fontSize: 10, letterSpacing: 4, color: deco.brass},
-  figure: {fontFamily: fonts.display, fontSize: 44, color: deco.brassLight},
+  lead: {fontFamily: ahFonts.serifItalic, fontSize: 24, lineHeight: 28, color: ah.text},
+  body: {fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.text, opacity: 0.88},
+  small: {fontFamily: ahFonts.sans, fontSize: 13, lineHeight: 19, color: ah.mute},
+  label: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: ah.mute},
+  figure: {fontFamily: ahFonts.serif, fontSize: 44, color: ah.text},
 });
 
 const styles = StyleSheet.create({
-  page: {paddingBottom: 90},
-  badgeRow: {alignItems: 'center', marginTop: -6},
-  badge: {borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5},
-  badgeText: {fontFamily: fonts.label, fontSize: 9, letterSpacing: 4},
-  design: {fontFamily: fonts.display, fontSize: 17, lineHeight: 25, color: deco.brassHighlight, textAlign: 'center', paddingHorizontal: 32, marginTop: 16},
-  body: {paddingHorizontal: 20, marginTop: 22, gap: 16},
-  panel: {borderWidth: 1, borderColor: 'rgba(201,169,97,0.45)', backgroundColor: 'rgba(23,9,13,0.9)', padding: 18, gap: 12},
-  panelTitle: {fontFamily: fonts.label, fontSize: 10, letterSpacing: 4, color: deco.brass},
-  back: {fontFamily: fonts.label, fontSize: 11, letterSpacing: 4, color: deco.brassHighlight, textAlign: 'center', marginTop: 36, paddingVertical: 14},
+  page: {paddingBottom: 90, width: '100%', maxWidth: 560, alignSelf: 'center'},
+  head: {paddingHorizontal: 20, paddingTop: 28},
+  design: {fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.mute, marginTop: 12},
+  chip: {flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 16, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1},
+  chipText: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase'},
+  body: {paddingHorizontal: 20, marginTop: 26, gap: 16},
 });

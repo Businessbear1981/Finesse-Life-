@@ -4,6 +4,8 @@ import {useState, useEffect, useCallback} from 'react';
 import {useRouter} from 'next/navigation';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
+import {CONSENT_DECLINED_TEXT, ensureAiConsent} from '@/components/nova/ai-consent';
+import {ReportReply} from '@/components/nova/report-reply';
 
 /* ─── Types ─── */
 
@@ -614,8 +616,11 @@ function NovaBriefing({
   const [briefing, setBriefing] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
+  const [briefingId, setBriefingId] = useState<string | null>(null); // set only when the text is Nova's
 
   const getBriefing = useCallback(async () => {
+    setBriefingId(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setBriefing(CONSENT_DECLINED_TEXT); return; }
     setLoading(true);
     try {
       const contextParts: string[] = [];
@@ -645,6 +650,7 @@ function NovaBriefing({
         return;
       }
       setBriefing(data.text ?? '');
+      if (data.text) setBriefingId(`carpe-diem-brief:${Date.now()}`);
       setFetched(true);
     } catch {
       setBriefing('Nova is offline. Check back shortly.');
@@ -690,7 +696,9 @@ function NovaBriefing({
         >
           &ldquo;{briefing}&rdquo;
         </motion.p>
-      ) : (
+      ) : null}
+      {briefing && briefingId ? <ReportReply key={briefingId} targetId={briefingId} text={briefing} /> : null}
+      {briefing ? null : (
         <p className="font-body text-xs italic" style={{color: 'rgba(244,232,208,0.2)'}}>
           Connect your portfolio or fantasy lineup, then tap Brief Me.
         </p>
@@ -716,12 +724,15 @@ export default function CarpeDiemPage() {
   });
 
   useEffect(() => {
-    const stored = localStorage.getItem('finesse_gender');
-    if (stored !== 'masculine') {
-      router.replace('/perdiem');
-    } else {
-      setGender('masculine');
-    }
+    const id = setTimeout(() => {
+      const stored = localStorage.getItem('finesse_gender');
+      if (stored !== 'masculine') {
+        router.replace('/perdiem');
+      } else {
+        setGender('masculine');
+      }
+    }, 0);
+    return () => clearTimeout(id);
   }, [router]);
 
   if (gender === null) return null;

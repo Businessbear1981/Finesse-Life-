@@ -1,70 +1,78 @@
-// 01 · The Entrance KeyLock. The member sets six brass numbers; the server decides (no per-digit
-// oracle, no client PIN). Only an `open` response plays the unlock and admits them to the Lobby.
+// 01 · The Entrance KeyLock (After Hours: the velvet-rope door). The member puts their six-digit key on
+// the guest list; the server decides (no per-digit oracle, no client PIN). The door's seam warms with
+// each digit — progress only. Only an `open` response opens the doors and admits them to the house.
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {AccessibilityInfo, Linking, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions} from 'react-native';
-import Svg, {Defs, LinearGradient as SvgLinear, RadialGradient, Rect, Stop} from 'react-native-svg';
+import {AccessibilityInfo, Keyboard, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions} from 'react-native';
+import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useRouter} from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import Animated, {Easing, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming, type SharedValue} from 'react-native-reanimated';
-
-const PROMPT = 'Roll the six tumblers to your house code, then pull.';
+import Animated, {useAnimatedStyle, useSharedValue, withDelay, withTiming} from 'react-native-reanimated';
 import {api} from '@/lib/api';
 import {houseSession} from '@/lib/session';
-import {deco, easeCine, fonts} from '@/lib/deco';
-import {Backdrop} from '@/components/keylock/Backdrop';
-import {VaultDial, useHoldShake} from '@/components/keylock/VaultDial';
-import {CombinationCylinder} from '@/components/keylock/CombinationCylinder';
-import {Wordmark} from '@/components/keylock/Wordmark';
+import {easeCine} from '@/lib/deco';
+import {ah, ahFonts} from '@/lib/ah';
+import {AHChip, AHClock, AHEyebrow, AHGlow, AHMark, AHPill} from '@/components/ah';
+import {Door, Flood} from '@/components/keylock/Door';
+import {GuestList, KeyPad, useHoldShake} from '@/components/keylock/GuestList';
+import {TwoTone} from '@/components/keylock/TwoTone';
+import {LegalLinks} from '@/components/legal/LegalLinks';
+
+const PROMPT = 'Six digits, then open the door.';
+const EYEBROW = 'The door · Members & their guests';
 
 type Phase = 'arriving' | 'ready' | 'verifying' | 'open' | 'held' | 'closed';
 
 export default function Entrance() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {width, height} = useWindowDimensions();
   const input = useRef<TextInput>(null);
   const [reduced, setReduced] = useState(false);
   const [phase, setPhase] = useState<Phase>('arriving');
   const [challengeId, setChallengeId] = useState<string | null>(null);
-  const [values, setValues] = useState<number[]>([0, 0, 0, 0, 0, 0]);
-  const [touched, setTouched] = useState<boolean[]>([false, false, false, false, false, false]);
   const [typed, setTyped] = useState('');
-  const [msg, setMsg] = useState('MEMBERS ONLY');
+  const [msg, setMsg] = useState(EYEBROW);
   const [status, setStatus] = useState(PROMPT);
   // Server answered `mode: 'preview'` (entrance not configured, any code opens). Dev builds only.
   const [preview, setPreview] = useState(false);
-  const setCount = touched.filter(Boolean).length;
 
   const arrive = useSharedValue(0);
   const open = useSharedValue(0);
-  const drift = useSharedValue(0);
+  const progress = useSharedValue(0);
   const {style: shakeStyle, shake} = useHoldShake();
 
-  const dialSize = Math.min(width - 56, 340, height * 0.4);
-  const dialTop = Math.max(150, height * 0.18);
-  const centerY = dialTop + dialSize / 2;
+  // Fit the door, the key and the keypad on one screen; scroll only on very short phones.
+  const compact = height < 760;
+  const keyH = Math.max(46, Math.min(58, Math.round((height - 615) / 4.4)));
+  const doorW = Math.round(Math.max(92, Math.min(190, width * 0.42, (height - 630) * 0.72)));
+  const contentW = Math.min(width, 520);
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then(setReduced).catch(() => {});
   }, []);
 
-  // Development builds only: when the house line is unreachable, rehearse the mechanism locally
+  // Development builds only: when the house line is unreachable, rehearse the door locally
   // so the motion can be reviewed. Release builds (__DEV__ === false) never take this path.
   const [rehearsal, setRehearsal] = useState(false);
 
   const requestChallenge = useCallback(async () => {
     const r = await api<{state: string; challengeId?: string}>('/api/keylock/entrance/challenge', {method: 'POST', json: {}});
-    if (r.body.state === 'ready' && r.body.challengeId) { setChallengeId(r.body.challengeId); setRehearsal(false); return true; }
-    if (__DEV__ && r.status === 0) { setRehearsal(true); setMsg('REHEARSAL · HOUSE LINE OFFLINE'); return true; }
-    setMsg((r.body.message ?? 'The entrance is being serviced.').toUpperCase());
+    if (r.body.state === 'ready' && r.body.challengeId) { setChallengeId(r.body.challengeId); setRehearsal(false); setMsg(EYEBROW); return true; }
+    if (__DEV__ && r.status === 0) { setRehearsal(true); setMsg('Rehearsal · house line offline'); return true; }
+    setMsg('The door is closed for now');
+    setStatus(r.body.message ?? 'The entrance is being serviced.');
     setPhase('closed');
     return false;
   }, []);
 
   useEffect(() => {
-    arrive.value = withTiming(1, {duration: reduced ? 0 : 1300, easing: easeCine});
-    if (!reduced) drift.value = withRepeat(withTiming(1, {duration: 24000, easing: Easing.linear}), -1, true);
+    arrive.value = withTiming(1, {duration: reduced ? 0 : 1100, easing: easeCine});
     void requestChallenge().then((ok) => { if (ok) setPhase('ready'); });
-  }, [arrive, drift, reduced, requestChallenge]);
+  }, [arrive, reduced, requestChallenge]);
+
+  useEffect(() => {
+    progress.value = withTiming(phase === 'open' ? 1 : typed.length / 6, {duration: reduced ? 0 : 450});
+  }, [typed, phase, progress, reduced]);
 
   const verify = useCallback(async (digits: string) => {
     setPhase('verifying');
@@ -74,100 +82,116 @@ export default function Entrance() {
     const isPreview = r.body.state === 'open' && 'mode' in r.body && r.body.mode === 'preview';
     if (isPreview && !__DEV__) {
       // An unconfigured server opens for any code. A release build never lets that through.
-      setMsg("THE FRONT DESK ISN'T OPEN YET");
+      setMsg("The front desk isn't open yet");
       setStatus("The front desk isn't open yet. Please come back soon.");
-      setTouched([false, false, false, false, false, false]); setTyped('');
+      setTyped('');
       setPhase('closed');
       return;
     }
     if (r.body.state === 'open') {
       setPreview(isPreview);
       setPhase('open');
-      setMsg('THE HOUSE IS OPEN');
-      setStatus('The mechanism yields. Welcome home.');
+      setMsg('You’re on the list');
+      setStatus('You’re on the list. Doors opening.');
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      AccessibilityInfo.announceForAccessibility?.('The house is open.');
-      open.value = withDelay(reduced ? 0 : 350, withTiming(1, {duration: reduced ? 0 : 1800, easing: easeCine}));
+      AccessibilityInfo.announceForAccessibility?.('You are on the list. The doors are opening.');
+      open.value = withDelay(reduced ? 0 : 250, withTiming(1, {duration: reduced ? 0 : 1900, easing: easeCine}));
       // A member who has already chosen a side on this device goes straight to the hotel.
       setTimeout(() => { void houseSession.stored().then((s) => router.replace(s ? '/hotel' : '/side')); }, reduced ? 400 : 2800);
       return;
     }
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
     shake(reduced);
-    setStatus(r.body.message ?? 'The mechanism holds.');
+    setStatus(r.body.message ?? 'That key isn’t on the list. Try again.');
     setPhase('held');
     setTimeout(async () => {
-      setTouched([false, false, false, false, false, false]); setTyped('');
+      setTyped('');
       const ok = r.body.state === 'invalid' ? true : await requestChallenge();
       if (ok) { setPhase('ready'); setStatus(PROMPT); }
     }, reduced ? 200 : 1300);
   }, [challengeId, open, reduced, rehearsal, requestChallenge, router, shake]);
 
-  const roll = (i: number, dir: 1 | -1) => {
-    if (phase !== 'ready') return;
-    void Haptics.selectionAsync().catch(() => {});
-    setValues((v) => v.map((d, j) => (j === i ? (d + dir + 10) % 10 : d)));
-    setTouched((t) => t.map((x, j) => (j === i ? true : x)));
-  };
-  // Keyboard / paste / screen-reader path: typed digits set the tumblers left to right.
+  // Keypad, keyboard, paste and screen-reader paths all land here: digits fill the list left to right.
   const onDigits = (v: string) => {
     if (phase !== 'ready') return;
     const clean = v.replace(/\D/g, '').slice(0, 6);
     if (clean.length > typed.length) void Haptics.selectionAsync().catch(() => {});
     setTyped(clean);
-    setValues((cur) => cur.map((d, j) => (j < clean.length ? Number(clean[j]) : d)));
-    setTouched((t) => t.map((x, j) => x || j < clean.length));
+    return clean;
   };
-  const pull = () => { if (phase === 'ready') void verify(values.join('')); };
+  const onTyped = (v: string) => {
+    const clean = onDigits(v);
+    if (clean?.length === 6) Keyboard.dismiss(); // reveal the Open key
+  };
+  const onDelete = () => {
+    if (phase !== 'ready' || !typed) return;
+    void Haptics.selectionAsync().catch(() => {});
+    setTyped((t) => t.slice(0, -1));
+  };
+  const pull = () => { if (phase === 'ready' && typed.length === 6) void verify(typed); };
+  const callDoorman = () => requestChallenge().then((ok) => { if (ok) { setPhase('ready'); setStatus(PROMPT); } });
 
-  const msgStyle = useAnimatedStyle(() => ({opacity: arrive.value}));
   const headStyle = useAnimatedStyle(() => ({opacity: arrive.value, transform: [{translateY: 14 * (1 - arrive.value)}]}));
-  const dialStyle = useAnimatedStyle(() => ({
-    opacity: arrive.value,
-    transform: [{scale: 0.9 + 0.1 * arrive.value + 0.03 * open.value}],
-  }));
+  const doorStyle = useAnimatedStyle(() => ({opacity: arrive.value, transform: [{scale: 0.94 + 0.06 * arrive.value + 0.04 * open.value}]}));
 
-  const lastDigit = setCount ? values.reduce((acc, d) => acc + d, 0) % 10 : null;
+  const line = phase === 'verifying' ? 'Checking the list…' : status;
+  const lineTone = phase === 'held' || phase === 'closed' ? 'error' : phase === 'open' ? 'rose' : 'mute';
+  const tone = phase === 'held' ? 'error' : phase === 'open' ? 'open' : 'idle';
 
   return (
     <View style={styles.page}>
-      <Backdrop centerY={centerY} arrive={arrive} open={open} drift={drift} />
-      <Animated.View style={[styles.head, headStyle]}>
-        <Wordmark width={width - 40} />
-      </Animated.View>
-      <Animated.View style={[{position: 'absolute', top: dialTop, left: (width - dialSize) / 2}, dialStyle, shakeStyle]}>
-        <Pressable onPress={() => input.current?.focus()} accessibilityRole="button" accessibilityLabel="The entrance lock. Double tap to enter the house code.">
-          <VaultDial size={dialSize} setCount={setCount} lastDigit={lastDigit} arrive={arrive} open={open} reduced={reduced} />
-        </Pressable>
-      </Animated.View>
-      <View style={[styles.bottom, {top: dialTop + dialSize - 4}]}>
-        <Animated.Text style={[styles.msg, msgStyle, phase === 'open' && {color: deco.brassLight}]}>{msg}</Animated.Text>
-        <CombinationCylinder width={width - 24} values={values} touched={touched} onRoll={roll} lit={phase === 'open'} open={phase === 'open'}
-          reduced={reduced} disabled={phase !== 'ready'} />
-        <Text style={[styles.status, phase === 'held' && {color: deco.pink}]} accessibilityLiveRegion="polite">{status}</Text>
-        {phase === 'closed' ? (
-          <Pressable style={styles.pull} onPress={() => requestChallenge().then((ok) => { if (ok) { setPhase('ready'); setStatus(PROMPT); } })} accessibilityRole="button">
-            <Text style={styles.pullText}>CALL THE DOORMAN</Text>
-          </Pressable>
-        ) : (
-          <Pressable style={({pressed}) => [styles.pull, pressed && {backgroundColor: 'rgba(201,169,97,0.18)'}, phase !== 'ready' && {opacity: 0.5}]}
-            onPress={pull} disabled={phase !== 'ready'} accessibilityRole="button" accessibilityLabel="Pull to open">
-            <Text style={styles.pullText}>PULL TO OPEN</Text>
-          </Pressable>
-        )}
-        <Text style={styles.invite}>Not a member? <Text style={{color: 'rgba(201,169,97,0.9)', textDecorationLine: 'underline'}}
-          onPress={() => void Linking.openURL('https://finesselife.vip/signup')}>Request an invitation</Text></Text>
-        <Pressable onPress={() => input.current?.focus()} accessibilityRole="button" accessibilityLabel="Type the house code instead">
-          <Text style={styles.typeIt}>TYPE THE CODE INSTEAD</Text>
-        </Pressable>
-      </View>
-      {__DEV__ && (preview || rehearsal) ? (
-        <View pointerEvents="none" style={styles.badge} accessibilityLabel="Preview mode">
-          <Text style={styles.badgeText}>{preview ? 'PREVIEW' : 'REHEARSAL'}</Text>
+      <AHGlow height={520} />
+      <ScrollView bounces={false} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
+        contentContainerStyle={{flexGrow: 1, paddingTop: insets.top + 12, paddingBottom: insets.bottom + 14, paddingHorizontal: 20}}>
+        <View style={{flex: 1, width: '100%', maxWidth: contentW, alignSelf: 'center'}}>
+          <View style={styles.top}>
+            <AHMark />
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+              {__DEV__ && (preview || rehearsal) ? (
+                <View accessibilityLabel="Preview mode"><AHChip label={preview ? 'Preview' : 'Rehearsal'} tone="rose" /></View>
+              ) : <AHClock />}
+              <AHChip label="By invitation" />
+            </View>
+          </View>
+
+          <Animated.View style={[{marginTop: compact ? 4 : 10}, doorStyle]}>
+            <Door width={doorW} progress={progress} open={open} />
+          </Animated.View>
+
+          <Animated.View style={[{marginTop: compact ? 10 : 16}, headStyle]}>
+            <AHEyebrow color={phase === 'open' ? ah.rose : phase === 'closed' ? ah.danger : ah.mute}>{msg}</AHEyebrow>
+            <TwoTone lead="Say the" rose="word." size={compact ? 44 : 52} style={{marginTop: 4}} />
+          </Animated.View>
+
+          <Animated.View style={[{marginTop: compact ? 8 : 12}, shakeStyle]}>
+            <GuestList digits={typed} active={phase === 'ready'} tone={tone} line={line} lineTone={lineTone} compact={compact}
+              onPress={() => input.current?.focus()} />
+          </Animated.View>
+
+          <View style={{marginTop: 10}}>
+            {phase === 'closed' ? (
+              <View style={{gap: 10, paddingVertical: 8}}>
+                <AHPill label="Call the doorman" block onPress={() => void callDoorman()} accessibilityLabel="Call the doorman to try the door again" />
+              </View>
+            ) : (
+              <KeyPad keyH={keyH} onDigit={(d) => onDigits(typed + d)} onDelete={onDelete} onOpen={pull}
+                canOpen={typed.length === 6} disabled={phase !== 'ready'} />
+            )}
+          </View>
+
+          <View style={styles.foot}>
+            <Text style={styles.invite}>Not on the list?{' '}
+              <Text style={styles.link} accessibilityRole="link" onPress={() => void Linking.openURL('https://finesselife.vip/signup')}>Request an invitation</Text>
+            </Text>
+            <Pressable onPress={() => input.current?.focus()} accessibilityRole="button" accessibilityLabel="Type the house code instead" hitSlop={8} style={styles.typeIt}>
+              <Text style={styles.typeItText}>Type the code instead</Text>
+            </Pressable>
+          </View>
+          <LegalLinks align="flex-start" color={ah.mute} />
         </View>
-      ) : null}
+      </ScrollView>
       <Flood open={open} reduced={reduced} />
-      <TextInput ref={input} value={typed} onChangeText={onDigits} keyboardType="number-pad" maxLength={6}
+      <TextInput ref={input} value={typed} onChangeText={onTyped} keyboardType="number-pad" maxLength={6}
         textContentType="oneTimeCode" autoComplete="one-time-code" secureTextEntry={false}
         caretHidden contextMenuHidden={false} style={styles.hidden} accessibilityLabel="House code, six digits" />
     </View>
@@ -175,57 +199,12 @@ export default function Entrance() {
 }
 
 const styles = StyleSheet.create({
-  page: {flex: 1, backgroundColor: deco.ink, overflow: 'hidden'},
-  head: {position: 'absolute', top: 54, left: 0, right: 0},
-  bottom: {position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: 11},
-  status: {fontFamily: fonts.script, fontSize: 17, lineHeight: 23, color: 'rgba(244,232,208,0.85)', textAlign: 'center', paddingHorizontal: 28, minHeight: 24},
-  pull: {minHeight: 48, justifyContent: 'center', paddingHorizontal: 40, borderWidth: 1, borderColor: deco.brass, backgroundColor: 'rgba(10,4,6,0.6)'},
-  pullText: {fontFamily: fonts.label, fontSize: 12, letterSpacing: 4.8, color: deco.brassHighlight},
-  invite: {fontFamily: fonts.script, fontSize: 14, color: 'rgba(244,232,208,0.55)'},
-  typeIt: {fontFamily: fonts.label, fontSize: 9, letterSpacing: 3, color: 'rgba(201,169,97,0.55)', paddingVertical: 6},
-  msg: {fontFamily: fonts.label, fontSize: 11, letterSpacing: 5.5, color: deco.brass, opacity: 0.8, textAlign: 'center'},
+  page: {flex: 1, backgroundColor: ah.ink, overflow: 'hidden'},
+  top: {flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44},
+  foot: {marginTop: 2, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: 12},
+  invite: {fontFamily: ahFonts.sans, fontSize: 13, color: ah.faint, paddingVertical: 12},
+  link: {color: ah.text, textDecorationLine: 'underline', textDecorationColor: 'rgba(232,180,160,0.6)'},
+  typeIt: {minHeight: 44, justifyContent: 'center'},
+  typeItText: {fontFamily: ahFonts.sansMedium, fontSize: 13, color: ah.rose},
   hidden: {position: 'absolute', opacity: 0, width: 1, height: 1, left: -10, top: -10},
-  badge: {position: 'absolute', top: 18, right: 14, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: deco.pink, backgroundColor: 'rgba(10,4,6,0.7)'},
-  badgeText: {fontFamily: fonts.mono, fontSize: 9, letterSpacing: 1.6, color: deco.pink},
 });
-
-/** Warm flood of light and a brass sweep when the house opens (design: floodOpacity + fl-sweep). */
-function Flood({open, reduced}: {open: SharedValue<number>; reduced: boolean}) {
-  const {width, height} = useWindowDimensions();
-  const flood = useAnimatedStyle(() => ({opacity: Math.max(0, (open.value - 0.35) / 0.65) * 0.85}));
-  const sweep = useAnimatedStyle(() => ({
-    opacity: open.value > 0 && open.value < 1 ? 1 : 0,
-    transform: [{translateX: (-1 + 2.2 * open.value) * width}],
-  }));
-  if (reduced) return null;
-  return (
-    <>
-      <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, flood]}>
-        <Svg width={width} height={height}>
-          <Defs>
-            <RadialGradient id="flood" cx={width / 2} cy={height / 2} r={Math.max(width, height) * 0.75} gradientUnits="userSpaceOnUse">
-              <Stop offset="0" stopColor="#FFA96B" stopOpacity={0.9} />
-              <Stop offset="0.4" stopColor="#C9A961" stopOpacity={0.6} />
-              <Stop offset="1" stopColor="#0A0406" stopOpacity={1} />
-            </RadialGradient>
-          </Defs>
-          <Rect x={0} y={0} width={width} height={height} fill="url(#flood)" />
-        </Svg>
-      </Animated.View>
-      <Animated.View pointerEvents="none" style={[{position: 'absolute', top: -height * 0.2, width: width * 0.9, height: height * 1.4}, sweep]}>
-        <Svg width={width * 0.9} height={height * 1.4}>
-          <Defs>
-            <SvgLinear id="sweep" x1="0" y1="0.1" x2="1" y2="0">
-              <Stop offset="0.2" stopColor="#C9A961" stopOpacity={0} />
-              <Stop offset="0.45" stopColor="#E8C87A" stopOpacity={0.6} />
-              <Stop offset="0.5" stopColor="#FFF4C2" stopOpacity={0.95} />
-              <Stop offset="0.56" stopColor="#E8C87A" stopOpacity={0.16} />
-              <Stop offset="0.8" stopColor="#C9A961" stopOpacity={0} />
-            </SvgLinear>
-          </Defs>
-          <Rect x={0} y={0} width={width * 0.9} height={height * 1.4} fill="url(#sweep)" />
-        </Svg>
-      </Animated.View>
-    </>
-  );
-}

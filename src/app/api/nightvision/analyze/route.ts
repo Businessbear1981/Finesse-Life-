@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
 import {createClient} from '@/lib/supabase/server';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {MAX_IMAGES, runNova} from '@/lib/nova';
 
 const answer = z.union([z.string().max(300), z.array(z.string().max(120)).max(12)]);
@@ -127,7 +128,7 @@ function parseNovaJson(text: string): NovaAnalysis | null {
 
 // POST /api/nightvision/analyze — members only, rate limited. Calls Nova directly (runNova)
 // instead of HTTP-fetching /api/nova via NEXT_PUBLIC_SITE_URL (localhost in production).
-// → 200 NovaAnalysis | 401 | 400 | 429 | 502 analysis_unparseable | 503 nova_unavailable
+// → 200 NovaAnalysis | 401 | 400 | 403 consent_required | 429 | 502 analysis_unparseable | 503 nova_unavailable
 export async function POST(req: Request) {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
@@ -138,6 +139,8 @@ export async function POST(req: Request) {
   const {answers, sources, photos} = parsed.data;
   const modelPhotos = photos.slice(0, MAX_IMAGES);
 
+  const noConsent = await requireAiConsent(supabase, user.id, {photo: modelPhotos.length > 0});
+  if (noConsent) return noConsent;
   const limited = await guardAiCall(user.id, modelPhotos.length > 0 ? 'image' : 'nova');
   if (limited) return limited;
 

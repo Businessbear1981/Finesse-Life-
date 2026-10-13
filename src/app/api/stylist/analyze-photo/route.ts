@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import {createClient} from '@/lib/supabase/server';
 import {recordAiUsage} from '@/lib/ai-usage';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 
 const client = new Anthropic({apiKey: process.env.ANTHROPIC_API_KEY});
 
@@ -20,7 +21,7 @@ const MAX_BYTES = 5 * 1024 * 1024;
 // POST /api/stylist/analyze-photo — members only, rate limited through the shared per-member
 // limiter (src/lib/ai-rate-limit.ts, 'image' bucket when a photo is attached). The previous
 // in-memory per-instance throttle (5/min) is replaced by the durable one.
-// → 200 analysis | 401 | 413 | 415 | 429 rate_limited | 502/503 (never a canned analysis)
+// → 200 analysis | 401 | 403 consent_required | 413 | 415 | 429 rate_limited | 502/503 (never a canned analysis)
 export async function POST(req: Request) {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
@@ -40,6 +41,8 @@ export async function POST(req: Request) {
     if (file.size > MAX_BYTES) return NextResponse.json({error: 'too_large'}, {status: 413});
   }
 
+  const noConsent = await requireAiConsent(supabase, user.id, {photo: !!file && file.size > 0});
+  if (noConsent) return noConsent;
   const limited = await guardAiCall(user.id, file && file.size > 0 ? 'image' : 'nova');
   if (limited) return limited;
 

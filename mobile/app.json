@@ -2,14 +2,14 @@
   "expo": {
     "name": "Finesse Life",
     "slug": "finesse-life",
-    "description": "Finesse Life — a members-only 1920s grand hotel: the house lock, your side of the house, and the rooms.",
-    "version": "0.1.0",
+    "description": "Finesse Life \u2014 a members-only house after hours: the house lock, your side of the house, and the rooms.",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/brand/icon.png",
-    "scheme": "finesse",
+    "scheme": "finesselife",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0A0406",
-    "primaryColor": "#C9A961",
+    "backgroundColor": "#050505",
+    "primaryColor": "#E8B4A0",
     "ios": {
       "bundleIdentifier": "vip.finesselife.app",
       "supportsTablet": false,
@@ -19,6 +19,114 @@
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "C617.1",
+              "0A2A.1",
+              "3B52.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "35F9.1"
+            ]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryDiskSpace",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "E174.1",
+              "85F4.1"
+            ]
+          }
+        ],
+        "NSPrivacyCollectedDataTypes": [
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeEmailAddress",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeName",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhotosorVideos",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherUserContent",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeFitness",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeOtherFinancialInfo",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeProductInteraction",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+              "NSPrivacyCollectedDataTypePurposeProductPersonalization"
+            ]
+          },
+          {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePurchaseHistory",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -26,10 +134,13 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/brand/android-icon-foreground.png",
         "monochromeImage": "./assets/brand/android-icon-monochrome.png",
-        "backgroundColor": "#0A0406"
+        "backgroundColor": "#050505"
       },
       "blockedPermissions": [
-        "android.permission.SYSTEM_ALERT_WINDOW"
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -41,7 +152,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0A0406",
+          "backgroundColor": "#050505",
           "image": "./assets/brand/splash-icon.png",
           "imageWidth": 160
         }
@@ -57,12 +168,18 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Finesse Life opens your photo library only when you tap From Library in the Stylist, so you can choose outfit photos to send to your stylist. Nothing is uploaded until you consent and tap Send.",
-          "cameraPermission": "Finesse Life uses the camera only when you tap Take a Photo in the Stylist, so you can photograph an outfit or piece for your stylist. Nothing is uploaded until you consent and tap Send.",
-          "microphonePermission": "Finesse Life uses the microphone only when you tap record in Starmaker, to capture your vocals, takes and podcast episodes. Recordings stay on this device unless you choose to share them."
+          "photosPermission": "Finesse Life opens your photo library only when you tap From Library or Choose a Photo: in the Stylist (outfit photos for your stylist), the Camera (a piece for your private wardrobe intake) or the Wardrobe (a look you choose to post). Only the photos you pick are used, and nothing is uploaded until you have given consent or tapped to send or post.",
+          "cameraPermission": "Finesse Life uses the camera only when you tap Take a Photo in the Stylist or Scan a Piece in the Camera, to photograph an outfit or a piece you own for your stylist or your private wardrobe intake. Only the photo you take is used, and nothing is uploaded until you have given consent or tapped Send."
         }
       ],
-      "expo-document-picker"
+      "expo-document-picker",
+      [
+        "expo-secure-store",
+        {
+          "faceIDPermission": false,
+          "configureAndroidBackup": true
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { UtensilsCrossed, Wine, ChefHat, Calendar, ShoppingBag, MapPin, Clock, Users } from 'lucide-react';
+import Link from 'next/link';
 import {KitchenWeek} from '@/components/hotel/kitchen-week';
+import {KitchenMore} from '@/components/hotel/kitchen-more';
+import {roomCall} from '@/lib/room-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +60,8 @@ interface Recipe {
   img: string;
 }
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
+// ─── Sample (signed-out preview only, labelled) ───────────────────────────────
+// Members see their own week, orders, recipe book and Nova's table instead (components/hotel/kitchen-*).
 
 const NOVAS_TABLE: Restaurant[] = [
   {
@@ -65,7 +69,7 @@ const NOVAS_TABLE: Restaurant[] = [
     cuisine: 'Japanese Omakase',
     neighborhood: 'TriBeCa',
     price: '$$$$',
-    nova: 'Where the fish speaks first. Reservation for two, 8pm Friday — I already checked availability.',
+    nova: 'Where the fish speaks first. Two at 8pm Friday would suit.',
   },
   {
     name: 'Carbone',
@@ -203,15 +207,20 @@ function SectionLabel({ icon: Icon, label }: { icon: React.ElementType; label: s
 
 export default function KitchenPage() {
   const [gender, setGender] = useState<string | null>(null);
+  const [mode, setMode] = useState<'loading' | 'live' | 'signed_out' | 'other'>('loading');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only side preference
     setGender(localStorage.getItem('finesse_gender'));
+    let alive = true;
+    void roomCall('/api/kitchen/grocery-options').then((r) => { if (alive) setMode(r.ok ? 'live' : r.status === 401 ? 'signed_out' : 'other'); });
+    return () => { alive = false; };
   }, []);
 
   const isMasc = gender === 'masculine';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
   const accentDim = isMasc ? 'rgba(255,169,107,0.08)' : 'rgba(255,77,125,0.06)';
-  const ctaLabel = isMasc ? 'Order Now' : 'Reserve a Table';
+  const ctaLabel = isMasc ? 'Ask for a Table' : 'Nova’s Table';
 
   return (
     <motion.div
@@ -288,10 +297,11 @@ export default function KitchenPage() {
       {/* ── Main content */}
       <div className="relative z-10 max-w-2xl mx-auto px-4 pb-32">
         <KitchenWeek accent={accent} />
-        <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample tables and recipes</p>
+        {mode === 'live' && <div id="novas-table"><KitchenMore accent={accent} isMasc={isMasc} /></div>}
+        {mode === 'signed_out' && <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">Below · sample tables and recipes · not yours · nothing is reserved</p>}
 
         {/* ════════════════════ FEMININE ════════════════════ */}
-        {!isMasc && (
+        {mode === 'signed_out' && !isMasc && (
           <>
             {/* Nova's Table */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -330,7 +340,7 @@ export default function KitchenPage() {
                       </span>
                     </div>
                     <p className="font-body text-sm italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{r.nova}"
+                      &ldquo;{r.nova}&rdquo;
                     </p>
                   </motion.div>
                 ))}
@@ -341,7 +351,7 @@ export default function KitchenPage() {
 
             {/* Reservations */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-              <SectionLabel icon={Calendar} label="Your Reservations" />
+              <SectionLabel icon={Calendar} label="Reservations · sample" />
               <div className="space-y-3">
                 {RESERVATIONS.map((res, i) => (
                   <motion.div
@@ -395,7 +405,7 @@ export default function KitchenPage() {
                     <h3 className="font-display text-base" style={{ color: '#E8C87A' }}>{WINE.label}</h3>
                     <p className="font-mono text-[10px] mt-0.5" style={{ color: 'rgba(201,169,97,0.4)' }}>{WINE.vintage}</p>
                     <p className="font-body text-sm italic mt-3 leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{WINE.notes}"
+                      &ldquo;{WINE.notes}&rdquo;
                     </p>
                   </div>
                 </div>
@@ -482,7 +492,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
-                        "{recipe.nova}"
+                        &ldquo;{recipe.nova}&rdquo;
                       </p>
                     </div>
                   </motion.div>
@@ -493,7 +503,7 @@ export default function KitchenPage() {
         )}
 
         {/* ════════════════════ MASCULINE ════════════════════ */}
-        {isMasc && (
+        {mode === 'signed_out' && isMasc && (
           <>
             {/* The Spot */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -515,7 +525,7 @@ export default function KitchenPage() {
                     <h3 className="font-display text-lg" style={{ color: '#E8C87A' }}>{s.name}</h3>
                     <p className="font-label text-[8px] tracking-[0.3em] uppercase mt-1" style={{ color: 'rgba(201,169,97,0.4)' }}>{s.category}</p>
                     <p className="font-body text-sm italic mt-3 leading-relaxed" style={{ color: 'rgba(244,232,208,0.5)' }}>
-                      "{s.nova}"
+                      &ldquo;{s.nova}&rdquo;
                     </p>
                   </motion.div>
                 ))}
@@ -543,7 +553,7 @@ export default function KitchenPage() {
                     <span style={{ fontSize: '10px', color: '#FFA96B' }}>N</span>
                   </div>
                   <p className="font-body text-sm italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.6)' }}>
-                    "{DINNER_INTEL}"
+                    &ldquo;{DINNER_INTEL}&rdquo;
                   </p>
                 </div>
               </div>
@@ -553,7 +563,7 @@ export default function KitchenPage() {
 
             {/* Recent Orders */}
             <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-              <SectionLabel icon={ShoppingBag} label="Recent Orders" />
+              <SectionLabel icon={ShoppingBag} label="Recent Orders · sample" />
               <div className="space-y-3">
                 {RECENT_ORDERS.map((ord, i) => (
                   <motion.div
@@ -656,7 +666,7 @@ export default function KitchenPage() {
                         </div>
                       </div>
                       <p className="font-body text-xs italic leading-relaxed" style={{ color: 'rgba(244,232,208,0.4)' }}>
-                        "{recipe.nova}"
+                        &ldquo;{recipe.nova}&rdquo;
                       </p>
                     </div>
                   </motion.div>
@@ -695,20 +705,23 @@ export default function KitchenPage() {
             <p className="font-label text-[8px] tracking-[0.4em] uppercase" style={{ color: 'rgba(201,169,97,0.35)' }}>
               {isMasc ? 'Ready to eat?' : 'Ready to dine?'}
             </p>
-            <p className="font-body text-xs mt-0.5 italic" style={{ color: 'rgba(244,232,208,0.3)' }}>
-              Nova will handle everything.
+            <p className="font-body text-xs mt-0.5 italic" style={{ color: 'rgba(244,232,208,0.45)' }}>
+              {mode === 'live' ? 'Nova drafts the options. Nothing is reserved until you arrange it.' : 'Sign in and Nova drafts your table.'}
             </p>
           </div>
-          <button
-            className="px-7 py-3 font-label text-[9px] tracking-[0.45em] uppercase transition-all duration-300 hover:opacity-80 active:scale-95"
-            style={{
-              background: `linear-gradient(135deg, ${accent}22, ${accent}11)`,
-              border: `1px solid ${accent}55`,
-              color: accent,
-            }}
-          >
-            {ctaLabel}
-          </button>
+          {mode !== 'loading' && mode !== 'other' && (
+            <Link
+              href={mode === 'live' ? '#novas-table' : '/login'}
+              className="px-7 py-3 font-label text-[9px] tracking-[0.45em] uppercase transition-all duration-300 hover:opacity-80 active:scale-95"
+              style={{
+                background: `linear-gradient(135deg, ${accent}22, ${accent}11)`,
+                border: `1px solid ${accent}55`,
+                color: accent,
+              }}
+            >
+              {mode === 'live' ? ctaLabel : 'Sign in'}
+            </Link>
+          )}
         </div>
       </motion.div>
     </motion.div>

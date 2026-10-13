@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 import { emit } from '@/lib/intelligence';
+import { myBlockedIds } from '@/lib/moderation-server';
 
 export async function GET(req: Request) {
   try {
@@ -15,12 +15,7 @@ export async function GET(req: Request) {
     const pageSize = 24;
     const offset = (page - 1) * pageSize;
 
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-    );
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -36,7 +31,7 @@ export async function GET(req: Request) {
 
       if (error) return NextResponse.json({ listings: [], total: 0, page });
       // Flatten to listing shape with offer status attached
-      const listings = (data ?? []).map((row) => ({
+      const listings = (data ?? []).map((row: Record<string, unknown>) => ({
         ...(row.exchange_listings as Record<string, unknown>),
         my_offer_cents: row.offer_price_cents,
         my_offer_status: row.status,
@@ -84,7 +79,11 @@ export async function GET(req: Request) {
       payload: { category: category || 'All', count: count ?? 0 },
     });
 
-    return NextResponse.json({ listings: data ?? [], total: count ?? 0, page });
+    // RLS already drops moderation-hidden listings and blocked sellers (both directions); this re-checks
+    // the member's own block list so a blocked seller never shows even if a policy lags.
+    const blocked = user ? await myBlockedIds(supabase, user.id) : new Set<string>();
+    const listings = (data ?? []).filter((l: { seller_id?: string | null }) => !(l.seller_id && blocked.has(l.seller_id)));
+    return NextResponse.json({ listings, total: count ?? 0, page });
   } catch (err) {
     console.error('[exchange/listings] error:', err);
     return NextResponse.json({ listings: [], total: 0, page: 1 });

@@ -1,9 +1,15 @@
 'use client';
 
-import {useState, useEffect, useRef} from 'react';
+import {useState, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
 import {createClient} from '@/lib/supabase/client';
+import {useLocalPref} from '@/components/after-hours';
+import {NovaAction, RequestCard, RequestsList} from '@/components/nova/request-card';
+import {createRequest, useSignedIn} from '@/components/nova/requests-api';
+import {CONSENT_DECLINED_TEXT, ensureAiConsent} from '@/components/nova/ai-consent';
+import {ReportReply} from '@/components/nova/report-reply';
+import {requestErrorText, type ItemView, type NovaRequest} from '@/lib/nova-request-view';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -14,7 +20,7 @@ const CREAM = '#F4E8D0';
 type Edition = 'finesse' | 'carpe_diem';
 type Tab = 'looks' | 'box' | 'match';
 
-// ─── Look Data ────────────────────────────────────────────────────────────────
+// ─── Sample looks (signed-out preview only — members get Nova's real picks) ───
 
 interface Look {
   name: string;
@@ -77,7 +83,7 @@ const MASCULINE_LOOKS: Look[] = [
   },
 ];
 
-// ─── Box Data ─────────────────────────────────────────────────────────────────
+// ─── Sample boxes (signed-out preview only — no fulfilment partner yet) ───────
 
 interface Box {
   id: string;
@@ -118,6 +124,94 @@ const BOXES: Box[] = [
     contents: ['Maison Margiela Replica 10ml', 'Le Labo discovery set', 'Byredo 30ml', 'Frédéric Malle full bottle'],
   },
 ];
+
+const BOX_PARTNER_LINE = 'Boxes ship once our fulfilment partner is live.';
+
+// ─── Occasion styling (Nova request hub: style_for_occasion → stylist agent) ──
+
+const OCCASION_TYPES = ['Date night', 'Statement lunch', 'Power meeting', 'Weekend flex', 'Evening out', 'Wedding guest', 'Travel', 'Other'];
+
+/** "Find it" + "Price check" on one suggestion — each is its own hub request. */
+function SuggestionActions({item, accent}: {item: ItemView; accent: string}) {
+  const query = [item.brand, item.title].filter(Boolean).join(' ').slice(0, 200);
+  return (
+    <>
+      <NovaAction label="Find it" accent={accent}
+        build={() => ({kind: 'find_item', title: `Find: ${query}`, details: {query}, room: 'stylist'})} />
+      <NovaAction label="Price check" accent={accent}
+        build={() => ({kind: 'price_check', title: `Price check: ${query}`, room: 'stylist',
+          details: {title: item.title, brand: item.brand, category: 'fashion', retail_cents: item.price_cents ?? 0}})} />
+    </>
+  );
+}
+
+function OccasionStylist({accent}: {accent: string}) {
+  const [occasion, setOccasion] = useState('');
+  const [type, setType] = useState(OCCASION_TYPES[0]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [latest, setLatest] = useState<NovaRequest | null>(null);
+  const [reload, setReload] = useState(0);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const o = occasion.trim();
+    if (!o || busy) return;
+    setErr(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setErr(CONSENT_DECLINED_TEXT); return; }
+    setBusy(true);
+    const out = await createRequest({kind: 'style_for_occasion', title: `Style me: ${o}`, details: {occasion: o, occasion_type: type}, room: 'stylist'}, true);
+    if (out.ok) {
+      setLatest(out.data);
+      setOccasion('');
+    } else {
+      setErr(requestErrorText(out.status, out.body));
+    }
+    setReload((n) => n + 1);
+    setBusy(false);
+  }
+
+  const field: React.CSSProperties = {
+    width: '100%', background: 'rgba(244,232,208,0.03)', border: `1px solid ${accent}33`, color: CREAM,
+    fontFamily: 'var(--font-body)', fontSize: '14px', padding: '12px 14px', outline: 'none',
+  };
+  const itemActions = (item: ItemView) => <SuggestionActions item={item} accent={accent} />;
+
+  return (
+    <div>
+      <form onSubmit={submit} style={{border: `1px solid ${accent}22`, background: `${accent}05`, padding: '18px', marginBottom: '20px'}}>
+        <label htmlFor="occasion" style={{display: 'block', fontFamily: 'var(--font-label)', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: `${accent}aa`, marginBottom: '10px'}}>
+          What are you dressing for?
+        </label>
+        <input id="occasion" value={occasion} onChange={(e) => setOccasion(e.target.value)} maxLength={200}
+          placeholder="Rooftop dinner Friday, warm night, smart-casual" style={{...field, marginBottom: '10px'}} autoComplete="off" />
+        <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+          <select aria-label="Occasion type" value={type} onChange={(e) => setType(e.target.value)} style={{...field, flex: '1 1 160px', width: 'auto'}}>
+            {OCCASION_TYPES.map((t) => <option key={t} value={t} style={{background: BG}}>{t}</option>)}
+          </select>
+          <button type="submit" disabled={busy || !occasion.trim()}
+            style={{flex: '1 1 160px', background: busy ? `${accent}22` : accent, color: busy ? accent : BG, border: `1px solid ${accent}`,
+              fontFamily: 'var(--font-label)', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', padding: '12px',
+              cursor: busy || !occasion.trim() ? 'not-allowed' : 'pointer', opacity: !occasion.trim() && !busy ? 0.5 : 1}}>
+            {busy ? 'NOVA IS STYLING…' : 'STYLE ME'}
+          </button>
+        </div>
+        <p style={{fontFamily: 'var(--font-body)', fontStyle: 'italic', fontSize: '11px', color: 'rgba(244,232,208,0.35)', margin: '10px 0 0'}}>
+          Nova uses your style DNA. Suggestions only — nothing is bought.
+        </p>
+      </form>
+
+      {err && <ErrorNote>{err}</ErrorNote>}
+      {latest && <RequestCard request={latest} accent={accent} itemActions={itemActions} onChange={setLatest} />}
+
+      <p style={{fontFamily: 'var(--font-label)', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'rgba(244,232,208,0.3)', margin: '28px 0 4px'}}>
+        Your styling requests
+      </p>
+      <RequestsList room="stylist" accent={accent} itemActions={itemActions} reloadKey={reload} exclude={latest?.id}
+        emptyLine="No looks yet. Tell Nova the occasion and she’ll pull one together." />
+    </div>
+  );
+}
 
 // ─── Style Match Types ─────────────────────────────────────────────────────────
 
@@ -306,14 +400,17 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
         body: JSON.stringify({box_id: box.id}),
       });
       const data = (await res.json().catch(() => ({}))) as {reserved?: boolean; message?: string; error?: string};
-      // Only a 2xx that actually confirms a reservation counts.
+      // Only a 2xx that actually confirms a reservation counts. /api/stylist/reserve answers 501 until a
+      // fulfilment partner is live.
       if (res.ok && data.reserved === true) {
         setReserved(true);
+      } else if (res.status === 401) {
+        setReserveNote('Sign in to reserve a box. Nothing was charged or held.');
       } else {
-        setReserveNote(data.message || data.error || 'This box could not be reserved. Nothing was charged or held.');
+        setReserveNote(`${BOX_PARTNER_LINE} Nothing was charged or held.`);
       }
     } catch {
-      setReserveNote('This box could not be reserved just now. Nothing was charged or held.');
+      setReserveNote(`${BOX_PARTNER_LINE} Nothing was charged or held.`);
     } finally {
       setReserving(false);
     }
@@ -492,21 +589,11 @@ function BoxCard({box, accent, index}: {box: Box; accent: string; index: number}
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-/** /api/nova sign-in (401) and rate-limit (429) copy; null for any other failure. */
-function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null | undefined): string | null {
-  if (status === 401) return 'Sign in to ask Nova.';
-  if (status !== 429) return null;
-  const s = Number(body?.retryAfterS);
-  return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
-}
-
 export default function StylistPage() {
-  const [edition, setEdition] = useState<Edition>('finesse');
+  // SSR-safe gender detection (device-local preference).
+  const edition = useLocalPref<Edition>('finesse_gender', (g) => (g === 'masculine' ? 'carpe_diem' : 'finesse'), 'finesse');
   const [activeTab, setActiveTab] = useState<Tab>('looks');
-  const [refreshing, setRefreshing] = useState(false);
-  const [looks, setLooks] = useState<Look[]>([]);
-  const [looksAreSample, setLooksAreSample] = useState(true);
-  const [looksError, setLooksError] = useState<string | null>(null);
+  const signedIn = useSignedIn();
 
   // Upload / match state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -515,55 +602,10 @@ export default function StylistPage() {
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
-  // SSR-safe gender detection
-  useEffect(() => {
-    const g = localStorage.getItem('finesse_gender');
-    setEdition(g === 'masculine' ? 'carpe_diem' : 'finesse');
-  }, []);
-
-  // Set initial looks based on edition
-  useEffect(() => {
-    setLooks(edition === 'carpe_diem' ? MASCULINE_LOOKS : FEMININE_LOOKS);
-    setLooksAreSample(true);
-  }, [edition]);
 
   const isMasc = edition === 'carpe_diem';
   const accent = isMasc ? '#FFA96B' : '#FF4D7D';
-
-  // ── Refresh Looks ──
-  async function handleRefreshLooks() {
-    setRefreshing(true);
-    setLooksError(null);
-    try {
-      const res = await fetch('/api/nova', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          prompt: `Generate ${isMasc ? '4 masculine luxury looks' : '4 feminine luxury looks'} for a style-forward client. Each look should have a name, 4-5 specific brand items (e.g. "Jacquemus mini · Amina Muaddi heel"), an occasion tag (Date night/Statement lunch/Power meeting/Weekend flex/ATL night), and a realistic total price. Respond ONLY with valid JSON array: [{"name":"...","items":"brand · brand · brand","occasion":"...","price":"$X,XXX total"}]`,
-          system: 'You are Nova, a luxury personal stylist AI. Always respond with valid JSON only, no markdown.',
-          persona: 'stylist',
-        }),
-      });
-      if (!res.ok) {
-        const limit = novaLimitMessage(res.status, (await res.json().catch(() => null)) as {retryAfterS?: unknown} | null);
-        if (limit) {
-          setLooksError(limit);
-          return;
-        }
-        throw new Error('nova unavailable');
-      }
-      const data = await res.json() as {text: string};
-      const parsed = JSON.parse(data.text) as Look[];
-      if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('no looks');
-      setLooks(parsed);
-      setLooksAreSample(false);
-    } catch {
-      // Keep whatever is showing (still labelled) and say so — never pass off a shuffle as new looks.
-      setLooksError("Nova couldn't put new looks together just now. Try again in a moment.");
-    } finally {
-      setRefreshing(false);
-    }
-  }
+  const sampleLooks = isMasc ? MASCULINE_LOOKS : FEMININE_LOOKS;
 
   // ── Photo Upload ──
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -580,6 +622,8 @@ export default function StylistPage() {
 
   async function handleAnalyze() {
     if (!fileInputRef.current?.files?.[0]) return;
+    // Nothing leaves the browser until the member agrees to AI processing and to Nova reading the photo.
+    if (!(await ensureAiConsent('photo_ai'))) { setAnalysisError(CONSENT_DECLINED_TEXT); return; }
     setAnalyzing(true);
     setAnalysisResult(null);
     setAnalysisError(null);
@@ -744,38 +788,25 @@ export default function StylistPage() {
               exit={{opacity: 0, y: -10}}
               transition={{duration: 0.35}}
             >
-              {looksAreSample && <SampleNote>Sample looks · refresh for Nova&apos;s picks</SampleNote>}
-              {looksError && <ErrorNote>{looksError}</ErrorNote>}
-              <div style={{display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px'}}>
-                {looks.map((look, i) => (
-                  <LookCard key={look.name + i} look={look} accent={accent} index={i} />
-                ))}
-              </div>
-
-              {/* Refresh button */}
-              <div style={{textAlign: 'center'}}>
-                <button
-                  onClick={handleRefreshLooks}
-                  disabled={refreshing}
-                  style={{
-                    background: 'none',
-                    border: `1px solid ${accent}55`,
-                    color: accent,
-                    fontFamily: 'var(--font-label)',
-                    fontSize: '8px',
-                    letterSpacing: '0.3em',
-                    textTransform: 'uppercase',
-                    padding: '12px 32px',
-                    cursor: refreshing ? 'not-allowed' : 'pointer',
-                    opacity: refreshing ? 0.5 : 1,
-                    transition: 'all 0.2s',
-                    width: '100%',
-                    maxWidth: '280px',
-                  }}
-                >
-                  {refreshing ? 'NOVA IS THINKING...' : 'REFRESH LOOKS'}
-                </button>
-              </div>
+              {signedIn === null ? (
+                <div aria-label="Loading" style={{height: '180px', border: `1px solid ${accent}15`, background: 'rgba(244,232,208,0.02)'}} />
+              ) : signedIn ? (
+                <OccasionStylist accent={accent} />
+              ) : (
+                <>
+                  <SampleNote>Sample looks · sign in and Nova styles your real occasions</SampleNote>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '24px'}}>
+                    {sampleLooks.map((look, i) => (
+                      <LookCard key={look.name + i} look={look} accent={accent} index={i} />
+                    ))}
+                  </div>
+                  <div style={{textAlign: 'center'}}>
+                    <Link href="/login" style={{display: 'inline-block', border: `1px solid ${accent}55`, color: accent, fontFamily: 'var(--font-label)', fontSize: '8px', letterSpacing: '0.3em', textTransform: 'uppercase', padding: '12px 32px', textDecoration: 'none'}}>
+                      SIGN IN FOR NOVA&apos;S PICKS
+                    </Link>
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -799,15 +830,31 @@ export default function StylistPage() {
                   lineHeight: 1.6,
                 }}
               >
-                Curated drops, sourced for you. New boxes open weekly.
+                Curated drops, sourced to your style DNA.
               </p>
-              <SampleNote>Sample boxes · reservations open when a stylist partner is connected</SampleNote>
-
-              <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
-                {BOXES.map((box, i) => (
-                  <BoxCard key={box.id} box={box} accent={accent} index={i} />
-                ))}
-              </div>
+              {signedIn ? (
+                <div style={{border: `1px solid ${BRASS}33`, background: `${BRASS}05`, padding: '22px 20px'}}>
+                  <h3 style={{fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '19px', color: CREAM, marginBottom: '8px'}}>
+                    No box yet
+                  </h3>
+                  <p style={{fontFamily: 'var(--font-body)', fontSize: '13px', color: 'rgba(244,232,208,0.55)', lineHeight: 1.6, margin: 0}}>
+                    {BOX_PARTNER_LINE} Until then, Nova can style any occasion and find each piece for you.
+                  </p>
+                  <button type="button" onClick={() => setActiveTab('looks')}
+                    style={{marginTop: '14px', background: 'none', border: `1px solid ${accent}55`, color: accent, fontFamily: 'var(--font-label)', fontSize: '8px', letterSpacing: '0.25em', textTransform: 'uppercase', padding: '9px 18px', cursor: 'pointer'}}>
+                    STYLE AN OCCASION
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <SampleNote>Sample boxes · {BOX_PARTNER_LINE.toLowerCase()}</SampleNote>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
+                    {BOXES.map((box, i) => (
+                      <BoxCard key={box.id} box={box} accent={accent} index={i} />
+                    ))}
+                  </div>
+                </>
+              )}
             </motion.div>
           )}
 
@@ -1108,6 +1155,11 @@ export default function StylistPage() {
                         </span>
                       </div>
 
+                      <ReportReply
+                        targetId={`stylist-photo:${analysisResult.style_labels.join(',').slice(0, 80)}`}
+                        text={`${analysisResult.style_labels.join(', ')} · ${analysisResult.similar_brands.join(', ')} · ${analysisResult.price_range}`}
+                      />
+
                       {/* Action buttons */}
                       <div style={{display: 'flex', gap: '8px'}}>
                         <Link
@@ -1143,6 +1195,17 @@ export default function StylistPage() {
                         </Link>
                       </div>
                     </div>
+                    {signedIn && (analysisResult.style_labels.length > 0 || analysisResult.similar_brands.length > 0) && (
+                      <NovaAction
+                        label="Find pieces like this"
+                        accent={accent}
+                        build={() => {
+                          const query = [...analysisResult.style_labels.slice(0, 3), ...analysisResult.similar_brands.slice(0, 2)].join(' ').slice(0, 200);
+                          return query ? {kind: 'find_item', title: `Find: ${query}`.slice(0, 140), details: {query}, room: 'stylist'} : null;
+                        }}
+                        itemActions={(item) => <SuggestionActions item={item} accent={accent} />}
+                      />
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

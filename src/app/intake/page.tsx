@@ -445,7 +445,7 @@ export default function IntakePage() {
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? 'Something went wrong. Please try again.');
+        throw new Error(body.message ?? body.error ?? 'Something went wrong. Please try again.');
       }
 
       router.push('/lobby');

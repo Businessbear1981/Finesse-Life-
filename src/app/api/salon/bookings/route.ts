@@ -1,67 +1,34 @@
-import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
-import { cookies } from 'next/headers';
+import {NextRequest} from 'next/server';
+import {parseBody} from '@/lib/api/validate';
+import {dbFailure, json, requireMember} from '@/lib/api/room';
+import {bookingRequest} from '@/lib/salon';
 
-const service = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+// The member's own session client (RLS: 20261016_w3_salon.sql) — no service role. Members read their requests,
+// create 'pending' ones and cancel their own pending ones; only a salon partner can confirm.
+const COLS = 'id, service_name, category, duration, edition, requested_date, requested_time, notes, price_cents, status, created_at';
 
-async function getUser() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-  );
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-}
-
+// GET /api/salon/bookings → {bookings} (own, newest first)
 export async function GET() {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data, error } = await service
-    .from('salon_bookings')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ bookings: data ?? [] });
+  const ctx = await requireMember();
+  if (!('userId' in ctx)) return ctx;
+  const {data, error} = await ctx.supabase.from('salon_bookings').select(COLS).eq('user_id', ctx.userId).order('created_at', {ascending: false}).limit(100);
+  if (error) return dbFailure(error, ctx.traceId, 'salon');
+  return json({bookings: data ?? []}, ctx.traceId);
 }
 
-export async function POST(req: Request) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const body = await req.json();
-  const { service_id, service_name, price_cents, duration, category, edition, requested_date, requested_time, notes } = body;
-
-  if (!service_name || !requested_date || !requested_time) {
-    return NextResponse.json({ error: 'service_name, requested_date, requested_time required' }, { status: 400 });
-  }
-
-  const { data, error } = await service
-    .from('salon_bookings')
-    .insert({
-      user_id: user.id,
-      service_id: service_id ?? 'custom',
-      service_name,
-      price_cents: price_cents ?? 0,
-      duration,
-      category,
-      edition: edition ?? 'finesse',
-      requested_date,
-      requested_time,
-      notes: notes ?? null,
-      status: 'pending',
-    })
-    .select()
-    .single();
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ booking: data }, { status: 201 });
+// POST /api/salon/bookings {service_name, requested_date, requested_time, notes?, category?, duration?, edition?}
+// → 201 {booking} with status 'pending'. Price is unknown until a salon quotes it (0 = not quoted).
+export async function POST(req: NextRequest) {
+  const ctx = await requireMember();
+  if (!('userId' in ctx)) return ctx;
+  const parsed = await parseBody(req, bookingRequest);
+  if (parsed.error) return parsed.error;
+  const b = parsed.data;
+  const {data, error} = await ctx.supabase.from('salon_bookings').insert({
+    user_id: ctx.userId, service_id: 'custom', service_name: b.service_name, price_cents: 0,
+    duration: b.duration ?? null, category: b.category ?? null, edition: b.edition,
+    requested_date: b.requested_date, requested_time: b.requested_time, notes: b.notes || null, status: 'pending',
+  }).select(COLS).single();
+  if (error) return dbFailure(error, ctx.traceId, 'salon');
+  return json({booking: data, message: 'Requested. No salon has confirmed it yet — nothing is booked until they do.'}, ctx.traceId, 201);
 }

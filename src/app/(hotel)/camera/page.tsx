@@ -6,6 +6,7 @@ import {useRouter} from 'next/navigation';
 import {motion} from 'framer-motion';
 import {PlateAction, RoomPlate, type LiveCtx} from '@/components/hotel/room-plate';
 import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
+import {ensureAiConsent} from '@/components/nova/ai-consent';
 
 type Item = {id: string; viewUrl: string | null; label: string | null; category: string | null; brand_guess: string | null; confidence: number | null; model: string | null; state: string; routed_to: string | null};
 type CameraData = {items: Item[]};
@@ -35,7 +36,7 @@ function ItemCard({item, accent, reload}: {item: Item; accent: string; reload: (
           {item.state}{item.confidence !== null ? ` · confidence ${(item.confidence * 100).toFixed(0)}%` : ''}{item.model ? ` · ${item.model}` : ''}
         </p>
         {item.state === 'uploaded' && (
-          <button type="button" disabled={busy} onClick={async () => { if ((await call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}})).ok) reload(); }} className={btnCls} style={{borderColor: accent, color: accent}}>Identify</button>
+          <button type="button" disabled={busy} onClick={async () => { if (!(await ensureAiConsent('photo_ai'))) return; if ((await call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}})).ok) reload(); }} className={btnCls} style={{borderColor: accent, color: accent}}>Identify</button>
         )}
         {(item.state === 'identified' || item.state === 'unidentified' || item.state === 'uploaded') && (
           <div className="flex flex-col gap-2 sm:flex-row">

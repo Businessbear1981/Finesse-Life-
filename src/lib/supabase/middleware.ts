@@ -44,7 +44,11 @@ export async function updateSession(request: NextRequest) {
 
   // Public hotel routes — no login required
   const isPublicRoute = pathname === '/' ||
+    // Legal + help pages: store listings link here and they must open signed out.
     pathname === '/terms' ||
+    pathname === '/privacy' ||
+    pathname === '/support' ||
+    pathname === '/reset-password' ||
     pathname === '/account/delete-info' ||
     pathname.startsWith('/lobby') ||
     pathname.startsWith('/perdiem') ||

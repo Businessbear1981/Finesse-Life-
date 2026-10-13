@@ -1,0 +1,90 @@
+/* The hotel frame (top bar, side rails, Nova dock) in the After Hours language. */
+.hf {
+  --hotel-top: 68px;
+  --hotel-dock: 70px;
+  --hf-rail: 72px;
+  position: relative;
+  min-height: 100vh;
+  background: var(--ah-ink, #050505);
+  color: var(--ah-text, #edebe7);
+  font-family: var(--ah-sans);
+}
+@media (max-width: 479px) { .hf { --hf-rail: 44px; } }
+
+.hf-top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  height: 64px;
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(5, 5, 5, 0.82);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--ah-line);
+}
+.hf-mark {
+  font-weight: 700; font-size: 12px; letter-spacing: 0.42em; padding-left: 0.42em; text-decoration: none;
+  background: var(--ah-chrome-h); -webkit-background-clip: text; background-clip: text; color: transparent;
+  min-height: 44px; display: inline-flex; align-items: center;
+}
+.hf-round {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  color: var(--ah-mute); border: 1px solid var(--ah-line-2); background: rgba(255, 255, 255, 0.04);
+  transition: color .2s, border-color .2s, box-shadow .2s;
+}
+.hf-round:hover, .hf-round[data-active] { color: #fff; border-color: rgba(255, 255, 255, 0.35); }
+.hf-round-vip { color: var(--ah-rose); border-color: rgba(232, 180, 160, 0.35); }
+.hf-round-vip[data-active] { color: var(--ah-blush); box-shadow: 0 0 16px rgba(232, 180, 160, 0.35); border-color: var(--ah-rose); }
+
+.hf-rail {
+  position: fixed; top: var(--hotel-top); bottom: var(--hotel-dock); z-index: 40; width: var(--hf-rail);
+  display: flex; flex-direction: column; align-items: center; padding: 6px 0;
+  overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: none;
+  background: rgba(5, 5, 5, 0.9);
+}
+.hf-rail::-webkit-scrollbar { display: none; }
+.hf-rail-left { left: 0; border-right: 1px solid var(--ah-line); }
+.hf-rail-right { right: 0; border-left: 1px solid var(--ah-line); }
+.hf-tile {
+  position: relative; flex: none; width: 100%; min-height: 56px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 8px 4px; text-decoration: none; color: var(--ah-faint);
+  transition: color .2s;
+}
+.hf-tile:hover { color: var(--ah-text); }
+.hf-tile[data-active] { color: #fff; }
+.hf-tile[data-active]::before {
+  content: ''; position: absolute; inset: 6px 8px; border-radius: 14px;
+  background: radial-gradient(closest-side, rgba(183, 110, 121, 0.28), transparent);
+}
+.hf-icon { position: relative; display: grid; place-items: center; }
+.hf-label { position: relative; font-size: 9px; font-weight: 600; letter-spacing: 0.04em; line-height: 1.1; text-align: center; }
+.hf-dot { position: relative; width: 4px; height: 4px; border-radius: 50%; background: transparent; }
+.hf-tile[data-active] .hf-dot { background: var(--ah-rose); box-shadow: 0 0 8px var(--ah-rose); }
+@media (max-width: 479px) { .hf-label { display: none; } .hf-tile { min-height: 48px; } }
+
+.hf-dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  height: var(--hotel-dock); padding-bottom: env(safe-area-inset-bottom, 0px);
+  display: flex; align-items: stretch;
+  background: rgba(5, 5, 5, 0.86);
+  -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+  border-top: 1px solid var(--ah-line);
+}
+.hf-dock-tile, .hf-nova {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  text-decoration: none; color: var(--ah-faint); transition: color .2s; min-width: 0;
+}
+.hf-dock-tile:hover, .hf-dock-tile[data-active] { color: #fff; }
+.hf-dock-tile[data-active] .hf-dock-label { color: var(--ah-rose); }
+.hf-dock-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; }
+.hf-nova { flex: 1.1; color: var(--ah-text); }
+.hf-nova-orb {
+  width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: #2a1014;
+  background: linear-gradient(135deg, #f2c9b8, #b76e79); box-shadow: 0 0 18px rgba(183, 110, 121, 0.45);
+}
+.hf-nova[data-active] .hf-nova-orb { box-shadow: 0 0 0 2px #050505, 0 0 0 3px #f2c9b8, 0 0 22px rgba(183, 110, 121, 0.7); }
+
+.hf-tile:focus-visible, .hf-dock-tile:focus-visible, .hf-nova:focus-visible, .hf-round:focus-visible, .hf-mark:focus-visible {
+  outline: 2px solid var(--ah-rose); outline-offset: -2px;
+}
+
+.hf-main { padding: var(--hotel-top) var(--hf-rail) var(--hotel-dock); }

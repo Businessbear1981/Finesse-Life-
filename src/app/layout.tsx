@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import {Playfair_Display, Cormorant_Garamond, Cinzel} from 'next/font/google';
 import {Providers} from './providers';
+import {afterHoursFonts} from '@/lib/fonts-after-hours';
 import './globals.css';
 
 const playfair = Playfair_Display({
@@ -35,7 +36,7 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${cormorant.variable} ${cinzel.variable}`}
+      className={`${playfair.variable} ${cormorant.variable} ${cinzel.variable} ${afterHoursFonts}`}
     >
       <body className="bg-[#0a0406] text-[#f4e8d0] antialiased">
         {/* Film grain — analog texture across the entire app */}

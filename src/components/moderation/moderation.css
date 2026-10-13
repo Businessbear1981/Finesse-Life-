@@ -1,0 +1,63 @@
+/* Member safety UI (report / block / house rules), After Hours. Tokens from after-hours.css, with fallbacks
+   so the sheet looks right in rooms that still use the older skin (Exchange, Game Room). */
+.mod-wrap { position: relative; display: inline-flex; }
+.mod-dots {
+  display: grid; place-items: center; width: 44px; height: 44px; margin: -6px -10px -6px 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--ah-mute, #8a8a8f);
+  font-size: 20px; line-height: 1; letter-spacing: 1px; cursor: pointer;
+}
+.mod-dots:hover { color: var(--ah-text, #edebe7); background: rgba(255, 255, 255, 0.06); }
+.mod-dots:focus-visible, .mod-item:focus-visible, .mod-reason input:focus-visible + span, .mod-link:focus-visible {
+  outline: 2px solid var(--ah-rose, #e8b4a0); outline-offset: 2px;
+}
+.mod-menu {
+  position: absolute; top: calc(100% + 4px); right: -6px; z-index: 40; min-width: 200px; padding: 6px;
+  border-radius: 16px; border: 1px solid var(--ah-line-2, rgba(255,255,255,.14));
+  background: #141416; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+.mod-item {
+  display: flex; align-items: center; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--ah-text, #edebe7); font: 500 14px var(--ah-sans, system-ui, sans-serif); text-align: left; cursor: pointer;
+}
+.mod-item:hover { background: rgba(255, 255, 255, 0.06); }
+.mod-item-danger { color: #ff8aa0; }
+
+.mod-scrim {
+  position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  background: rgba(0, 0, 0, 0.72); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+@media (min-width: 640px) { .mod-scrim { align-items: center; } }
+.mod-sheet {
+  width: 100%; max-width: 30rem; max-height: calc(100dvh - 24px); overflow-y: auto; border-radius: 28px; padding: 22px;
+  background: rgba(20, 20, 22, 0.97); border: 1px solid var(--ah-line-2, rgba(255,255,255,.14));
+  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6); color: var(--ah-text, #edebe7); font-family: var(--ah-sans, system-ui, sans-serif);
+}
+.mod-eyebrow { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ah-mute, #8a8a8f); }
+.mod-title { margin: 6px 0 0; font-family: var(--ah-serif, Georgia, serif); font-style: italic; font-weight: 400; font-size: 30px; line-height: 1.05; }
+.mod-body { margin: 12px 0 0; font-size: 14px; line-height: 1.55; color: var(--ah-text, #edebe7); }
+.mod-mute { color: var(--ah-mute, #8a8a8f); }
+.mod-rules { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.mod-rules li { display: grid; grid-template-columns: 22px 1fr; font-size: 14px; line-height: 1.45; }
+.mod-rules li::before { content: '—'; color: var(--ah-rose, #e8b4a0); }
+.mod-reasons { margin: 14px 0 0; padding: 0; border: 0; display: grid; gap: 6px; }
+.mod-reason { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--ah-line, rgba(255,255,255,.08)); cursor: pointer; font-size: 14px; }
+.mod-reason:has(input:checked) { border-color: var(--ah-rose, #e8b4a0); background: rgba(183, 110, 121, 0.12); }
+.mod-reason input { width: 18px; height: 18px; accent-color: var(--ah-rose-2, #b76e79); }
+.mod-note {
+  width: 100%; min-height: 72px; margin-top: 10px; padding: 12px; border-radius: 14px; resize: vertical;
+  border: 1px solid var(--ah-line-2, rgba(255,255,255,.14)); background: rgba(255,255,255,.04); color: inherit; font: 14px/1.4 var(--ah-sans, system-ui, sans-serif);
+}
+.mod-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.mod-btn {
+  flex: 1 1 140px; min-height: 48px; padding: 0 18px; border-radius: 999px; border: 1px solid transparent; cursor: pointer;
+  font: 600 15px var(--ah-sans, system-ui, sans-serif);
+}
+.mod-btn:disabled { opacity: .45; cursor: not-allowed; }
+.mod-btn-solid { background: #fff; color: #000; }
+.mod-btn-rose { background: linear-gradient(90deg, #f2c9b8, #b76e79); color: #2a1014; }
+.mod-btn-ghost { background: transparent; color: var(--ah-text, #edebe7); border-color: var(--ah-line-2, rgba(255,255,255,.14)); }
+.mod-btn:focus-visible { outline: 2px solid var(--ah-rose, #e8b4a0); outline-offset: 3px; }
+.mod-alert { margin: 12px 0 0; font-size: 13px; color: #ff8aa0; }
+.mod-ok { margin: 12px 0 0; font-size: 14px; line-height: 1.5; color: var(--ah-ok, #7ee2b8); }
+.mod-link { color: var(--ah-rose, #e8b4a0); text-decoration: underline; text-underline-offset: 3px; }

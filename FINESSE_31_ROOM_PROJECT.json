@@ -11,7 +11,7 @@
       "FINESSE LIFE — Company Bible & Investor Brief.md",
       "FINESSE_31_ROOM_BUILD_AUTHORITY.md"
     ],
-    "experience": "A cinematic 1920s Art Deco hotel operating system for style, connection, commerce, memory, and intelligent orchestration.",
+    "experience": "A cinematic after-hours members' house: an operating system for style, connection, commerce, memory, and intelligent orchestration.",
     "roomCount": 31,
     "penthouseCountRule": "Penthouse is a premium scene within the VIP Room, not a 32nd counted room.",
     "canonicalServiceDomainCount": 23,
@@ -81,7 +81,7 @@
     ]
   },
   "designSystem": {
-    "direction": "High-fidelity 1920s Art Deco hotel: oxblood lacquer, black mirror, fluted brass, geometric sunbursts, cinematic grain, controlled light, editorial typography.",
+    "direction": "After Hours: noir and chrome, rose-gold heat, black mirror, soft smoke, cinematic grain, controlled light, editorial serif italics.",
     "palette": {
       "ink": "#080406",
       "oxblood": "#17090D",
@@ -117,7 +117,7 @@
     "publicKeyLock": {
       "entry": "/",
       "sequence": [
-        "six digit Art Deco puzzle",
+        "six digit house lock",
         "server challenge",
         "server verification",
         "signed member or preview session",
@@ -141,8 +141,8 @@
       "entry": "/lobby",
       "sequence": [
         "click PENTHOUSE",
-        "Art Deco elevator arrives",
-        "sliding doors close into one dark brass surface",
+        "the private lift arrives",
+        "sliding doors close into one dark chrome surface",
         "six digit puzzle materializes across the doors",
         "digits 1-3 belong to left door and 4-6 to right door",
         "server verifies active VIP entitlement",
@@ -181,7 +181,7 @@
         "nova",
         "actions"
       ],
-      "design": "Grand arrival hall, next-best-action ledger, brass wayfinding rails, cinematic hero scene.",
+      "design": "Arrival hall after dark, next-best-action ledger, chrome wayfinding rails, cinematic hero scene.",
       "primaryAction": "Open Nova or enter a room",
       "api": [
         "GET /api/lobby",
@@ -197,13 +197,13 @@
       "phase": "1",
       "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Double-height marble atrium, brass directory rails, two distinct doors",
-        "focalObject": "A living action ledger under the chandelier",
+        "architecture": "Double-height noir atrium, chrome directory rails, two distinct doors",
+        "focalObject": "A living action ledger under one pool of light",
         "motion": "The public door sweeps behind the member as the next action catches light",
         "mobile": "Portrait arrival; persistent Nova prompt; the Penthouse lift lives below the greeting",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -232,15 +232,15 @@
         "no attention-selling at launch"
       ],
       "phase": "2",
-      "truthState": "specified",
+      "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Velvet seating islands divided by brass privacy screens",
+        "architecture": "Low seating islands divided by smoked-glass privacy screens",
         "focalObject": "Presence lamps that appear only for consented friends",
         "motion": "Nearby tables light one at a time, never a noisy feed cascade",
         "mobile": "One close-circle conversation per screen with clear visibility labels",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -278,8 +278,8 @@
         "motion": "A request travels along the desk to a specialist service bell",
         "mobile": "Voice or text request with confirmation sheet before external action",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -296,7 +296,7 @@
         "wellness",
         "style"
       ],
-      "design": "Gold-framed appointment cards, soft lamp glow, ritual timeline.",
+      "design": "Appointment cards, soft lamp glow, ritual timeline.",
       "primaryAction": "Confirm appointment",
       "api": [
         "GET /api/salon/availability",
@@ -311,13 +311,13 @@
       "phase": "2",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Gold-framed appointment wall and mirrored service stations",
+        "architecture": "Lit appointment wall and mirrored service stations",
         "focalObject": "The next booked ritual in a substantial appointment card",
         "motion": "Calendar slips move into place; confirmation requires a real booking reply",
         "mobile": "Single appointment stack, large rebook button, partner disclosure",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -354,8 +354,8 @@
         "motion": "Rail glides between curated looks rather than autoplaying products",
         "mobile": "Swipeable outfit sheets with explicit owned / purchasable labels",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -388,13 +388,13 @@
       "phase": "4",
       "truthState": "gated",
       "sceneBlueprint": {
-        "architecture": "Visible brass safe behind a smoked-glass window",
+        "architecture": "Visible chrome safe behind a smoked-glass window",
         "focalObject": "Verified balance and transaction ledger",
         "motion": "A dial rotates only for presentation; balances update only from server events",
         "mobile": "Ledger-first layout, accessible totals, no fabricated card funding",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -426,13 +426,13 @@
       "phase": "3",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Curved marble buying desk, brass price rail, provenance drawer",
+        "architecture": "Curved black buying desk, chrome price rail, provenance drawer",
         "focalObject": "The honest partner price and original source",
         "motion": "Price tag flips to reveal fees and handoff",
         "mobile": "Compare price, source and disclosure before the outbound purchase link",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -470,8 +470,8 @@
         "motion": "Job status progresses by server state; no fake completed render",
         "mobile": "Single render preview with approval and export controls",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -508,8 +508,8 @@
         "motion": "Drawers open into dated chapters; reduced motion uses immediate cuts",
         "mobile": "Chronological chapter cards and private export boundary",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -547,8 +547,8 @@
         "motion": "One envelope opens to reveal the next timely gesture",
         "mobile": "Contact summary plus privacy and gifting actions",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -584,8 +584,8 @@
         "motion": "Mirror reflections change with visibility selections",
         "mobile": "Privacy-first toggles; explicit audience preview and VIP gate",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -623,8 +623,8 @@
         "motion": "A chair slides into place only after join confirmation",
         "mobile": "Tables list with capacity, scope and participation state",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -657,13 +657,13 @@
       "phase": "4",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Brass commodity ticker around a shared procurement table",
+        "architecture": "Chrome commodity ticker around a shared procurement table",
         "focalObject": "Threshold counter and verified participant count",
         "motion": "Price movement follows real campaign thresholds, never decoration",
         "mobile": "Campaign progress, pledge state and clear no-charge-until-confirmed copy",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -681,7 +681,7 @@
         "gifting",
         "tokens"
       ],
-      "design": "Gold-ruled registry, occasion cards, outing-linked wish list.",
+      "design": "Rose-ruled registry, occasion cards, outing-linked wish list.",
       "primaryAction": "Add or route a wish",
       "api": [
         "GET /api/registry/items",
@@ -697,13 +697,13 @@
       "phase": "3",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Gold-ruled ledger of occasions, gifts and intentions",
+        "architecture": "Rose-ruled ledger of occasions, gifts and intentions",
         "focalObject": "An outing-linked wish with partner path",
         "motion": "A pen line connects wish, group and occasion",
         "mobile": "Wish detail with pledge versus paid state distinctly labelled",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -741,8 +741,8 @@
         "motion": "An item slides from closet to consignment desk after explicit listing",
         "mobile": "Price, condition, shipping and payout steps on one vertical page",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -761,7 +761,7 @@
         "weather",
         "ground"
       ],
-      "design": "Boarding pass in gold foil, composed itinerary, live weather and ground context.",
+      "design": "Boarding pass in chrome, composed itinerary, live weather and ground context.",
       "primaryAction": "Compose a departure",
       "api": [
         "GET /api/departures/search",
@@ -775,13 +775,13 @@
       "phase": "3",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Brass departure board beside a dim hotel porte-cochère",
+        "architecture": "Chrome departure board beside a dim hotel porte-cochère",
         "focalObject": "A composed itinerary card",
         "motion": "Board characters settle on confirmed times; quotes remain marked provisional",
         "mobile": "Trip summary, provider quote expiry and booking handoff",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -814,13 +814,13 @@
       "phase": "1",
       "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Behind-the-scenes copper-and-brass control wall",
+        "architecture": "Behind-the-scenes chrome control wall",
         "focalObject": "Consent switches and live provider health",
         "motion": "One switch activates only after OAuth succeeds; revoke turns it dark",
         "mobile": "Connection status, scopes, last sync and revoke touch targets",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -857,8 +857,8 @@
         "motion": "Folio opens to terms before outbound link",
         "mobile": "Clear sponsored marker, fit explanation and partner disclosure",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -895,8 +895,8 @@
         "motion": "Stars brighten only from consented signals; unknown data remains absent",
         "mobile": "Signal list with reason, correction, revocation and delete",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -933,8 +933,8 @@
         "motion": "Curtain opens with the day; each action completes individually",
         "mobile": "Today-first ritual list with gentle progress and no gender lockout",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -973,8 +973,8 @@
         "motion": "Indicator rises with confirmed progress, not speculative market changes",
         "mobile": "One decisive brief card; read-only financial data visibly labelled",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1012,8 +1012,8 @@
         "motion": "A rail pauses when human review is pending",
         "mobile": "Keep / return decisions with prices, shipping and human escalation",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1031,7 +1031,7 @@
         "vip-exclusives",
         "human-support"
       ],
-      "design": "Private inner room, deep oxblood, brass badge, private feed, human escalation; Penthouse is its premium destination scene, not a 32nd room.",
+      "design": "Private inner room, deep noir, rose-gold badge, private feed, human escalation; Penthouse is its premium destination scene, not a 32nd room.",
       "primaryAction": "Open private channel",
       "api": [
         "GET /api/vip",
@@ -1046,13 +1046,13 @@
       "phase": "6",
       "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Private brass-and-velvet room above the hotel",
+        "architecture": "Private chrome-and-smoke room above the hotel",
         "focalObject": "Entitled inner-circle access and human concierge",
         "motion": "Elevator doors open only after VIP server verification",
         "mobile": "Private channel, entitlements, escalation and optional Penthouse scene",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1087,13 +1087,13 @@
       "phase": "3",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Double-height ballroom with laid tables and chandelier grid",
+        "architecture": "Double-height ballroom with laid tables and a grid of pin lights",
         "focalObject": "A complete date or event proposal",
-        "motion": "Chandelier pools light on selected venue, look, gift and route",
+        "motion": "Pin lights pool on the selected venue, look, gift and route",
         "mobile": "One itinerary card with proposal / hold / confirmed stages",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1128,13 +1128,13 @@
       "phase": "5",
       "truthState": "preview",
       "sceneBlueprint": {
-        "architecture": "Basement club, green-black walls and a single brass lamp",
+        "architecture": "Basement club, smoke-black walls and a single rose lamp",
         "focalObject": "Tonight’s live trio, replay and tip rail",
         "motion": "Stage lamp wakes as a live room genuinely starts",
         "mobile": "Audio controls and licensing/tip disclosures with accessible captions",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1172,8 +1172,8 @@
         "motion": "Timer ring turns with real local time, health sync only with consent",
         "mobile": "Set log, accessible rest timer and consented HealthKit sync state",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1212,8 +1212,8 @@
         "motion": "Recipe slips arrange into a week as quantities reconcile",
         "mobile": "Meal list, nutrition target and separate order authorization",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1252,8 +1252,8 @@
         "motion": "Mirror turns only on deliberate audience selection",
         "mobile": "Visibility preview, edit controls, data export and deletion",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1287,13 +1287,13 @@
       "phase": "3",
       "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Inside-lit walnut wardrobe with a turning brass garment rack",
+        "architecture": "Inside-lit black wardrobe with a turning chrome garment rack",
         "focalObject": "Approved weekly rotation from already-owned pieces",
         "motion": "Rack turns once per outfit; missing pieces remain separate",
         "mobile": "Seven-day outfit rail, owned labels and approve-week action",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1335,8 +1335,8 @@
         "motion": "A page turns between days; held and moved items stay distinct",
         "mobile": "One actionable item above the fold, clear approve / hold states",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     },
@@ -1354,7 +1354,7 @@
         "nightvision",
         "lab"
       ],
-      "design": "Viewfinder with gold reticle, object recognition, catalogue confirmation.",
+      "design": "Viewfinder with chrome reticle, object recognition, catalogue confirmation.",
       "primaryAction": "Scan the rest of the closet",
       "api": [
         "POST /api/camera/uploads",
@@ -1372,13 +1372,13 @@
       "phase": "3",
       "truthState": "wired",
       "sceneBlueprint": {
-        "architecture": "Dark viewfinder with calibrated brass reticle",
+        "architecture": "Dark viewfinder with calibrated chrome reticle",
         "focalObject": "One identified item and confidence / provenance",
         "motion": "Reticle resolves only after model output; never guesses silently",
         "mobile": "Native camera intake, consent, review before catalogue or share",
         "trackTreatment": {
-          "finesse": "Blush-pink accent on internal light and copy; preserve the shared brass structure.",
-          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared brass structure."
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
         }
       }
     }
@@ -1451,7 +1451,7 @@
       "deliverables": [
         "public KeyLock",
         "Lobby",
-        "Art Deco shell",
+        "After Hours shell",
         "mobile navigation",
         "room registry rendering"
       ]

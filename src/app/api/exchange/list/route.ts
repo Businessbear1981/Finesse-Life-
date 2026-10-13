@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 import { emit } from '@/lib/intelligence';
+import { checkMediaUrls, screenFields } from '@/lib/moderation';
+import { contentRejected, postingGate } from '@/lib/moderation-server';
+import { r2PublicBase } from '@/lib/r2';
 
 interface ListPayload {
   title: string;
@@ -16,17 +18,7 @@ interface ListPayload {
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
+    const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -43,6 +35,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Minimum price is $1.' }, { status: 400 });
     }
 
+    // Member safety (Apple 1.2 / Play UGC): house rules accepted, text filter, own-storage photos only.
+    const gate = await postingGate(supabase, user.id);
+    if (gate) return gate;
+    const verdict = screenFields([body.title, body.brand, body.size, body.description], 'listing');
+    if (verdict.verdict === 'reject') return contentRejected(verdict);
+    const photos = checkMediaUrls(body.photo_urls, r2PublicBase(), user.id, 8);
+    if (!photos.ok) return NextResponse.json({ error: photos.message }, { status: 400 });
+
     const { data, error } = await supabase
       .from('exchange_listings')
       .insert({
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
         condition: body.condition ?? 'excellent',
         asking_price_cents: body.asking_price_cents,
         category: body.category ?? null,
-        photo_urls: body.photo_urls ?? [],
+        photo_urls: photos.urls,
         status: 'active',
       })
       .select('id, platform_fee_cents, seller_receives_cents')

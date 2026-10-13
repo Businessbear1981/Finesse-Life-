@@ -1,8 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useLocalPref } from '@/components/after-hours';
+import { NovaAction } from '@/components/nova/request-card';
+import { ModerationMenu, useHouseRules } from '@/components/moderation';
+import { createClient } from '@/lib/supabase/client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,15 +72,23 @@ function fmt(cents: number) {
 }
 
 function useAccent() {
-  const [accent, setAccent] = useState('#FF4D7D');
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setAccent(
-        localStorage.getItem('finesse_gender') === 'masculine' ? '#FFA96B' : '#FF4D7D',
-      );
-    }
-  }, []);
-  return accent;
+  return useLocalPref('finesse_gender', (g) => (g === 'masculine' ? '#FFA96B' : '#FF4D7D'), '#FF4D7D');
+}
+
+/** Nova price check for a listing (orchestrator hub → price-hunter). Market prices only; nothing is bought. */
+function FairPrice({ title, brand, category, cents, accent, label = 'Fair price' }: { title: string; brand?: string; category?: string; cents: number; accent: string; label?: string }) {
+  return (
+    <NovaAction
+      label={label}
+      accent={accent}
+      build={() => title.trim() ? ({
+        kind: 'price_check',
+        title: `Fair price: ${[brand, title].filter(Boolean).join(' ')}`.slice(0, 140),
+        room: 'exchange',
+        details: { title: title.trim().slice(0, 160), brand: (brand ?? '').slice(0, 80), category: (category || 'fashion').toLowerCase().slice(0, 60), retail_cents: Math.max(0, Math.round(cents)) },
+      }) : null}
+    />
+  );
 }
 
 // ── Listing Card ─────────────────────────────────────────────────────────────
@@ -85,10 +97,14 @@ function ListingCard({
   listing,
   accent,
   onOffer,
+  me,
+  onBlocked,
 }: {
   listing: Listing;
   accent: string;
   onOffer: (listing: Listing) => void;
+  me?: string | null;
+  onBlocked?: (sellerId: string) => void;
 }) {
   const condColor = CONDITION_COLORS[listing.condition] ?? '#C9A961';
   const photo = listing.photo_urls?.[0];
@@ -123,11 +139,15 @@ function ListingCard({
 
       {/* Info */}
       <div className="p-3">
-        {listing.brand && (
-          <p className="font-label text-[8px] tracking-[0.2em] uppercase text-brass/60 mb-0.5">
-            {listing.brand}
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-label text-[8px] tracking-[0.2em] uppercase text-brass/60 mb-0.5 min-h-[1em]">
+            {listing.brand ?? ''}
           </p>
-        )}
+          {me && (
+            <ModerationMenu kind="listing" targetId={listing.id} memberId={listing.seller_id} name="the seller"
+              own={listing.seller_id === me} onBlocked={() => onBlocked?.(listing.seller_id)} />
+          )}
+        </div>
         <p className="font-body text-sm text-cream/80 leading-tight line-clamp-2">{listing.title}</p>
         {listing.size && (
           <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/30 mt-1">
@@ -230,6 +250,9 @@ function OfferModal({
             <p className="font-body text-xs text-cream/40 mb-4 leading-relaxed">
               {listing.title} · Listed at {fmt(listing.asking_price_cents)}
             </p>
+            <div className="mb-4">
+              <FairPrice title={listing.title} brand={listing.brand} category={listing.category} cents={listing.asking_price_cents} accent={accent} />
+            </div>
 
             <label className="font-label text-[8px] tracking-[0.2em] uppercase text-cream/30 block mb-1">
               Your Offer (USD)
@@ -387,30 +410,35 @@ function BrowseTab({ accent }: { accent: string }) {
   const [page, setPage] = useState(1);
   const [category, setCategory] = useState('All');
   const [priceRange, setPriceRange] = useState(PRICE_RANGES[0]);
-  const [loading, setLoading] = useState(true);
+  const [loadedKey, setLoadedKey] = useState('');
   const [offerTarget, setOfferTarget] = useState<Listing | null>(null);
-
-  const load = useCallback(async (pg: number, cat: string, pr: (typeof PRICE_RANGES)[0]) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(pg) });
-      if (cat !== 'All') params.set('category', cat);
-      if (pr.min > 0) params.set('min', String(pr.min));
-      if (pr.max > 0) params.set('max', String(pr.max));
-      const res = await fetch(`/api/exchange/listings?${params}`);
-      const json = await res.json();
-      setListings(json.listings ?? []);
-      setTotal(json.total ?? 0);
-    } catch {
-      setListings([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [me, setMe] = useState<string | null>(null);
 
   useEffect(() => {
-    void load(page, category, priceRange);
-  }, [load, page, category, priceRange]);
+    createClient().auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)).catch(() => {});
+  }, []);
+
+  // Loading is derived: the query key we last finished loading vs. the one on screen.
+  const queryKey = `${page}|${category}|${priceRange.label}`;
+  const loading = loadedKey !== queryKey;
+
+  useEffect(() => {
+    let alive = true;
+    const params = new URLSearchParams({ page: String(page) });
+    if (category !== 'All') params.set('category', category);
+    if (priceRange.min > 0) params.set('min', String(priceRange.min));
+    if (priceRange.max > 0) params.set('max', String(priceRange.max));
+    fetch(`/api/exchange/listings?${params}`)
+      .then((res) => res.json())
+      .then((json: { listings?: Listing[]; total?: number }) => {
+        if (!alive) return;
+        setListings(json.listings ?? []);
+        setTotal(json.total ?? 0);
+      })
+      .catch(() => { if (alive) setListings([]); })
+      .finally(() => { if (alive) setLoadedKey(`${page}|${category}|${priceRange.label}`); });
+    return () => { alive = false; };
+  }, [page, category, priceRange]);
 
   function handleCategory(cat: string) {
     setCategory(cat);
@@ -483,7 +511,8 @@ function BrowseTab({ accent }: { accent: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <AnimatePresence mode="popLayout">
             {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} accent={accent} onOffer={setOfferTarget} />
+              <ListingCard key={l.id} listing={l} accent={accent} onOffer={setOfferTarget} me={me}
+                onBlocked={(seller) => setListings((ls) => ls.filter((x) => x.seller_id !== seller))} />
             ))}
           </AnimatePresence>
         </div>
@@ -537,7 +566,6 @@ function SellTab({ accent }: { accent: string }) {
     category: 'Fashion',
     description: '',
   });
-  const [novaLoading, setNovaLoading] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
@@ -546,51 +574,41 @@ function SellTab({ accent }: { accent: string }) {
   const feeCents = Math.floor(askingCents * 0.08);
   const receiveCents = askingCents - feeCents;
 
+  const rules = useHouseRules();
+
   function setField(key: keyof typeof form, val: string) {
     setForm((f) => ({ ...f, [key]: val }));
-  }
-
-  async function priceWithNova() {
-    if (!form.brand && !form.title) return;
-    setNovaLoading(true);
-    try {
-      const prompt = `A member is selling "${form.title}"${form.brand ? ` by ${form.brand}` : ''} in ${form.condition.replace('_', ' ')} condition on a members-only resale platform. Suggest a fair asking price in USD as a single number with no explanation. Just the number.`;
-      const res = await fetch('/api/nova', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, persona: 'concierge' }),
-      });
-      const json = await res.json();
-      const match = String(json.text ?? '').match(/[\d,]+(\.\d{1,2})?/);
-      if (match) setField('asking_price', match[0].replace(',', ''));
-    } catch {
-      // silent
-    } finally {
-      setNovaLoading(false);
-    }
   }
 
   async function submit() {
     setErr('');
     if (!form.title.trim()) { setErr('Title is required.'); return; }
     if (!askingCents || askingCents < 100) { setErr('Enter a valid price.'); return; }
+    // House rules & terms once, before a member's first listing.
+    if (!(await rules.ensure())) return;
     setSubmitLoading(true);
+    const send = () => fetch('/api/exchange/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: form.title.trim(),
+        brand: form.brand || undefined,
+        size: form.size || undefined,
+        condition: form.condition,
+        asking_price_cents: askingCents,
+        category: form.category,
+        description: form.description || undefined,
+      }),
+    });
     try {
-      const res = await fetch('/api/exchange/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: form.title.trim(),
-          brand: form.brand || undefined,
-          size: form.size || undefined,
-          condition: form.condition,
-          asking_price_cents: askingCents,
-          category: form.category,
-          description: form.description || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setErr(json.error ?? 'Failed to list.'); }
+      let res = await send();
+      let json = await res.json();
+      if (res.status === 403 && json.error === 'terms_required') {
+        if (!(await rules.require())) { setErr('Accept the house rules to list. Nothing was posted.'); return; }
+        res = await send();
+        json = await res.json();
+      }
+      if (!res.ok) { setErr(json.message ?? json.error ?? 'Failed to list.'); }
       else setDone(true);
     } catch {
       setErr('Network error. Try again.');
@@ -619,6 +637,7 @@ function SellTab({ accent }: { accent: string }) {
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
+      {rules.sheet}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="font-label text-[8px] tracking-[0.2em] uppercase text-cream/30 block mb-1">Title *</label>
@@ -704,14 +723,10 @@ function SellTab({ accent }: { accent: string }) {
               className="w-full bg-cream/5 border border-cream/10 pl-7 pr-3 py-2.5 font-body text-sm text-cream placeholder-cream/15 focus:outline-none focus:border-brass/40"
             />
           </div>
-          <button
-            onClick={priceWithNova}
-            disabled={novaLoading || (!form.brand && !form.title)}
-            className="px-4 py-2 font-label text-[7px] tracking-[0.15em] uppercase border border-brass/20 text-brass/60 hover:text-brass hover:border-brass/40 disabled:opacity-30 transition-all whitespace-nowrap"
-          >
-            {novaLoading ? '…' : 'PRICE W/ NOVA'}
-          </button>
         </div>
+        {form.title.trim() && (
+          <FairPrice label="Fair price with Nova" title={form.title} brand={form.brand} category={form.category} cents={askingCents} accent={accent} />
+        )}
 
         {/* Fee calculator */}
         {askingCents > 0 && (

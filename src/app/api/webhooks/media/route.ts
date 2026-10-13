@@ -1,13 +1,16 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {createClient} from '@supabase/supabase-js';
 import {constantTimeEqual} from '@/lib/keylock-server';
+import {JOB_COLS, storeResult, vendorState, type MediaJob} from '@/lib/lab';
 
 // Generic media-vendor webhook receiver.
 //
 // Accepts callbacks from Higgsfield / Suno / Meshy when a generation job
 // finishes. Pass ?vendor=higgsfield (or suno|meshy) on the URL when configuring
-// the webhook in the vendor dashboard. The handler updates the media_assets
-// row keyed by the vendor's job id (stored as `metadata.vendor_job_id`).
+// the webhook in the vendor dashboard. The handler finishes the Lab's media_jobs
+// row keyed by (provider, provider_job_id): a finished result is copied into R2
+// and the job becomes 'complete' (waiting for the member's review); a failure
+// becomes 'failed'. No member session exists here, so the service role is required.
 //
 // Every call must carry the shared secret MEDIA_WEBHOOK_SECRET, either as the
 // `X-Finesse-Webhook-Secret` header or `?secret=` on the configured URL (for vendors that
@@ -64,21 +67,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({error: 'missing job id'}, {status: 400});
   }
 
-  // Mark the corresponding media_assets row as uploaded (or failed)
-  const isDone = ['complete', 'succeeded', 'finished'].includes(status);
-  const isFailed = ['failed', 'error'].includes(status);
+  const state = vendorState(status);
+  const db = admin();
+  const {data: job, error} = await db.from('media_jobs').select(JOB_COLS)
+    .eq('provider', vendor).eq('provider_job_id', jobId).eq('status', 'processing').maybeSingle();
+  if (error) return NextResponse.json({error: 'lookup_failed'}, {status: 500});
+  if (!job) return NextResponse.json({received: true, vendor, jobId, status, matched: false});
 
-  const {error} = await admin()
-    .from('media_assets')
-    .update({
-      status: isDone ? 'uploaded' : isFailed ? 'failed' : 'uploading',
-      metadata: payload,
-    })
-    .contains('metadata', {vendor_job_id: jobId});
+  const pick = (o: unknown, path: string[]): string | undefined => {
+    let cur: unknown = o;
+    for (const k of path) cur = cur && typeof cur === 'object' ? (cur as Record<string, unknown>)[k] : undefined;
+    return typeof cur === 'string' ? cur : undefined;
+  };
+  const resultUrl = pick(payload, ['result', 'url']) ?? pick(payload, ['audio_url']) ?? pick(payload, ['model_urls', 'glb']) ?? pick(payload, ['url']);
 
-  if (error) {
-    return NextResponse.json({error: error.message}, {status: 500});
+  try {
+    if (state === 'failed') {
+      await db.from('media_jobs').update({status: 'failed', error_message: 'The studio could not finish this one.'}).eq('id', job.id);
+    } else if (state === 'done' && resultUrl) {
+      await storeResult(job as MediaJob, resultUrl);
+    }
+  } catch (e) {
+    console.error('[webhooks/media] finish failed', job.id, (e as Error)?.message ?? e);
+    return NextResponse.json({error: 'finish_failed'}, {status: 500});
   }
-
-  return NextResponse.json({received: true, vendor, jobId, status});
+  return NextResponse.json({received: true, vendor, jobId, status, matched: true});
 }

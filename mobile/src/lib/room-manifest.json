@@ -1,0 +1,1664 @@
+{
+  "format": "finesse-project-manifest/v1",
+  "project": {
+    "id": "finesse-life",
+    "name": "Finesse Life — The Hotel",
+    "version": "1.0.0",
+    "status": "implementation-ready-scaffold",
+    "sourceOfTruth": [
+      "Finesse The Building - All Rooms.pdf",
+      "Finesse_Deck.pdf",
+      "FINESSE LIFE — Company Bible & Investor Brief.md",
+      "FINESSE_31_ROOM_BUILD_AUTHORITY.md"
+    ],
+    "experience": "A cinematic after-hours members' house: an operating system for style, connection, commerce, memory, and intelligent orchestration.",
+    "roomCount": 31,
+    "penthouseCountRule": "Penthouse is a premium scene within the VIP Room, not a 32nd counted room.",
+    "canonicalServiceDomainCount": 23,
+    "additionalCinematicPlateCount": 8,
+    "primaryTracks": [
+      "finesse",
+      "carpe_diem"
+    ],
+    "deploymentTargets": [
+      "web",
+      "ios",
+      "android",
+      "orchestrator-plugin"
+    ],
+    "truthPolicy": "Never imply a connected provider, confirmed booking, funded balance, approved commission, or authenticated access without server evidence."
+  },
+  "recommendedStack": {
+    "language": "TypeScript",
+    "why": "One typed language can define mobile UI, web UI, room metadata, API contracts, orchestration, webhooks, revenue events, workers, and integration adapters.",
+    "monorepo": "pnpm + Turborepo",
+    "mobile": "Expo React Native + Expo Router + TypeScript",
+    "web": "Next.js App Router + TypeScript + Framer Motion",
+    "currentManagedPreview": "React + Vite + TypeScript",
+    "api": "TypeScript + Fastify or Next.js Route Handlers; keep provider adapters server-side",
+    "contracts": "Zod schemas with generated JSON Schema / OpenAPI",
+    "data": "Supabase Postgres for the existing Vercel app; do not introduce a second database for the same domain",
+    "auth": "Supabase Auth plus server-verified KeyLock sessions",
+    "async": "Typed job records with idempotency keys; queue provider can be added after the spine is stable",
+    "storage": "Cloudflare R2 or platform object storage with signed URLs",
+    "observability": "Sentry-compatible error tracking, structured logs, traceId on every orchestration request",
+    "nativeEscapeHatches": [
+      "Swift/Kotlin only for proven platform-specific capabilities such as HealthKit, background tasks, or push extensions"
+    ]
+  },
+  "metaCode": {
+    "definition": "Declarative TypeScript registries that tell the Orchestrator what each room can do.",
+    "notASeparateLanguage": true,
+    "sharedPackages": [
+      "packages/contracts",
+      "packages/room-registry",
+      "packages/revenue-events",
+      "packages/provider-adapters",
+      "packages/design-tokens"
+    ],
+    "roomDefinitionFields": [
+      "id",
+      "number",
+      "name",
+      "plate",
+      "route",
+      "category",
+      "access",
+      "serviceDomains",
+      "capabilities",
+      "agents",
+      "providerAdapters",
+      "api",
+      "revenueEvents",
+      "cinematicScene",
+      "truthState",
+      "phase"
+    ],
+    "sourceOfTruthFiles": [
+      "packages/room-registry/src/rooms.ts",
+      "packages/contracts/src/*.ts",
+      "packages/revenue-events/src/events.ts"
+    ]
+  },
+  "designSystem": {
+    "direction": "After Hours: noir and chrome, rose-gold heat, black mirror, soft smoke, cinematic grain, controlled light, editorial serif italics.",
+    "palette": {
+      "ink": "#080406",
+      "oxblood": "#17090D",
+      "burgundy": "#3A121B",
+      "brassShadow": "#6B5028",
+      "brass": "#C9A961",
+      "brassHighlight": "#E8C87A",
+      "cream": "#F4E8D0",
+      "finessePink": "#FF4D7D",
+      "carpeLamp": "#FFA96B"
+    },
+    "typography": {
+      "display": "Playfair Display or Cormorant Garamond",
+      "label": "Cinzel",
+      "body": "Cormorant Garamond",
+      "uiFallback": "Georgia, system-serif"
+    },
+    "motion": {
+      "routineMs": "180-450",
+      "sceneRevealMs": "700-1250",
+      "reducedMotion": "Replace essential motion with immediate semantic state changes"
+    },
+    "accessibility": [
+      "WCAG AA contrast",
+      "keyboard navigation",
+      "screen-reader labels for tumblers",
+      "44px minimum touch targets",
+      "prefers-reduced-motion",
+      "no motion-only meaning"
+    ]
+  },
+  "accessFlow": {
+    "publicKeyLock": {
+      "entry": "/",
+      "sequence": [
+        "six digit house lock",
+        "server challenge",
+        "server verification",
+        "signed member or preview session",
+        "sweeping entrance into Lobby"
+      ],
+      "api": [
+        "POST /api/keylock/entrance/challenge",
+        "POST /api/keylock/entrance/verify",
+        "POST /api/keylock/entrance/lock"
+      ],
+      "security": [
+        "never ship reusable production code",
+        "rate limit",
+        "expire challenges",
+        "bind session to member/device where lawful",
+        "never store raw code in localStorage"
+      ],
+      "note": "Namespaced under /entrance because /api/keylock/enter and /api/keylock/verify already serve Backstage sessions in production."
+    },
+    "vipPenthouseElevator": {
+      "entry": "/lobby",
+      "sequence": [
+        "click PENTHOUSE",
+        "the private lift arrives",
+        "sliding doors close into one dark chrome surface",
+        "six digit puzzle materializes across the doors",
+        "digits 1-3 belong to left door and 4-6 to right door",
+        "server verifies active VIP entitlement",
+        "center seam illuminates",
+        "doors slide open",
+        "enter /vip/penthouse"
+      ],
+      "destination": "/vip/penthouse",
+      "roomId": "vip-room",
+      "api": [
+        "POST /api/vip-keylock/challenge",
+        "POST /api/vip-keylock/verify",
+        "GET /api/vip-keylock/session",
+        "POST /api/vip-keylock/lock"
+      ],
+      "existingGrant": "POST /api/vip/redeem -> profiles.is_vip + profiles.vip_expires_at",
+      "security": [
+        "separate challenge IDs and nonces from public KeyLock",
+        "separate audit events",
+        "door animation cannot grant access",
+        "VIP session is short-lived and scoped"
+      ]
+    }
+  },
+  "rooms": [
+    {
+      "number": 1,
+      "id": "lobby",
+      "name": "The Lobby",
+      "plate": "canonical",
+      "route": "/lobby",
+      "category": "experience",
+      "access": "member",
+      "serviceDomains": [
+        "member",
+        "nova",
+        "actions"
+      ],
+      "design": "Arrival hall after dark, next-best-action ledger, chrome wayfinding rails, cinematic hero scene.",
+      "primaryAction": "Open Nova or enter a room",
+      "api": [
+        "GET /api/lobby",
+        "GET /api/member/context",
+        "GET /api/actions",
+        "POST /api/nova/dispatch"
+      ],
+      "revenue": [
+        "membership activation",
+        "assisted action attribution",
+        "affiliate click attribution only after outbound intent"
+      ],
+      "phase": "1",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Double-height noir atrium, chrome directory rails, two distinct doors",
+        "focalObject": "A living action ledger under one pool of light",
+        "motion": "The public door sweeps behind the member as the next action catches light",
+        "mobile": "Portrait arrival; persistent Nova prompt; the Penthouse lift lives below the greeting",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 2,
+      "id": "lounge",
+      "name": "The Lounge",
+      "plate": "canonical",
+      "route": "/lounge",
+      "category": "social",
+      "access": "member",
+      "serviceDomains": [
+        "presence",
+        "social",
+        "notifications"
+      ],
+      "design": "Quiet hotel lounge, presence cards, close-circle updates, no algorithmic feed.",
+      "primaryAction": "Say hello or invite",
+      "api": [
+        "GET /api/lounge/presence",
+        "POST /api/lounge/invitations"
+      ],
+      "revenue": [
+        "retention",
+        "paid event attribution later",
+        "no attention-selling at launch"
+      ],
+      "phase": "2",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Low seating islands divided by smoked-glass privacy screens",
+        "focalObject": "Presence lamps that appear only for consented friends",
+        "motion": "Nearby tables light one at a time, never a noisy feed cascade",
+        "mobile": "One close-circle conversation per screen with clear visibility labels",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 3,
+      "id": "concierge",
+      "name": "Concierge / Nova",
+      "plate": "canonical",
+      "route": "/concierge",
+      "category": "orchestration",
+      "access": "member",
+      "serviceDomains": [
+        "nova",
+        "agents",
+        "requests"
+      ],
+      "design": "Front desk with a single elegant request line, typed preview, traceable agent dispatch.",
+      "primaryAction": "Ask Nova",
+      "api": [
+        "POST /api/nova/dispatch",
+        "GET /api/nova/requests/:id",
+        "POST /api/nova/requests/:id/confirm",
+        "POST /api/nova/requests/:id/cancel"
+      ],
+      "revenue": [
+        "commercial intent attribution",
+        "provider conversion attribution",
+        "no invented Nova commission"
+      ],
+      "phase": "1",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Long walnut reception desk beneath a single pool of light",
+        "focalObject": "Nova request line and a stamped action docket",
+        "motion": "A request travels along the desk to a specialist service bell",
+        "mobile": "Voice or text request with confirmation sheet before external action",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 4,
+      "id": "salon",
+      "name": "The Salon",
+      "plate": "canonical",
+      "route": "/salon",
+      "category": "ritual",
+      "access": "member",
+      "serviceDomains": [
+        "appointments",
+        "wellness",
+        "style"
+      ],
+      "design": "Appointment cards, soft lamp glow, ritual timeline.",
+      "primaryAction": "Confirm appointment",
+      "api": [
+        "GET /api/salon/availability",
+        "POST /api/salon/bookings",
+        "POST /api/salon/bookings/:id/cancel"
+      ],
+      "revenue": [
+        "partner referral",
+        "booking commission",
+        "disclosed outbound conversion"
+      ],
+      "phase": "2",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Lit appointment wall and mirrored service stations",
+        "focalObject": "The next booked ritual in a substantial appointment card",
+        "motion": "Calendar slips move into place; confirmation requires a real booking reply",
+        "mobile": "Single appointment stack, large rebook button, partner disclosure",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 5,
+      "id": "wardrobe",
+      "name": "The Wardrobe",
+      "plate": "canonical",
+      "route": "/wardrobe",
+      "category": "style",
+      "access": "member",
+      "serviceDomains": [
+        "closet",
+        "style-dna",
+        "stylist"
+      ],
+      "design": "Moving rail, editorial look cards, missing-piece intelligence.",
+      "primaryAction": "Compose a look",
+      "api": [
+        "GET /api/wardrobe",
+        "POST /api/wardrobe/looks",
+        "POST /api/wardrobe/wishlist"
+      ],
+      "revenue": [
+        "affiliate conversion",
+        "Stylist tier",
+        "Exchange supply"
+      ],
+      "phase": "2",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Dark dressing gallery and suspended garment rail",
+        "focalObject": "The selected look beside its owned and missing pieces",
+        "motion": "Rail glides between curated looks rather than autoplaying products",
+        "mobile": "Swipeable outfit sheets with explicit owned / purchasable labels",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 6,
+      "id": "vault",
+      "name": "The Vault",
+      "plate": "canonical",
+      "route": "/vault",
+      "category": "finance",
+      "access": "vip",
+      "serviceDomains": [
+        "ledger",
+        "card",
+        "rebates",
+        "cause"
+      ],
+      "design": "Visible safe, ledger drawers, rebate balance, transparent state labels.",
+      "primaryAction": "View balance or fund",
+      "api": [
+        "GET /api/vault/balance",
+        "POST /api/vault/fund",
+        "GET /api/vault/transactions"
+      ],
+      "revenue": [
+        "interchange spread",
+        "cashback arbitrage",
+        "loyalty retention"
+      ],
+      "phase": "4",
+      "truthState": "gated",
+      "sceneBlueprint": {
+        "architecture": "Visible chrome safe behind a smoked-glass window",
+        "focalObject": "Verified balance and transaction ledger",
+        "motion": "A dial rotates only for presentation; balances update only from server events",
+        "mobile": "Ledger-first layout, accessible totals, no fabricated card funding",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 7,
+      "id": "bag",
+      "name": "The Bag",
+      "plate": "canonical",
+      "route": "/bag",
+      "category": "commerce",
+      "access": "member",
+      "serviceDomains": [
+        "catalog",
+        "price-hunter",
+        "cart",
+        "affiliate"
+      ],
+      "design": "Honest price desk, source visibility, price history, partner handoff.",
+      "primaryAction": "Review purchase path",
+      "api": [
+        "GET /api/bag/items",
+        "POST /api/bag/outbound-click",
+        "POST /api/bag/checkout-intent"
+      ],
+      "revenue": [
+        "affiliate commission",
+        "commerce margin only after confirmed partner event"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Curved black buying desk, chrome price rail, provenance drawer",
+        "focalObject": "The honest partner price and original source",
+        "motion": "Price tag flips to reveal fees and handoff",
+        "mobile": "Compare price, source and disclosure before the outbound purchase link",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 8,
+      "id": "lab",
+      "name": "The Lab",
+      "plate": "canonical",
+      "route": "/lab",
+      "category": "media",
+      "access": "member",
+      "serviceDomains": [
+        "media-jobs",
+        "image",
+        "video",
+        "voice"
+      ],
+      "design": "Darkroom with one red light, job queue, approval gate, share rail.",
+      "primaryAction": "Create and approve",
+      "api": [
+        "POST /api/lab/jobs",
+        "GET /api/lab/jobs/:id",
+        "POST /api/lab/jobs/:id/approve"
+      ],
+      "revenue": [
+        "HD export",
+        "Season purchase",
+        "viral acquisition"
+      ],
+      "phase": "5",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Black photographic darkroom with one red safelight",
+        "focalObject": "One queued media render awaiting member approval",
+        "motion": "Job status progresses by server state; no fake completed render",
+        "mobile": "Single render preview with approval and export controls",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 9,
+      "id": "archive",
+      "name": "The Archive",
+      "plate": "canonical",
+      "route": "/archive",
+      "category": "memory",
+      "access": "member",
+      "serviceDomains": [
+        "timeline",
+        "storage",
+        "seasons"
+      ],
+      "design": "Cinematic memory vault, chapters, seasons, private media timeline.",
+      "primaryAction": "Open a Season",
+      "api": [
+        "GET /api/archive",
+        "POST /api/archive/seasons",
+        "POST /api/archive/export"
+      ],
+      "revenue": [
+        "HD export",
+        "annual Season",
+        "retention"
+      ],
+      "phase": "5",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Quiet film archive with illuminated chapter drawers",
+        "focalObject": "Season timeline and private memory reel",
+        "motion": "Drawers open into dated chapters; reduced motion uses immediate cuts",
+        "mobile": "Chronological chapter cards and private export boundary",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 10,
+      "id": "entourage",
+      "name": "Entourage",
+      "plate": "canonical",
+      "route": "/entourage",
+      "category": "relationships",
+      "access": "member",
+      "serviceDomains": [
+        "contacts",
+        "preferences",
+        "gifting",
+        "calendar"
+      ],
+      "design": "Private relationship dossier, gifting context, quiet reminders.",
+      "primaryAction": "Plan for someone",
+      "api": [
+        "GET /api/entourage",
+        "POST /api/entourage/contacts",
+        "POST /api/entourage/gifts"
+      ],
+      "revenue": [
+        "gift referral",
+        "outing activation",
+        "retention"
+      ],
+      "phase": "2",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Private correspondence salon, address book and sealed envelopes",
+        "focalObject": "A person dossier with preference and occasion",
+        "motion": "One envelope opens to reveal the next timely gesture",
+        "mobile": "Contact summary plus privacy and gifting actions",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 11,
+      "id": "backstage",
+      "name": "Backstage",
+      "plate": "canonical",
+      "route": "/backstage",
+      "category": "identity",
+      "access": "vip",
+      "serviceDomains": [
+        "private-profile",
+        "visibility",
+        "consent"
+      ],
+      "design": "Private dressing room, mirror, visibility toggles, controlled projections.",
+      "primaryAction": "Edit what others see",
+      "api": [
+        "GET /api/backstage",
+        "PATCH /api/backstage/visibility",
+        "POST /api/keylock/enter"
+      ],
+      "revenue": [
+        "VIP upgrade",
+        "partner token access"
+      ],
+      "phase": "6",
+      "truthState": "gated",
+      "sceneBlueprint": {
+        "architecture": "Mirror-lined dressing room with half-lit privacy panels",
+        "focalObject": "Stage and Backstage projection controls",
+        "motion": "Mirror reflections change with visibility selections",
+        "mobile": "Privacy-first toggles; explicit audience preview and VIP gate",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 12,
+      "id": "clubhouse",
+      "name": "The Clubhouse",
+      "plate": "canonical",
+      "route": "/clubhouse",
+      "category": "community",
+      "access": "member",
+      "serviceDomains": [
+        "groups",
+        "events",
+        "sport",
+        "tables"
+      ],
+      "design": "Club tables, circles, event boards, controlled live-room entry.",
+      "primaryAction": "Join a table",
+      "api": [
+        "GET /api/clubhouse",
+        "POST /api/clubhouse/groups",
+        "POST /api/clubhouse/events"
+      ],
+      "revenue": [
+        "event fees",
+        "membership engagement",
+        "referrals"
+      ],
+      "phase": "5",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Panelled member club with discreet table lamps",
+        "focalObject": "An available table and its invitation state",
+        "motion": "A chair slides into place only after join confirmation",
+        "mobile": "Tables list with capacity, scope and participation state",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 13,
+      "id": "scale",
+      "name": "Scale",
+      "plate": "canonical",
+      "route": "/scale",
+      "category": "commerce",
+      "access": "member",
+      "serviceDomains": [
+        "campaigns",
+        "pledges",
+        "thresholds",
+        "procurement"
+      ],
+      "design": "Ticker that moves down, threshold ladder, group-buy demand meter.",
+      "primaryAction": "Join campaign",
+      "api": [
+        "GET /api/scale/campaigns",
+        "POST /api/scale/join",
+        "POST /api/scale/campaigns/:id/pledge"
+      ],
+      "revenue": [
+        "setup fee",
+        "unit fee",
+        "gross margin after settlement"
+      ],
+      "phase": "4",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Chrome commodity ticker around a shared procurement table",
+        "focalObject": "Threshold counter and verified participant count",
+        "motion": "Price movement follows real campaign thresholds, never decoration",
+        "mobile": "Campaign progress, pledge state and clear no-charge-until-confirmed copy",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 14,
+      "id": "registry",
+      "name": "The Registry",
+      "plate": "canonical",
+      "route": "/registry",
+      "category": "commerce",
+      "access": "member",
+      "serviceDomains": [
+        "wishlists",
+        "outings",
+        "gifting",
+        "tokens"
+      ],
+      "design": "Rose-ruled registry, occasion cards, outing-linked wish list.",
+      "primaryAction": "Add or route a wish",
+      "api": [
+        "GET /api/registry/items",
+        "POST /api/registry/items",
+        "POST /api/registry/outings",
+        "POST /api/registry/token"
+      ],
+      "revenue": [
+        "coordination fee",
+        "partner referral",
+        "procurement token"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Rose-ruled ledger of occasions, gifts and intentions",
+        "focalObject": "An outing-linked wish with partner path",
+        "motion": "A pen line connects wish, group and occasion",
+        "mobile": "Wish detail with pledge versus paid state distinctly labelled",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 15,
+      "id": "exchange",
+      "name": "The Exchange",
+      "plate": "canonical",
+      "route": "/exchange",
+      "category": "commerce",
+      "access": "member",
+      "serviceDomains": [
+        "listings",
+        "offers",
+        "authenticity",
+        "payout"
+      ],
+      "design": "Consignment desk, provenance, offer envelopes, shipment handoff.",
+      "primaryAction": "List an item",
+      "api": [
+        "GET /api/exchange/listings",
+        "POST /api/exchange/list",
+        "POST /api/exchange/offer"
+      ],
+      "revenue": [
+        "take-rate",
+        "verification fee",
+        "payout settlement"
+      ],
+      "phase": "4",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Luxury consignment rail with provenance labels",
+        "focalObject": "A listing and authenticity envelope",
+        "motion": "An item slides from closet to consignment desk after explicit listing",
+        "mobile": "Price, condition, shipping and payout steps on one vertical page",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 16,
+      "id": "departures",
+      "name": "Departures",
+      "plate": "canonical",
+      "route": "/departures",
+      "category": "travel",
+      "access": "member",
+      "serviceDomains": [
+        "travel",
+        "hotel",
+        "experiences",
+        "weather",
+        "ground"
+      ],
+      "design": "Boarding pass in chrome, composed itinerary, live weather and ground context.",
+      "primaryAction": "Compose a departure",
+      "api": [
+        "GET /api/departures/search",
+        "POST /api/departures/compose",
+        "POST /api/departures/outbound-click"
+      ],
+      "revenue": [
+        "travel referral",
+        "hotel / experience commission"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Chrome departure board beside a dim hotel porte-cochère",
+        "focalObject": "A composed itinerary card",
+        "motion": "Board characters settle on confirmed times; quotes remain marked provisional",
+        "mobile": "Trip summary, provider quote expiry and booking handoff",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 17,
+      "id": "switchboard",
+      "name": "The Switchboard",
+      "plate": "canonical",
+      "route": "/switchboard",
+      "category": "operations",
+      "access": "member",
+      "serviceDomains": [
+        "oauth",
+        "scopes",
+        "webhooks",
+        "health",
+        "revoke"
+      ],
+      "design": "Operator control room, provider health lights, consent ledger, revoke controls.",
+      "primaryAction": "Connect or revoke",
+      "api": [
+        "GET /api/switchboard/accounts",
+        "POST /api/switchboard/connect",
+        "POST /api/switchboard/revoke"
+      ],
+      "revenue": [
+        "trust and activation quality",
+        "no direct revenue"
+      ],
+      "phase": "1",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Behind-the-scenes chrome control wall",
+        "focalObject": "Consent switches and live provider health",
+        "motion": "One switch activates only after OAuth succeeds; revoke turns it dark",
+        "mobile": "Connection status, scopes, last sync and revoke touch targets",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 18,
+      "id": "embassy",
+      "name": "Embassy",
+      "plate": "canonical",
+      "route": "/embassy",
+      "category": "partners",
+      "access": "member",
+      "serviceDomains": [
+        "brand-matching",
+        "campaigns",
+        "analytics"
+      ],
+      "design": "Brand desk, disclosed offers, partner dossier, fit explanation.",
+      "primaryAction": "Review a partner offer",
+      "api": [
+        "GET /api/embassy/deals",
+        "POST /api/embassy/outbound-click",
+        "POST /api/embassy/campaigns/:id/convert"
+      ],
+      "revenue": [
+        "setup fee",
+        "performance fee",
+        "GMV share"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Embassy reception with campaign folios and signet seals",
+        "focalObject": "A disclosed matched brand offer",
+        "motion": "Folio opens to terms before outbound link",
+        "mobile": "Clear sponsored marker, fit explanation and partner disclosure",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 19,
+      "id": "nightvision",
+      "name": "NightVision",
+      "plate": "canonical",
+      "route": "/nightvision",
+      "category": "intelligence",
+      "access": "member",
+      "serviceDomains": [
+        "style-dna",
+        "signals",
+        "consent",
+        "explanations"
+      ],
+      "design": "Observatory of taste and behavior, explainable signals, no secret surveillance.",
+      "primaryAction": "Review my profile",
+      "api": [
+        "GET /api/nightvision/profile",
+        "POST /api/nightvision/analyze",
+        "POST /api/nightvision/revoke"
+      ],
+      "revenue": [
+        "conversion lift",
+        "cohort analytics only with proper consent"
+      ],
+      "phase": "5",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Low-light observatory with layered taste constellations",
+        "focalObject": "Explainable Style DNA signal and its source",
+        "motion": "Stars brighten only from consented signals; unknown data remains absent",
+        "mobile": "Signal list with reason, correction, revocation and delete",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 20,
+      "id": "per-diem",
+      "name": "Per Diem",
+      "plate": "canonical",
+      "route": "/perdiem",
+      "category": "ritual",
+      "access": "member",
+      "serviceDomains": [
+        "daily-ritual",
+        "salon",
+        "wardrobe",
+        "registry"
+      ],
+      "design": "Daily luxury ritual, soft schedule, beauty and preparation journey.",
+      "primaryAction": "Compose today",
+      "api": [
+        "GET /api/per-diem",
+        "POST /api/per-diem/rituals",
+        "POST /api/per-diem/complete"
+      ],
+      "revenue": [
+        "subscription engagement",
+        "commerce referrals"
+      ],
+      "phase": "2",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Morning suite with blush curtain and preparation vanity",
+        "focalObject": "A sequence of small daily rituals",
+        "motion": "Curtain opens with the day; each action completes individually",
+        "mobile": "Today-first ritual list with gentle progress and no gender lockout",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 21,
+      "id": "carpe-diem",
+      "name": "Carpe Diem",
+      "plate": "canonical",
+      "route": "/carpe-diem",
+      "category": "performance",
+      "access": "member",
+      "serviceDomains": [
+        "sport",
+        "markets-readonly",
+        "achievement",
+        "clubhouse"
+      ],
+      "design": "Sharper amber track, performance brief, portfolio and achievement surfaces.",
+      "primaryAction": "Open today's brief",
+      "api": [
+        "GET /api/carpe-diem",
+        "GET /api/carpe-diem/garage",
+        "GET /api/integrations/alpaca",
+        "GET /api/integrations/yahoo-fantasy"
+      ],
+      "revenue": [
+        "partner referrals",
+        "events",
+        "premium actions after review"
+      ],
+      "phase": "2",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Amber-lit study with performance table and trophy shelf",
+        "focalObject": "Today’s action brief across sport, work and movement",
+        "motion": "Indicator rises with confirmed progress, not speculative market changes",
+        "mobile": "One decisive brief card; read-only financial data visibly labelled",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 22,
+      "id": "stylist",
+      "name": "The Stylist",
+      "plate": "canonical",
+      "route": "/stylist",
+      "category": "style",
+      "access": "member",
+      "serviceDomains": [
+        "personal-shopper",
+        "catalog",
+        "human-edit",
+        "shipping"
+      ],
+      "design": "Dressing room with note on mirror, AI shortlist plus human edit.",
+      "primaryAction": "Review the box",
+      "api": [
+        "POST /api/stylist/analyze-photo",
+        "POST /api/stylist/reserve",
+        "GET /api/stylist/box"
+      ],
+      "revenue": [
+        "VIP Pro subscription",
+        "box margin",
+        "affiliate referral"
+      ],
+      "phase": "4",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Intimate fitting room with a handwritten note on the mirror",
+        "focalObject": "A five-piece box with human-edited recommendation",
+        "motion": "A rail pauses when human review is pending",
+        "mobile": "Keep / return decisions with prices, shipping and human escalation",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 23,
+      "id": "vip-room",
+      "name": "VIP Room",
+      "plate": "canonical",
+      "route": "/vip",
+      "category": "vip",
+      "access": "vip",
+      "serviceDomains": [
+        "telegram",
+        "private-feed",
+        "vip-exclusives",
+        "human-support"
+      ],
+      "design": "Private inner room, deep noir, rose-gold badge, private feed, human escalation; Penthouse is its premium destination scene, not a 32nd room.",
+      "primaryAction": "Open private channel",
+      "api": [
+        "GET /api/vip",
+        "POST /api/telegram/link",
+        "POST /api/vip/redeem"
+      ],
+      "revenue": [
+        "VIP subscription",
+        "human stylist upsell",
+        "private experience referrals"
+      ],
+      "phase": "6",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Private chrome-and-smoke room above the hotel",
+        "focalObject": "Entitled inner-circle access and human concierge",
+        "motion": "Elevator doors open only after VIP server verification",
+        "mobile": "Private channel, entitlements, escalation and optional Penthouse scene",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 24,
+      "id": "ballroom",
+      "name": "The Ballroom",
+      "plate": "cinematic",
+      "route": "/ballroom",
+      "category": "experience",
+      "access": "member",
+      "serviceDomains": [
+        "concierge",
+        "registry",
+        "departures",
+        "outing-planner"
+      ],
+      "design": "Grand event room, date / outing composition, schedule and partner holds.",
+      "primaryAction": "Compose an evening",
+      "api": [
+        "GET /api/ballroom/context",
+        "POST /api/ballroom/compose",
+        "POST /api/ballroom/hold",
+        "POST /api/ballroom/confirm"
+      ],
+      "revenue": [
+        "dining referral",
+        "travel referral",
+        "salon referral",
+        "gift referral"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Double-height ballroom with laid tables and a grid of pin lights",
+        "focalObject": "A complete date or event proposal",
+        "motion": "Pin lights pool on the selected venue, look, gift and route",
+        "mobile": "One itinerary card with proposal / hold / confirmed stages",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 25,
+      "id": "jazz-club",
+      "name": "Jazz Club",
+      "plate": "cinematic",
+      "route": "/jazz-club",
+      "category": "community",
+      "access": "member",
+      "serviceDomains": [
+        "clubhouse",
+        "live-audio",
+        "lab",
+        "archive"
+      ],
+      "design": "Basement club, one lamp, live set timeline, replay and tip moment.",
+      "primaryAction": "Join tonight's room",
+      "api": [
+        "GET /api/jazz-club/program",
+        "POST /api/jazz-club/rooms/:id/join",
+        "POST /api/jazz-club/tips",
+        "GET /api/jazz-club/replays/:id"
+      ],
+      "revenue": [
+        "ticket",
+        "tip",
+        "licensing",
+        "replay"
+      ],
+      "phase": "5",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Basement club, smoke-black walls and a single rose lamp",
+        "focalObject": "Tonight’s live trio, replay and tip rail",
+        "motion": "Stage lamp wakes as a live room genuinely starts",
+        "mobile": "Audio controls and licensing/tip disclosures with accessible captions",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 26,
+      "id": "gym",
+      "name": "The Gym",
+      "plate": "cinematic",
+      "route": "/gym",
+      "category": "performance",
+      "access": "member",
+      "serviceDomains": [
+        "carpe-diem",
+        "health",
+        "recovery"
+      ],
+      "design": "Private gym at dawn, set logging, rest timer, recovery light.",
+      "primaryAction": "Log the set",
+      "api": [
+        "GET /api/gym/today",
+        "POST /api/gym/sets",
+        "POST /api/gym/rest-timer",
+        "GET /api/gym/recovery"
+      ],
+      "revenue": [
+        "retention",
+        "wellness referrals",
+        "partner services"
+      ],
+      "phase": "3",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Private gym at dawn with smoked mirrors and walnut benches",
+        "focalObject": "Current set, rest timer and recovery readout",
+        "motion": "Timer ring turns with real local time, health sync only with consent",
+        "mobile": "Set log, accessible rest timer and consented HealthKit sync state",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 27,
+      "id": "kitchen",
+      "name": "The Kitchen",
+      "plate": "cinematic",
+      "route": "/kitchen",
+      "category": "ritual",
+      "access": "member",
+      "serviceDomains": [
+        "per-diem",
+        "gym",
+        "bag",
+        "grocery"
+      ],
+      "design": "Meal plan table, calorie ledger, one order, grocery / delivery handoff.",
+      "primaryAction": "Confirm the order",
+      "api": [
+        "GET /api/kitchen/plan",
+        "POST /api/kitchen/compose",
+        "POST /api/kitchen/order-intent",
+        "GET /api/kitchen/grocery-options"
+      ],
+      "revenue": [
+        "grocery referral",
+        "delivery referral",
+        "partner commission"
+      ],
+      "phase": "3",
+      "truthState": "preview",
+      "sceneBlueprint": {
+        "architecture": "Warm service kitchen with slate menu and copper pans",
+        "focalObject": "Weekly meals beside one grocery order",
+        "motion": "Recipe slips arrange into a week as quantities reconcile",
+        "mobile": "Meal list, nutrition target and separate order authorization",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 28,
+      "id": "this-is-you",
+      "name": "This Is You",
+      "plate": "cinematic",
+      "route": "/this-is-you",
+      "category": "identity",
+      "access": "member",
+      "serviceDomains": [
+        "backstage",
+        "nightvision",
+        "profile-projections"
+      ],
+      "design": "Portrait room, mirror, public/private projections, identity as an intentional object.",
+      "primaryAction": "Edit what others see",
+      "api": [
+        "GET /api/identity/context",
+        "PATCH /api/identity/projections",
+        "PATCH /api/identity/visibility",
+        "GET /api/identity/export",
+        "DELETE /api/identity/data/:id"
+      ],
+      "revenue": [
+        "VIP entitlement",
+        "partner-token access",
+        "no default private-data monetization"
+      ],
+      "phase": "5",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Portrait gallery with a rotating double-sided mirror",
+        "focalObject": "Public Stage versus private identity projection",
+        "motion": "Mirror turns only on deliberate audience selection",
+        "mobile": "Visibility preview, edit controls, data export and deletion",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 29,
+      "id": "closet",
+      "name": "The Closet",
+      "plate": "cinematic",
+      "route": "/closet",
+      "category": "style",
+      "access": "member",
+      "serviceDomains": [
+        "wardrobe",
+        "stylist",
+        "camera",
+        "exchange"
+      ],
+      "design": "Inside-lit closet, turning rack, weekly rotation, missing piece callout.",
+      "primaryAction": "Approve the week",
+      "api": [
+        "GET /api/closet/rotation",
+        "POST /api/closet/approve-week",
+        "POST /api/closet/looks/:id/hold",
+        "POST /api/closet/missing-piece"
+      ],
+      "revenue": [
+        "Stylist conversion",
+        "Bag referral",
+        "Exchange supply"
+      ],
+      "phase": "3",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Inside-lit black wardrobe with a turning chrome garment rack",
+        "focalObject": "Approved weekly rotation from already-owned pieces",
+        "motion": "Rack turns once per outfit; missing pieces remain separate",
+        "mobile": "Seven-day outfit rail, owned labels and approve-week action",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 30,
+      "id": "diary",
+      "name": "The Diary",
+      "plate": "cinematic",
+      "route": "/diary",
+      "category": "memory",
+      "access": "member",
+      "serviceDomains": [
+        "calendar",
+        "archive",
+        "lobby",
+        "salon",
+        "ballroom"
+      ],
+      "design": "Leather day planner, four things done, one thing needing the member.",
+      "primaryAction": "Approve one item",
+      "api": [
+        "GET /api/diary",
+        "POST /api/diary/items",
+        "POST /api/diary/items/:id/approve",
+        "POST /api/diary/items/:id/hold",
+        "PATCH /api/diary/items/:id"
+      ],
+      "revenue": [
+        "Salon activation",
+        "Ballroom activation",
+        "Registry activation",
+        "indirect retention"
+      ],
+      "phase": "3",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Leather-bound day planner on a writing desk",
+        "focalObject": "Four completed entries and one approval needed",
+        "motion": "A page turns between days; held and moved items stay distinct",
+        "mobile": "One actionable item above the fold, clear approve / hold states",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    },
+    {
+      "number": 31,
+      "id": "camera",
+      "name": "The Camera",
+      "plate": "cinematic",
+      "route": "/camera",
+      "category": "intelligence",
+      "access": "member",
+      "serviceDomains": [
+        "visual-intake",
+        "wardrobe",
+        "nightvision",
+        "lab"
+      ],
+      "design": "Viewfinder with chrome reticle, object recognition, catalogue confirmation.",
+      "primaryAction": "Scan the rest of the closet",
+      "api": [
+        "POST /api/camera/uploads",
+        "POST /api/camera/identify",
+        "POST /api/camera/catalogue",
+        "GET /api/camera/items/:id",
+        "POST /api/camera/items/:id/route"
+      ],
+      "revenue": [
+        "Bag referral",
+        "Scale referral",
+        "Embassy referral",
+        "Exchange referral after confirmed outbound action"
+      ],
+      "phase": "3",
+      "truthState": "wired",
+      "sceneBlueprint": {
+        "architecture": "Dark viewfinder with calibrated chrome reticle",
+        "focalObject": "One identified item and confidence / provenance",
+        "motion": "Reticle resolves only after model output; never guesses silently",
+        "mobile": "Native camera intake, consent, review before catalogue or share",
+        "trackTreatment": {
+          "finesse": "Blush-pink accent on internal light and copy; preserve the shared chrome structure.",
+          "carpe_diem": "Warm-amber accent on internal light and copy; preserve the shared chrome structure."
+        }
+      }
+    }
+  ],
+  "revenueModel": {
+    "principles": [
+      "screen view is not revenue",
+      "recommendation is not revenue",
+      "pledge is not revenue",
+      "final revenue requires processor or partner confirmation",
+      "every commercial event has idempotency and reversal handling"
+    ],
+    "eventEnvelope": [
+      "eventId",
+      "traceId",
+      "memberId",
+      "roomId",
+      "track",
+      "agentId",
+      "providerId",
+      "campaignId",
+      "clickId",
+      "conversionId",
+      "amount",
+      "currency",
+      "state",
+      "occurredAt"
+    ],
+    "states": [
+      "impression",
+      "intent",
+      "outbound_click",
+      "quote",
+      "hold",
+      "authorized",
+      "confirmed",
+      "settled",
+      "reversed",
+      "refunded"
+    ],
+    "primaryStreams": [
+      "membership",
+      "affiliate",
+      "VIP subscription",
+      "Scale coordination",
+      "Exchange take-rate",
+      "Vault interchange",
+      "Lab exports",
+      "Embassy campaigns",
+      "Stylist service"
+    ]
+  },
+  "buildPhases": [
+    {
+      "id": "phase-0",
+      "name": "Contract freeze",
+      "duration": "days 1-3",
+      "deliverables": [
+        "31-room registry",
+        "truth states",
+        "event envelope",
+        "KeyLock threat model",
+        "design tokens"
+      ]
+    },
+    {
+      "id": "phase-1",
+      "name": "Cinematic foundation",
+      "duration": "week 1",
+      "deliverables": [
+        "public KeyLock",
+        "Lobby",
+        "After Hours shell",
+        "mobile navigation",
+        "room registry rendering"
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Identity and Orchestrator spine",
+      "duration": "weeks 2-4",
+      "deliverables": [
+        "auth",
+        "Nova dispatch",
+        "agent registry",
+        "action ledger",
+        "Lounge",
+        "Concierge",
+        "Switchboard"
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Visible building plates",
+      "duration": "weeks 5-8",
+      "deliverables": [
+        "Salon",
+        "Wardrobe",
+        "Bag",
+        "Registry",
+        "Departures",
+        "Ballroom",
+        "Closet",
+        "Diary",
+        "Camera",
+        "Gym",
+        "Kitchen"
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Commerce and revenue hardening",
+      "duration": "weeks 9-12",
+      "deliverables": [
+        "Scale",
+        "Exchange",
+        "Embassy",
+        "affiliate attribution",
+        "settlement states",
+        "reversal handling"
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Memory, community, and intelligence",
+      "duration": "weeks 13-16",
+      "deliverables": [
+        "Archive",
+        "Lab",
+        "NightVision",
+        "Clubhouse",
+        "Jazz Club",
+        "This Is You",
+        "Per Diem",
+        "Carpe Diem"
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "VIP elevator and Penthouse",
+      "duration": "weeks 17-19",
+      "deliverables": [
+        "VIP entitlement reuse",
+        "door-mounted six-digit puzzle",
+        "VIP KeyLock APIs",
+        "VIP Room",
+        "Penthouse scene",
+        "Telegram / human escalation"
+      ]
+    },
+    {
+      "id": "phase-7",
+      "name": "Hardening and release",
+      "duration": "weeks 20-24",
+      "deliverables": [
+        "accessibility",
+        "performance",
+        "observability",
+        "provider failure states",
+        "security review",
+        "controlled rollout"
+      ]
+    }
+  ],
+  "repositoryScaffold": {
+    "apps": [
+      "apps/web",
+      "apps/mobile",
+      "apps/api",
+      "apps/orchestrator-plugin"
+    ],
+    "packages": [
+      "packages/contracts",
+      "packages/room-registry",
+      "packages/design-tokens",
+      "packages/ui",
+      "packages/revenue-events",
+      "packages/provider-adapters",
+      "packages/test-fixtures"
+    ],
+    "recommendedCommands": [
+      "pnpm install",
+      "pnpm dev",
+      "pnpm check",
+      "pnpm test",
+      "pnpm lint",
+      "pnpm build"
+    ],
+    "definitionOfDone": [
+      "room registry entry",
+      "typed contract",
+      "server procedure",
+      "cinematic scene",
+      "truth-state handling",
+      "revenue allowlist",
+      "accessibility proof",
+      "contract test",
+      "observability trace"
+    ]
+  },
+  "recommendedTooling": {
+    "manusMCP": [
+      "webdev-mcp",
+      "slides",
+      "manus-tools",
+      "workflow",
+      "manus-tasks",
+      "triggers",
+      "manus-device"
+    ],
+    "claudeCodeSkills": [
+      "frontend-design",
+      "react-native-expo",
+      "nextjs-app-router",
+      "api-contracts-zod",
+      "supabase-auth-rls",
+      "stripe-webhooks",
+      "playwright-e2e",
+      "mobile-accessibility",
+      "motion-design",
+      "security-review",
+      "observability-sentry",
+      "performance-budget",
+      "database-migrations"
+    ],
+    "optionalMCP": [
+      "GitHub MCP for PRs and issues",
+      "Playwright MCP for browser verification",
+      "Context7 MCP for current library docs",
+      "Supabase MCP for schema and RLS inspection",
+      "Stripe MCP for webhook and product inspection",
+      "Sentry MCP for error triage",
+      "Linear MCP for delivery tracking"
+    ],
+    "editorPlugins": [
+      "ESLint",
+      "Prettier",
+      "Tailwind CSS IntelliSense",
+      "Expo Tools",
+      "Prisma or Drizzle support if selected",
+      "GitLens",
+      "Error Lens",
+      "Thunder Client or REST Client"
+    ],
+    "avoid": [
+      "a second Python backend without a real model need",
+      "a no-code DSL before room contracts stabilize",
+      "client-side secrets",
+      "duplicated web and mobile business logic",
+      "fake integrations in production truth states"
+    ]
+  },
+  "acceptance": {
+    "roomCount": 31,
+    "eachRoomMustHave": [
+      "unique scene",
+      "route or deep-link",
+      "mobile composition",
+      "track-aware treatment",
+      "typed API contract",
+      "loading state",
+      "empty state",
+      "preview state",
+      "error state",
+      "access check",
+      "truthState",
+      "primary action",
+      "revenue allowlist",
+      "reduced-motion behavior"
+    ],
+    "releaseGates": [
+      "pnpm check",
+      "pnpm lint",
+      "pnpm test",
+      "contract tests against representative API responses",
+      "accessibility review",
+      "security review",
+      "mobile smoke test",
+      "desktop cinematic review",
+      "revenue event reconciliation test"
+    ]
+  }
+}

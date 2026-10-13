@@ -5,6 +5,7 @@ import {parseBody} from '@/lib/api/validate';
 import {dbFailure, json, requireMember} from '@/lib/api/room';
 import {model, DEFAULT_MODEL} from '@/lib/ai';
 import {fromSdkUsage, recordAiUsage} from '@/lib/ai-usage';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {presignGet} from '@/lib/r2';
 import {CAMERA_SELECT, identification, withViewUrl, type CameraRow} from '@/lib/camera';
 
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
   if (!('userId' in ctx)) return ctx;
   const parsed = await parseBody(req, body);
   if (parsed.error) return parsed.error;
+  const noConsent = await requireAiConsent(ctx.supabase, ctx.userId, {photo: true});
+  if (noConsent) return noConsent;
 
   const {data: row, error} = await ctx.supabase.from('camera_items').select(CAMERA_SELECT).eq('id', parsed.data.itemId).eq('user_id', ctx.userId).maybeSingle();
   if (error) return dbFailure(error, ctx.traceId, 'camera');

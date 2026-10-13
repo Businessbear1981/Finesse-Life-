@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {createClient} from '@/lib/supabase/server';
 import { z } from 'zod';
 import { parseBody } from '@/lib/api/validate';
+import { screenFields } from '@/lib/moderation';
+import { contentRejected } from '@/lib/moderation-server';
 
 interface OutingRow {
   id: string;
@@ -28,17 +29,7 @@ function toCard(row: OutingRow) {
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -67,38 +58,33 @@ export async function GET() {
 }
 
 const outingSchema = z.object({
-  title: z.string().trim().min(1, 'Title required.'),
-  partner: z.string().trim().optional(),
-  occasion_type: z.string().trim().optional(),
-  date: z.string().optional(),
-  note: z.string().trim().optional(),
+  title: z.string().trim().min(1, 'Title required.').max(120),
+  partner: z.string().trim().max(80).optional(),
+  occasion_type: z.string().trim().max(40).optional(),
+  date: z.string().max(40).optional(),
+  note: z.string().trim().max(500).optional(),
 });
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+      return NextResponse.json({ error: 'Authentication required.', message: 'Sign in first. Nothing was saved.' }, { status: 401 });
     }
 
     const parsed = await parseBody(req, outingSchema);
     if (parsed.error) return parsed.error;
     const body = parsed.data;
+
+    // Open outings show on the Lounge to other members, so the title and note go through the house text
+    // filter (Apple 1.2 / Play UGC). 422 content_rejected with the reason; nothing is saved.
+    const verdict = screenFields([body.title, body.note, body.partner]);
+    if (verdict.verdict === 'reject') return contentRejected(verdict);
 
     const { data, error } = await supabase
       .from('outings')
@@ -116,7 +102,7 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('[registry/outings] insert error:', error);
-      return NextResponse.json({ error: 'Failed to create outing.' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create outing.', message: 'Something went wrong on the house side. Nothing was saved.' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, outing: toCard(data) });

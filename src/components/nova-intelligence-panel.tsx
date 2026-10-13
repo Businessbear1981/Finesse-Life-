@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { hasAiConsent } from '@/components/nova/ai-consent';
 
 // ── Response shape for next_best_action ─────────────────────────────────────
 interface NextBestActionResult {
@@ -67,6 +68,8 @@ export function NovaIntelligencePanel() {
     let cancelled = false;
 
     async function fetchIntelligence() {
+      // A background load never asks for consent: without it, the panel stays empty and nothing is sent.
+      if (!(await hasAiConsent('ai_processing'))) { if (!cancelled) { setEmpty(true); setLoading(false); } return; }
       try {
         const [nbaRes, recsRes] = await Promise.all([
           fetch('/api/intelligence/query', {

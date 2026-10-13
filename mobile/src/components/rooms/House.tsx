@@ -1,242 +1,436 @@
-// The remaining rooms, built from the 31-Room Design Atlas: Carpe Diem (amber study, today's brief across
-// movement, work, sport and a read-only portfolio), Market (partner market, disclosed offers, honest
-// prices), and the Ballroom (compose an evening: proposal → hold → confirmed). Labelled samples.
-import {useEffect, useState} from 'react';
+// The remaining rooms, built from the 31-Room Design Atlas (After Hours skin). Signed in, each is live:
+//  • Carpe Diem — today's brief from the member's Diary, the Alpaca PAPER portfolio (read-only snapshot via
+//    POST /api/integrations/alpaca; never trades), the garage (POST /api/carpe-diem/garage) and Nova's brief
+//    (persona 'briefing', from the member's real context).
+//  • Market — demand and price signals computed from real Exchange listings (GET /api/intelligence/market).
+//    No retail partner is contracted, so no partner goods are shown; the room says so.
+//  • Ballroom — compose an evening (POST /api/ballroom/compose → a proposal in the Diary), ask the desk for
+//    holds, and confirm only what a partner has held: the server's 409 is shown as "awaiting the venue".
+// Signed out, each keeps its labelled sample.
+import {useState} from 'react';
 import {Pressable, Text, View} from 'react-native';
-import Animated, {Easing, FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
-import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop} from 'react-native-svg';
-import {deco, fonts, track, type Side} from '@/lib/deco';
-import {useAvailableWidth} from '@/lib/layout';
+import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
+import {deco, track, type Side} from '@/lib/deco';
 import {Icon} from '@/lib/icons';
-import {ActionBar, Chips, GoldFrame, SampleNote, SectionHead, Segmented, s} from './shared';
+import {failure, useLive} from '@/lib/live';
+import {clock, localISO, readDiaryDay, DIARY_LABEL, type DiaryDay} from '@/lib/diary';
+import {BALLROOM_KINDS, BALLROOM_PATH, briefing, composeEvening, connectAlpaca, readCarpeDiem, readMarketSignals, saveGarage, stepEvening,
+  type BallroomData, type CarpeProfile, type Evening, type Signal} from '@/lib/rooms/house';
+import {BALLROOM_STAGE, dollars} from '@/lib/rooms/logic';
+import {AHCard, AHChip, AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
+import {ActionBar, Chips, SampleNote} from './shared';
+import {LiveGate, RowBtn, Status} from './live';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
+import {Fine, Head, Meter, Row, Tag, TextBtn, Tile, ah, ahFonts, t} from './RoomKit';
 
-const AMBER = deco.lamp;
+const PLAT = deco.lamp;
+type Msg = {ok: boolean; text: string} | null;
 
-/* ─────────────── Carpe Diem ─────────────── */
-function Study() {
-  const W = Math.min(useAvailableWidth(), 460), H = W * 0.46;
-  return (
-    <View style={{width: W, height: H, alignSelf: 'center', borderWidth: 2, borderColor: deco.brass, overflow: 'hidden'}}>
-      <Svg width={W} height={H} viewBox="0 0 400 184">
-        <Defs>
-          <LinearGradient id="cd-w" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#1E1006" /><Stop offset="1" stopColor="#3A1E0A" /></LinearGradient>
-          <RadialGradient id="cd-l" cx="200" cy="120" r="170" gradientUnits="userSpaceOnUse"><Stop offset="0" stopColor="#FFC88A" stopOpacity={0.45} /><Stop offset="1" stopColor="#000" stopOpacity={0} /></RadialGradient>
-          <LinearGradient id="cd-b" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor={deco.brassWhite} /><Stop offset="1" stopColor={deco.brassShadow} /></LinearGradient>
-        </Defs>
-        <Rect width={400} height={184} fill="url(#cd-w)" />
-        {/* trophy shelves */}
-        {[40, 78].map((y) => <Rect key={y} x={20} y={y} width={360} height={4} fill="url(#cd-b)" />)}
-        {[40, 90, 150, 250, 310, 350].map((x, i) => (
-          <G key={x}>
-            <Path d={`M${x - 8} 40 L${x - 6} ${26 - (i % 2) * 6} Q${x} ${18 - (i % 2) * 6} ${x + 6} ${26 - (i % 2) * 6} L${x + 8} 40 Z`} fill="url(#cd-b)" opacity={0.85} />
-            <Rect x={x - 10} y={58 + (i % 3) * 3} width={20} height={20 - (i % 3) * 3} fill={['#5A2A0E', '#2A3A1E', '#3A1A0A'][i % 3]} />
-          </G>
-        ))}
-        {/* performance table + banker's lamp */}
-        <Rect x={60} y={132} width={280} height={10} fill="#140A04" stroke="url(#cd-b)" strokeWidth={1.5} />
-        <Path d="M90 142 L84 184 M310 142 L316 184" stroke="url(#cd-b)" strokeWidth={3} />
-        <Path d="M200 132 L200 112 M178 112 L222 112 L214 100 L186 100 Z" stroke="url(#cd-b)" strokeWidth={2} fill="#1F5A3A" />
-        <Ellipse cx={200} cy={132} rx={120} ry={10} fill="#FFC88A" opacity={0.2} />
-        <Rect width={400} height={184} fill="url(#cd-l)" />
-      </Svg>
-    </View>
-  );
-}
-
-const BRIEF: Array<[string, string, string, string, number]> = [
-  ['MOVEMENT', 'Gym · upper body, 45 min', 'dumbbell', '6:30 AM', 0],
-  ['WORK', 'Two decisions due before noon', 'briefcase', '11:45 AM', 0],
-  ['SPORT', 'Tee time Sunday, 07:50 · four-ball', 'trendingup', 'SUN', 0],
-  ['PORTFOLIO', 'Read-only · paper account · no trades from the app', 'wallet', 'READ-ONLY', 0],
-];
+/* ═════════════════════════ Carpe Diem ═════════════════════════ */
 
 export function CarpeDiem({side}: {side: Side}) {
-  const acc = side === 'him' ? AMBER : track[side].acc;
-  const [done, setDone] = useState<string[]>([]);
-  const pct = Math.round((done.length / 3) * 100);
+  const {live, reload} = useLive<{profile: CarpeProfile | null}>(null, readCarpeDiem);
+  const acc = side === 'him' ? PLAT : track[side].acc;
   return (
-    <View style={{gap: 12}}>
-      <Study />
-      <Text style={{fontFamily: fonts.script, fontSize: 19, color: deco.cream, textAlign: 'center'}}>Seize it. One decisive brief for the day.</Text>
-      <GoldFrame pad={3}>
-        <View style={{backgroundColor: '#160C06', padding: 14, gap: 12}}>
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline'}}>
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2.2, color: AMBER}}>TODAY’S BRIEF</Text>
-            <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{new Date().toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'}).toUpperCase()}</Text>
-          </View>
-          {BRIEF.map(([k, line, icon, when], i) => {
-            const isDone = done.includes(k), canTick = i < 3;
-            return (
-              <Pressable key={k} disabled={!canTick} onPress={() => setDone((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]))} accessibilityRole={canTick ? 'checkbox' : 'text'} accessibilityState={canTick ? {checked: isDone} : undefined}
-                style={{flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, borderTopWidth: i ? 1 : 0, borderColor: 'rgba(201,169,97,0.2)'}}>
-                <View style={{width: 36, height: 36, borderRadius: 18, borderWidth: 1.5, borderColor: isDone ? '#7AF5B8' : AMBER, alignItems: 'center', justifyContent: 'center', backgroundColor: isDone ? 'rgba(122,245,184,0.12)' : 'transparent'}}>
-                  <Icon name={isDone ? 'sparkles' : icon} size={16} color={isDone ? '#7AF5B8' : AMBER} />
-                </View>
-                <View style={{flex: 1}}>
-                  <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 1, color: deco.brass}}>{k} · {when}</Text>
-                  <Text style={[s.body, {textDecorationLine: isDone ? 'line-through' : 'none', opacity: isDone ? 0.6 : 1}]}>{line}</Text>
-                </View>
-              </Pressable>
-            );
-          })}
-          <View style={{gap: 5}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>CONFIRMED PROGRESS</Text>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, color: AMBER}}>{pct}%</Text>
-            </View>
-            <View style={{height: 6, borderWidth: 1, borderColor: deco.brass}}><Animated.View layout={LinearTransition.duration(500)} style={{height: '100%', width: `${pct}%`, backgroundColor: AMBER}} /></View>
-          </View>
-        </View>
-      </GoldFrame>
-      <ActionBar color={acc} label={pct === 100 ? 'DAY SEIZED · SEE YOU TOMORROW' : 'OPEN TODAY’S BRIEF WITH NOVA'} />
-      <SampleNote>SAMPLE BRIEF · THE INDICATOR RISES ONLY WITH WHAT YOU CONFIRM · PORTFOLIO IS READ-ONLY AND NEVER TRADES</SampleNote>
+    <View style={{gap: 16}}>
+      <AHSmoke tone="city" aspect={1.3} top={<View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}><AHChip label="Today’s brief" /><AHChip label={new Date().toLocaleDateString([], {weekday: 'short', month: 'short', day: 'numeric'})} tone="outline" /></View>}>
+        <AHEyebrow color={ah.platinum}>Carpe Diem</AHEyebrow>
+        <AHTitle size={34} style={{marginTop: 6}}>Seize it. One decisive brief for the day.</AHTitle>
+      </AHSmoke>
+      <LiveGate live={live} reload={() => void reload()} what="Carpe Diem" signedOut={<CarpeSample />}>
+        {(data) => <CarpeLive acc={acc} profile={data.profile} reload={() => reload(true)} />}
+      </LiveGate>
     </View>
   );
 }
 
-/* ─────────────── Market ─────────────── */
+function CarpeLive({acc, profile, reload}: {acc: string; profile: CarpeProfile | null; reload: () => Promise<void>}) {
+  const today = localISO(new Date());
+  const diary = useLive<DiaryDay>(null, () => readDiaryDay(today));
+  const day = diary.live.state === 'ready' ? diary.live.data : null;
+  const [brief, setBrief] = useState<Msg>(null);
+  const [briefing_, setBriefing] = useState(false);
+  const [briefId, setBriefId] = useState('');
+  const consent = useAIConsent();
+  const askBrief = async () => {
+    setBriefing(true); setBrief(null);
+    const r = await briefing(profile, {today: day?.items.length ?? 0, needsYou: day?.counts.needsYou ?? 0});
+    setBriefing(false);
+    setBrief({ok: r.ok, text: r.text}); setBriefId(`carpe-diem-brief:${Date.now()}`);
+  };
+  return (
+    <View style={{gap: 16}}>
+      <Head right={day ? `${day.counts.done}/${day.items.length} done` : undefined}>Today · from your Diary</Head>
+      <LiveGate live={diary.live} reload={() => void diary.reload()} what="your Diary">
+        {(d) => d.items.length === 0 ? (
+          <Fine>Nothing in today’s Diary — plan something in the Concierge or the Ballroom.</Fine>
+        ) : (
+          <View>
+            {d.items.slice(0, 5).map((i, k) => (
+              <Row key={i.id} last={k === Math.min(4, d.items.length - 1)}>
+                <Text style={[t.meta, {width: 64}]}>{clock(i.starts_at)}</Text>
+                <Text style={[t.body, {flex: 1, textDecorationLine: i.state === 'done' ? 'line-through' : 'none'}]} numberOfLines={2}>{i.title}</Text>
+                <Tag tone={i.state === 'needs_member_action' ? ah.rose : i.state === 'done' ? ah.ok : ah.mute}>{DIARY_LABEL[i.state] ?? i.state}</Tag>
+              </Row>
+            ))}
+          </View>
+        )}
+      </LiveGate>
+
+      <Portfolio profile={profile} reload={reload} />
+      <GarageCard profile={profile} reload={reload} />
+
+      <AHCard style={{gap: 10}}>
+        <AHEyebrow color={ah.platinum}>Nova briefing</AHEyebrow>
+        {brief ? <Text style={[brief.ok ? t.voice : t.small, !brief.ok && {color: ah.danger}]} accessibilityLiveRegion="polite">{brief.text}</Text>
+          : <Fine>Built from your Diary, portfolio and garage — nothing invented.</Fine>}
+        {brief?.ok ? <NovaReport key={briefId} targetId={briefId} text={brief.text} /> : null}
+        <ActionBar color={acc} label={briefing_ ? 'Nova is reading your week…' : brief?.ok ? 'Brief me again' : 'Brief me'} onPress={() => void consent.ensure('ai_processing', () => void askBrief())} disabled={briefing_} />
+      </AHCard>
+    </View>
+  );
+}
+
+function Portfolio({profile, reload}: {profile: CarpeProfile | null; reload: () => Promise<void>}) {
+  const snap = profile?.alpaca_connected ? profile.alpaca_portfolio_snapshot ?? null : null;
+  const [open, setOpen] = useState(!snap);
+  const [key, setKey] = useState('');
+  const [secret, setSecret] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
+  const connect = async () => {
+    setBusy(true); setMsg(null);
+    const r = await connectAlpaca(key, secret);
+    setBusy(false);
+    if (!r.ok) { setMsg({ok: false, text: r.status === 401 && r.body.error !== 'signed_out' ? 'Alpaca didn’t accept those keys. Nothing was saved.' : failure(r.status, r.body, 'Nothing was saved.')}); return; }
+    setKey(''); setSecret(''); setOpen(false);
+    setMsg({ok: true, text: 'Paper portfolio read. Only a partial key is kept.'});
+    void reload();
+  };
+  const usd = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
+  return (
+    <AHCard style={{gap: 12}}>
+      <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+        <AHEyebrow>Portfolio · paper · read-only</AHEyebrow>
+        {snap ? <TextBtn label={open ? 'Close' : 'Refresh'} onPress={() => setOpen((o) => !o)} /> : null}
+      </View>
+      {snap ? (
+        <>
+          <View style={{flexDirection: 'row', gap: 10}}>
+            <View style={{flex: 1}}><Text style={t.eyebrow}>Value</Text><Text style={{fontFamily: ahFonts.serif, fontSize: 26, color: ah.text}}>{usd(snap.portfolio_value)}</Text></View>
+            <View style={{flex: 1}}><Text style={t.eyebrow}>Today</Text><Text style={{fontFamily: ahFonts.serif, fontSize: 26, color: snap.pnl_today >= 0 ? ah.ok : ah.danger}}>{snap.pnl_today >= 0 ? '+' : '−'}{usd(Math.abs(snap.pnl_today))}</Text></View>
+          </View>
+          {snap.top_positions?.map((p, i) => (
+            <Row key={p.symbol} last={i === snap.top_positions.length - 1} style={{minHeight: 44, paddingVertical: 8}}>
+              <Text style={[t.name, {width: 64}]}>{p.symbol}</Text>
+              <Text style={[t.small, {flex: 1}]}>{p.qty} · {usd(p.market_value)}</Text>
+              <Text style={[t.num, {fontSize: 13, color: p.change_today_pct >= 0 ? ah.ok : ah.danger}]}>{p.change_today_pct >= 0 ? '+' : ''}{p.change_today_pct.toFixed(1)}%</Text>
+            </Row>
+          ))}
+          <Fine>Snapshot from {new Date(snap.fetched_at).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}. The app never trades.</Fine>
+        </>
+      ) : <Fine>Connect an Alpaca paper account to see a read-only snapshot here. No trades are ever placed from Finesse.</Fine>}
+      {open ? (
+        <Animated.View entering={FadeIn.duration(250)} style={{gap: 10}}>
+          <AHInput value={key} onChangeText={setKey} placeholder="Alpaca paper API key" autoCapitalize="none" autoCorrect={false} accessibilityLabel="Alpaca API key" />
+          <AHInput value={secret} onChangeText={setSecret} placeholder="Alpaca paper API secret" secureTextEntry autoCapitalize="none" autoCorrect={false} accessibilityLabel="Alpaca API secret" />
+          <RowBtn label={busy ? 'Reading…' : snap ? 'Refresh the snapshot' : 'Connect paper account'} onPress={() => void connect()} disabled={busy || !key.trim() || !secret.trim()} tone={ah.rose} />
+          <Fine>Paper trading keys only. The secret is used once to read the snapshot and is not stored.</Fine>
+        </Animated.View>
+      ) : null}
+      <Status msg={msg} />
+    </AHCard>
+  );
+}
+
+function GarageCard({profile, reload}: {profile: CarpeProfile | null; reload: () => Promise<void>}) {
+  const [make, setMake] = useState(profile?.car_make ?? '');
+  const [model, setModel] = useState(profile?.car_model ?? '');
+  const [year, setYear] = useState(profile?.car_year ? String(profile.car_year) : '');
+  const [size, setSize] = useState(profile?.sneaker_size ?? '');
+  const [hcp, setHcp] = useState(profile?.golf_handicap != null ? String(profile.golf_handicap) : '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
+  const save = async () => {
+    setBusy(true); setMsg(null);
+    const y = Number(year), h = Number(hcp);
+    const r = await saveGarage({car_make: make.trim() || null, car_model: model.trim() || null, car_year: year && Number.isFinite(y) ? Math.round(y) : null,
+      sneaker_size: size.trim() || null, golf_handicap: hcp && Number.isFinite(h) ? h : null});
+    setBusy(false);
+    setMsg(r.ok ? {ok: true, text: 'Garage saved. Nova uses it for your brief.'} : {ok: false, text: failure(r.status, r.body, 'Nothing was saved.')});
+    if (r.ok) void reload();
+  };
+  return (
+    <AHCard style={{gap: 10}}>
+      <AHEyebrow>The garage</AHEyebrow>
+      <View style={{flexDirection: 'row', gap: 8}}>
+        <View style={{flex: 1}}><AHInput value={make} onChangeText={setMake} placeholder="Make" accessibilityLabel="Car make" /></View>
+        <View style={{flex: 1}}><AHInput value={model} onChangeText={setModel} placeholder="Model" accessibilityLabel="Car model" /></View>
+      </View>
+      <View style={{flexDirection: 'row', gap: 8}}>
+        <View style={{flex: 1}}><AHInput value={year} onChangeText={(v) => setYear(v.replace(/\D/g, '').slice(0, 4))} placeholder="Year" keyboardType="number-pad" accessibilityLabel="Car year" /></View>
+        <View style={{flex: 1}}><AHInput value={size} onChangeText={setSize} placeholder="Sneaker size" accessibilityLabel="Sneaker size" /></View>
+        <View style={{flex: 1}}><AHInput value={hcp} onChangeText={setHcp} placeholder="Handicap" keyboardType="decimal-pad" accessibilityLabel="Golf handicap" /></View>
+      </View>
+      <RowBtn label={busy ? 'Saving…' : 'Save the garage'} onPress={() => void save()} disabled={busy} />
+      <Status msg={msg} />
+    </AHCard>
+  );
+}
+
+const BRIEF: Array<[string, string, string]> = [
+  ['MOVEMENT', 'Gym · upper body, 45 min', 'dumbbell'],
+  ['WORK', 'Two decisions due before noon', 'briefcase'],
+  ['SPORT', 'Tee time Sunday, 07:50 · four-ball', 'trendingup'],
+  ['PORTFOLIO', 'Read-only · paper account · no trades from the app', 'wallet'],
+];
+
+function CarpeSample() {
+  return (
+    <View style={{marginTop: 14, gap: 12}}>
+      {BRIEF.map(([k, line, icon], i) => (
+        <Row key={k} last={i === BRIEF.length - 1}>
+          <View style={{width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: ah.line2, alignItems: 'center', justifyContent: 'center', backgroundColor: ah.ink3}}><Icon name={icon} size={18} color={ah.text} /></View>
+          <View style={{flex: 1, gap: 2}}><Text style={t.eyebrow}>{k}</Text><Text style={[t.title, {fontSize: 20, lineHeight: 23}]}>{line}</Text></View>
+        </Row>
+      ))}
+      <SampleNote>Sample brief · signed out · your Diary, paper portfolio and garage appear once you sign in</SampleNote>
+    </View>
+  );
+}
+
+/* ═════════════════════════ Market ═════════════════════════ */
+
+const TREND: Record<Signal['price_trend'], [string, string]> = {rising: ['▲ Rising', ah.ok], stable: ['■ Stable', ah.mute], falling: ['▼ Falling', ah.danger]};
+
+export function Market({side}: {side: Side}) {
+  const acc = side === 'him' ? PLAT : track[side].acc;
+  const {live, reload} = useLive<{signals?: Signal[]}>(null, readMarketSignals);
+  return (
+    <View style={{gap: 14}}>
+      <AHTitle size={30}>The honest price, the original source and what Finesse earns — before you leave the house.</AHTitle>
+      <LiveGate live={live} reload={() => void reload()} what="the Market" signedOut={<MarketSample acc={acc} />}>
+        {(data) => {
+          const signals = Array.isArray(data.signals) ? data.signals : [];
+          return (
+            <View style={{gap: 14}}>
+              <AHCard style={{gap: 6}}>
+                <AHEyebrow color={ah.rose}>Partner goods</AHEyebrow>
+                <Text style={t.voice}>No retail partner is contracted yet.</Text>
+                <Fine>When one is, each piece here shows the partner’s own price, the source and exactly what Finesse earns. Until then nothing is sold from this room.</Fine>
+              </AHCard>
+              <Head right={signals.length ? `${signals.length} categories` : undefined}>What members are trading</Head>
+              {signals.length === 0 ? <Fine>No member listings yet, so there are no market signals to read. List something on the Exchange to start the market.</Fine> : (
+                <View>
+                  {signals.map((sg, i) => (
+                    <Animated.View key={sg.category} entering={FadeInDown.delay(i * 40).duration(250)}>
+                      <Row last={i === signals.length - 1} style={{alignItems: 'flex-start'}}>
+                        <View style={{flex: 1, gap: 4}}>
+                          <Text style={t.eyebrow}>{sg.category}</Text>
+                          <Text style={[t.title, {fontSize: 20}]}>{dollars(sg.avg_price_cents)} avg</Text>
+                          <Text style={t.small}>{sg.listing_count} listings · sells in ~{Math.round(sg.avg_days_to_sell)} days</Text>
+                          <View style={{flexDirection: 'row', gap: 10, alignItems: 'center'}}>
+                            <Text style={[t.meta, {width: 70}]}>Demand</Text>
+                            <View style={{flex: 1}}><Meter pct={sg.demand_score} /></View>
+                          </View>
+                        </View>
+                        <Text style={[t.meta, {color: TREND[sg.price_trend]?.[1] ?? ah.mute}]}>{TREND[sg.price_trend]?.[0] ?? sg.price_trend}</Text>
+                      </Row>
+                    </Animated.View>
+                  ))}
+                </View>
+              )}
+              <Fine>Computed from real Exchange listings — no partner data, no invented prices.</Fine>
+            </View>
+          );
+        }}
+      </LiveGate>
+    </View>
+  );
+}
+
 const GOODS: Array<[string, string, string, string, number, string]> = [
   ['WATCHES', 'Steel dress watch, 38 mm', 'Partner boutique', 'Affiliate · Finesse earns 6%', 4200, 'briefcase'],
-  ['GOLF', 'Forged irons, 5–PW', 'Brand site', 'Affiliate · Finesse earns 5%', 1450, 'trendingup'],
   ['TAILORING', 'Made-to-measure navy suit', 'Partner tailor', 'Referral fee disclosed at fitting', 1890, 'shirt'],
-  ['SPIRITS', 'Single-cask bourbon, 750 ml', 'Licensed retailer · 21+', 'Affiliate · Finesse earns 4%', 180, 'martini'],
 ];
-export function Market({side}: {side: Side}) {
-  const acc = side === 'him' ? AMBER : track[side].acc;
-  const [cat, setCat] = useState('All');
+
+function MarketSample({acc}: {acc: string}) {
   const [flip, setFlip] = useState<string | null>(null);
-  const list = GOODS.filter((g) => cat === 'All' || g[0] === cat.toUpperCase());
   return (
-    <View style={{gap: 12}}>
-      <Text style={[s.body, {textAlign: 'center'}]}>The honest price, the original source and what Finesse earns — before you leave the house.</Text>
-      <Chips options={['All', 'Watches', 'Golf', 'Tailoring', 'Spirits']} value={cat} onChange={setCat} accent={acc} />
-      {list.map(([c, name, src, fee, price, icon]) => {
+    <View style={{gap: 12, marginTop: 14}}>
+      {GOODS.map(([c, name, src, fee, price, icon]) => {
         const open = flip === name;
         return (
-          <Animated.View key={name} entering={FadeInDown.duration(300)} layout={LinearTransition}>
-            <GoldFrame pad={2}>
-              <View style={{backgroundColor: '#140C06', padding: 12, gap: 8}}>
-                <View style={{flexDirection: 'row', gap: 12, alignItems: 'center'}}>
-                  <View style={{width: 54, height: 54, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center'}}><Icon name={icon} size={22} color={acc} /></View>
-                  <View style={{flex: 1}}>
-                    <Text style={{fontFamily: fonts.mono, fontSize: 8.5, letterSpacing: 1, color: deco.brass}}>{c}</Text>
-                    <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{name}</Text>
-                    <Text style={s.small}>{src}</Text>
-                  </View>
-                  <Pressable onPress={() => setFlip(open ? null : name)} accessibilityRole="button" accessibilityLabel={`Price tag for ${name}`}
-                    style={{paddingHorizontal: 8, paddingVertical: 6, backgroundColor: deco.cream, transform: [{rotate: open ? '0deg' : '-4deg'}]}}>
-                    <Text style={{fontFamily: fonts.capsBold, fontSize: 13, color: '#1A120C'}}>${price.toLocaleString()}</Text>
-                  </Pressable>
-                </View>
-                {open ? (
-                  <Animated.View entering={FadeIn.duration(250)} style={{padding: 10, gap: 4, borderLeftWidth: 2, borderColor: deco.brassHighlight, backgroundColor: 'rgba(232,200,122,0.06)'}}>
-                    <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brassHighlight}}>DISCLOSED · {fee.toUpperCase()}</Text>
-                    <Text style={s.small}>The price is the partner’s own. You check out on their site; Finesse never marks it up.</Text>
-                  </Animated.View>
-                ) : null}
-              </View>
-            </GoldFrame>
-          </Animated.View>
+          <AHCard key={name} pad={16}>
+            <View style={{flexDirection: 'row', gap: 14, alignItems: 'center'}}>
+              <Tile icon={icon} size={58} />
+              <View style={{flex: 1, gap: 2}}><Text style={t.eyebrow}>{c}</Text><Text style={[t.title, {fontSize: 21, lineHeight: 24}]}>{name}</Text><Text style={t.small}>{src}</Text></View>
+            </View>
+            <Pressable onPress={() => setFlip(open ? null : name)} accessibilityRole="button" accessibilityState={{expanded: open}} style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', minHeight: 48, marginTop: 10}}>
+              <Text style={{fontFamily: ahFonts.serif, fontSize: 28, color: ah.text}}>${price.toLocaleString()}</Text>
+              <Text style={[t.name, {fontSize: 13, color: open ? ah.rose : ah.text}]}>{open ? 'Hide fees' : 'Fees & source'}</Text>
+            </Pressable>
+            {open ? <Text style={[t.small, {color: acc === deco.pink ? ah.rose : ah.text}]}>Disclosed · {fee}</Text> : null}
+          </AHCard>
         );
       })}
-      <SampleNote>SAMPLE GOODS · TAP A PRICE TAG FOR FEES AND SOURCE · OUTBOUND LINKS OPEN ONCE PARTNERS ARE CONTRACTED</SampleNote>
+      <SampleNote>Sample goods · signed out · outbound links open once partners are contracted</SampleNote>
     </View>
   );
 }
 
-/* ─────────────── Ballroom ─────────────── */
-type Stage = 'PROPOSAL' | 'HOLD REQUESTED' | 'CONFIRMED';
-const STAGES: Stage[] = ['PROPOSAL', 'HOLD REQUESTED', 'CONFIRMED'];
+/* ═════════════════════════ Ballroom ═════════════════════════ */
+
+const STAGES = ['Proposal', 'Holds', 'Confirmed'];
+const STATE_LABEL: Record<string, string> = {proposal: 'Proposal', hold_requested: 'Holds requested', held: 'Held by the venue', confirmed: 'Confirmed'};
+const WHEN: Array<[string, () => Date]> = [
+  ['Tonight', () => { const d = new Date(); d.setHours(20, 0, 0, 0); if (d.getTime() < Date.now()) d.setHours(22, 0, 0, 0); return d; }],
+  ['Tomorrow', () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(20, 0, 0, 0); return d; }],
+  ['Saturday', () => { const d = new Date(); d.setDate(d.getDate() + (((6 - d.getDay() + 7) % 7) || 7)); d.setHours(20, 0, 0, 0); return d; }],
+];
+
+export function Ballroom({side}: {side: Side}) {
+  const {live, reload} = useLive<BallroomData>(BALLROOM_PATH);
+  return (
+    <View style={{gap: 16}}>
+      <AHSmoke aspect={1.3} top={<AHChip label="The Ballroom" tone="glass" />}>
+        <AHTitle size={32}>Compose an evening. The desk asks for holds; you confirm what the venue holds.</AHTitle>
+      </AHSmoke>
+      <LiveGate live={live} reload={() => void reload()} what="the Ballroom" signedOut={<BallroomSample />}>
+        {(data) => <BallroomLive side={side} data={data} reload={() => reload(true)} />}
+      </LiveGate>
+    </View>
+  );
+}
+
+function BallroomLive({side, data, reload}: {side: Side; data: BallroomData; reload: () => Promise<void>}) {
+  const evenings = Array.isArray(data.evenings) ? data.evenings : [];
+  return (
+    <View style={{gap: 16}}>
+      {evenings.length === 0 ? (
+        <AHCard pad={22}><Text style={t.voice}>No evenings yet — compose one.</Text><Fine style={{marginTop: 8}}>Nothing is booked when you compose: it’s a proposal, and it waits in your Diary.</Fine></AHCard>
+      ) : evenings.map((ev) => <EveningCard key={ev.id} ev={ev} reload={reload} />)}
+      <Compose side={side} sources={data.sources} onDone={reload} />
+    </View>
+  );
+}
+
+function EveningCard({ev, reload}: {ev: Evening; reload: () => Promise<void>}) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
+  const stage = BALLROOM_STAGE[ev.state] ?? 0;
+  const step = async (k: 'hold' | 'confirm') => {
+    setBusy(true); setMsg(null);
+    const r = await stepEvening(ev.id, k);
+    setBusy(false);
+    if (r.ok) { setMsg({ok: true, text: r.body.message ?? (k === 'hold' ? 'The desk has your request.' : 'Confirmed.')}); void reload(); return; }
+    if (r.status === 409) { setMsg({ok: false, text: k === 'confirm' ? 'Awaiting the venue — nothing can be confirmed until a partner holds it. You’ll see it in the Diary when they do.' : (r.body.message ?? 'This evening has already moved on.')}); void reload(); return; }
+    setMsg({ok: false, text: failure(r.status, r.body)});
+  };
+  return (
+    <Animated.View layout={LinearTransition}>
+      <AHCard style={{gap: 12}}>
+        <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10}}>
+          <AHTitle size={26} style={{flexShrink: 1}}>{ev.title}</AHTitle>
+          <Text style={t.meta}>{new Date(ev.starts_at).toLocaleString([], {weekday: 'short', hour: 'numeric', minute: '2-digit'})}</Text>
+        </View>
+        <View style={{flexDirection: 'row', gap: 6}} accessibilityLabel={`Stage: ${STATE_LABEL[ev.state] ?? ev.state}`}>
+          {STAGES.map((x, i) => (
+            <View key={x} style={{flex: 1, gap: 6}}>
+              <View style={{height: 3, borderRadius: 2, backgroundColor: i <= stage ? (i === 2 ? ah.ok : ah.white) : ah.line2}} />
+              <Text style={[t.eyebrow, {fontSize: 11, letterSpacing: 1, color: i <= stage ? ah.text : ah.faint}]}>{x}</Text>
+            </View>
+          ))}
+        </View>
+        <View>
+          {ev.components.map((c, i) => (
+            <Row key={`${c.kind}${i}`} last={i === ev.components.length - 1} style={{minHeight: 44, paddingVertical: 8}}>
+              <Text style={[t.eyebrow, {width: 56}]}>{c.kind}</Text>
+              <Text style={[t.body, {flex: 1}]}>{c.label}</Text>
+              {c.partner ? <Text style={t.meta}>{c.partner}</Text> : null}
+            </Row>
+          ))}
+        </View>
+        <Text style={t.small}>{STATE_LABEL[ev.state] ?? ev.state} · party of {ev.party_size}</Text>
+        {ev.state === 'proposal' ? <RowBtn label={busy ? 'One moment…' : 'Ask the desk for holds'} onPress={() => void step('hold')} disabled={busy} tone={ah.rose} /> : null}
+        {ev.state === 'hold_requested' ? (
+          <View style={{gap: 8}}>
+            <Fine>Waiting on the venue — nothing is held until a partner says so.</Fine>
+            <RowBtn label={busy ? 'One moment…' : 'Confirm the evening'} onPress={() => void step('confirm')} disabled={busy} />
+          </View>
+        ) : null}
+        {ev.state === 'held' ? <RowBtn label={busy ? 'One moment…' : 'Confirm the evening'} onPress={() => void step('confirm')} disabled={busy} tone={ah.rose} /> : null}
+        <Status msg={msg} />
+      </AHCard>
+    </Animated.View>
+  );
+}
+
+function Compose({side, sources, onDone}: {side: Side; sources: BallroomData['sources'] | undefined; onDone: () => Promise<void>}) {
+  const [title, setTitle] = useState('');
+  const [when, setWhen] = useState('Tonight');
+  const [party, setParty] = useState(2);
+  const [parts, setParts] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<Msg>(null);
+  const kinds = BALLROOM_KINDS.slice(0, 4);
+  const components = kinds.filter((k) => parts[k]?.trim()).map((k) => ({kind: k, label: parts[k].trim().slice(0, 160)}));
+  const go = async () => {
+    if (!title.trim() || components.length === 0) { setMsg({ok: false, text: 'Give the evening a name and at least one element.'}); return; }
+    setBusy(true); setMsg(null);
+    const at = WHEN.find(([w]) => w === when)![1]();
+    const r = await composeEvening({title: title.trim().slice(0, 160), startsAt: at.toISOString(), partySize: party, track: side === 'him' ? 'carpe_diem' : 'finesse', components});
+    setBusy(false);
+    if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was composed.')}); return; }
+    setTitle(''); setParts({});
+    setMsg({ok: true, text: 'Proposal written. It’s also waiting in your Diary. Nothing is booked.'});
+    void onDone();
+  };
+  const HINT: Record<string, string> = {table: 'Dinner for two at…', look: 'What you’ll wear', gift: 'A gift for the night', route: 'How you get there'};
+  return (
+    <AHCard style={{gap: 10}}>
+      <AHEyebrow>Compose an evening</AHEyebrow>
+      <AHInput value={title} onChangeText={setTitle} placeholder="Name the evening" accessibilityLabel="Evening name" />
+      <Chips options={WHEN.map(([w]) => w)} value={when} onChange={setWhen} />
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+        <RowBtn label="−" a11y="Fewer guests" onPress={() => setParty((p) => Math.max(1, p - 1))} />
+        <Text style={{flex: 1, textAlign: 'center', fontFamily: ahFonts.serif, fontSize: 20, color: ah.text}}>Party of {party}</Text>
+        <RowBtn label="+" a11y="More guests" onPress={() => setParty((p) => Math.min(40, p + 1))} />
+      </View>
+      {kinds.map((k) => (
+        <AHInput key={k} value={parts[k] ?? ''} onChangeText={(v) => setParts((x) => ({...x, [k]: v}))} placeholder={`${k.charAt(0).toUpperCase() + k.slice(1)} · ${HINT[k]}`} accessibilityLabel={k} />
+      ))}
+      {sources ? <Fine>{sources.looks} looks in your Wardrobe and {sources.registryWishes} wishes in your Registry can feed it.</Fine> : null}
+      <ActionBar label={busy ? 'Composing…' : 'Write the proposal'} color={track[side].acc} onPress={() => void go()} disabled={busy} />
+      <Status msg={msg} />
+    </AHCard>
+  );
+}
+
 const EVE: Array<[string, string, string, string]> = [
   ['7:00 PM', 'Salon touch-up', 'Partner salon · 30 min', 'sparkles'],
   ['8:30 PM', 'Dinner for two · Lucian', 'Venue hold requested', 'chefhat'],
   ['10:30 PM', 'Nightcap at the Club', 'Two chairs by the fire', 'martini'],
-  ['12:15 AM', 'Car home', 'Finesse Black', 'car'],
 ];
 
-function Chandeliers() {
-  const W = Math.min(useAvailableWidth(), 460), H = W * 0.42;
-  const glow = useSharedValue(0.6);
-  useEffect(() => { glow.value = withRepeat(withSequence(withTiming(1, {duration: 2400, easing: Easing.inOut(Easing.quad)}), withTiming(0.6, {duration: 2400})), -1); }, [glow]);
-  const st = useAnimatedStyle(() => ({opacity: glow.value}));
+function BallroomSample() {
   return (
-    <View style={{width: W, height: H, alignSelf: 'center', borderWidth: 2, borderColor: deco.brass, overflow: 'hidden', backgroundColor: '#12080A'}}>
-      <Svg width={W} height={H} viewBox="0 0 400 168" style={{position: 'absolute'}}>
-        <Defs><LinearGradient id="br-f" x1="0" y1="0" x2="0" y2="1"><Stop offset="0" stopColor="#2A1014" /><Stop offset="1" stopColor="#0A0406" /></LinearGradient></Defs>
-        <Rect width={400} height={168} fill="url(#br-f)" />
-        {Array.from({length: 7}, (_, i) => <Path key={i} d={`M${30 + i * 57} 0 L${30 + i * 57} 168`} stroke={deco.brass} strokeOpacity={0.12} />)}
-        {/* laid tables */}
-        {[70, 160, 250, 340].map((x) => (
-          <G key={x}>
-            <Ellipse cx={x} cy={138} rx={30} ry={8} fill="#F2E8D2" opacity={0.85} />
-            {[-18, -6, 6, 18].map((d) => <Circle key={d} cx={x + d} cy={136} r={2} fill={deco.brassHighlight} />)}
-            <Path d={`M${x} 130 L${x} 118`} stroke={deco.brassHighlight} strokeWidth={1.5} />
-            <Ellipse cx={x} cy={116} rx={3} ry={5} fill="#FFE6C8" />
-          </G>
-        ))}
-      </Svg>
-      <Animated.View style={[{position: 'absolute', inset: 0}, st]} pointerEvents="none">
-        <Svg width={W} height={H} viewBox="0 0 400 168">
-          <Defs><RadialGradient id="br-c" cx="0.5" cy="0.4" r="0.5"><Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.85} /><Stop offset="0.4" stopColor="#FFE6C8" stopOpacity={0.35} /><Stop offset="1" stopColor="#FFE6C8" stopOpacity={0} /></RadialGradient></Defs>
-          {[[80, 30], [200, 22], [320, 30], [140, 56], [260, 56]].map(([x, y], i) => (
-            <G key={i}>
-              <Path d={`M${x} 0 L${x} ${y - 10}`} stroke={deco.brass} strokeWidth={0.8} />
-              <Circle cx={x} cy={y} r={26} fill="url(#br-c)" />
-              <Ellipse cx={x} cy={y - 4} rx={14} ry={3} fill="none" stroke={deco.brassHighlight} strokeWidth={1.2} />
-              <Ellipse cx={x} cy={y + 3} rx={9} ry={2} fill="none" stroke={deco.brassHighlight} strokeWidth={1} />
-              {Array.from({length: 5}, (_, j) => <Path key={j} d={`M${x - 10 + j * 5} ${y - 2} L${x - 10 + j * 5} ${y + 6}`} stroke="#FFFFFF" strokeOpacity={0.8} strokeWidth={0.7} />)}
-            </G>
-          ))}
-        </Svg>
-      </Animated.View>
-    </View>
-  );
-}
-
-export function Ballroom({side}: {side: Side}) {
-  const acc = track[side].acc;
-  const [stage, setStage] = useState(0);
-  const [skip, setSkip] = useState<string[]>([]);
-  const st = STAGES[stage];
-  return (
-    <View style={{gap: 12}}>
-      <Chandeliers />
-      <Text style={{fontFamily: fonts.script, fontSize: 19, color: deco.cream, textAlign: 'center'}}>Compose an evening. Nova holds each piece; you confirm the whole.</Text>
-      <View style={{flexDirection: 'row', alignItems: 'center'}}>
-        {STAGES.map((x, i) => (
-          <View key={x} style={{flex: 1, alignItems: 'center', gap: 4}}>
-            <View style={{width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: deco.brassHighlight, backgroundColor: i <= stage ? (i === 2 ? '#7AF5B8' : deco.brassHighlight) : 'transparent'}} />
-            <Text style={{fontFamily: fonts.mono, fontSize: 7.5, letterSpacing: 0.8, color: i <= stage ? deco.brassHighlight : 'rgba(244,232,208,0.5)', textAlign: 'center'}}>{x}</Text>
+    <View style={{marginTop: 14}}>
+      {EVE.map(([time, title, sub, icon], i) => (
+        <View key={title} style={{flexDirection: 'row', gap: 14}}>
+          <View style={{alignItems: 'center', width: 40}}>
+            <View style={{width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: ah.line2, backgroundColor: ah.ink3, alignItems: 'center', justifyContent: 'center'}}><Icon name={icon} size={16} color={ah.rose} /></View>
+            {i < EVE.length - 1 ? <View style={{flex: 1, width: 1, backgroundColor: ah.line2}} /> : null}
           </View>
-        ))}
-      </View>
-      <GoldFrame pad={3}>
-        <View style={{backgroundColor: '#140A0C', padding: 12}}>
-          {EVE.map(([t, title, sub, icon], i) => {
-            const off = skip.includes(title);
-            return (
-              <View key={title} style={{flexDirection: 'row', gap: 12}}>
-                <View style={{alignItems: 'center', width: 30}}>
-                  <View style={{width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: off ? 'rgba(201,169,97,0.3)' : acc, alignItems: 'center', justifyContent: 'center'}}><Icon name={icon} size={14} color={off ? deco.brass : acc} /></View>
-                  {i < EVE.length - 1 ? <View style={{flex: 1, width: 1, backgroundColor: 'rgba(201,169,97,0.35)'}} /> : null}
-                </View>
-                <View style={{flex: 1, paddingBottom: 12, opacity: off ? 0.45 : 1}}>
-                  <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{t}</Text>
-                  <Text style={{fontFamily: fonts.displayBold, fontSize: 16, color: deco.cream}}>{title}</Text>
-                  <Text style={s.small}>{sub}</Text>
-                </View>
-                {stage === 0 ? (
-                  <Pressable onPress={() => setSkip((l) => (l.includes(title) ? l.filter((x) => x !== title) : [...l, title]))} accessibilityRole="button" hitSlop={8} style={{paddingTop: 12}}>
-                    <Text style={{fontFamily: fonts.capsBold, fontSize: 8.5, letterSpacing: 1.2, color: deco.brassHighlight}}>{off ? 'ADD' : 'SKIP'}</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            );
-          })}
+          <View style={{flex: 1, paddingBottom: 18}}>
+            <Text style={t.eyebrow}>{time}</Text>
+            <Text style={[t.title, {fontSize: 22, lineHeight: 25}]}>{title}</Text>
+            <Text style={t.small}>{sub}</Text>
+          </View>
         </View>
-      </GoldFrame>
-      <ActionBar color={stage === 2 ? deco.brass : acc} label={stage === 0 ? 'REQUEST THE HOLDS' : stage === 1 ? 'CONFIRM THE EVENING' : 'PREVIEW · NOT BOOKED OR SAVED'} onPress={() => setStage((x) => (x + 1) % 3)} />
-      <SampleNote>{`PREVIEW · CURRENT STAGE: ${st} · HOLDS ARE REQUESTS TO VENUES · NOTHING IS PAID UNTIL YOU CONFIRM WITH EACH PARTNER`}</SampleNote>
+      ))}
+      <SampleNote>Sample evening · signed out · holds are requests to venues · nothing is paid until a partner holds it and you confirm</SampleNote>
     </View>
   );
 }

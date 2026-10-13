@@ -4,14 +4,15 @@ import Link from 'next/link';
 import {FinesseLayout} from '@/components/finesse-layout';
 import {getVipEntitlement} from '@/lib/vip-lift';
 import {MembershipSection} from '@/components/billing/membership-section';
+import {AiSafetyPanel} from '@/components/account/ai-safety-panel';
 import {AccountActions} from './account-actions';
 
 export const metadata: Metadata = {
   title: 'Account · Finesse',
 };
 
-// /account — signed-in only. Membership (Stripe), data export, lift PIN reset (VIP)
-// and account deletion. Stripe returns here with ?billing=success|cancelled.
+// /account — signed-in only. Membership (Stripe), AI & safety (AI disclosure, consents, reports, blocks),
+// data export, lift PIN reset (VIP) and account deletion. Stripe returns here with ?billing=success|cancelled.
 export default async function AccountPage({searchParams}: {searchParams: Promise<{[key: string]: string | string[] | undefined}>}) {
   const ent = await getVipEntitlement();
   const {billing} = await searchParams;
@@ -54,6 +55,8 @@ export default async function AccountPage({searchParams}: {searchParams: Promise
           </div>
 
           <MembershipSection returned={returned} />
+
+          <AiSafetyPanel />
 
           <AccountActions isVip={ent.state === 'entitled'} />
         </div>

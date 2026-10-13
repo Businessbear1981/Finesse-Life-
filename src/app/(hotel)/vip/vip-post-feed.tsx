@@ -1,10 +1,12 @@
 'use client';
 
 import {useState} from 'react';
-import {motion} from 'framer-motion';
+import {motion, useReducedMotion} from 'framer-motion';
+import {ModerationMenu} from '@/components/moderation';
 
-interface VipPost {
+export interface VipPost {
   id: string;
+  author_id?: string | null;
   content: string | null;
   media_urls: string[] | null;
   likes_count: number;
@@ -22,8 +24,8 @@ interface Props {
   currentUserId: string;
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
+function timeAgo(dateStr: string, now: number): string {
+  const diff = now - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m`;
@@ -32,138 +34,79 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-export function VipPostFeed({initialPosts}: Props) {
-  const [posts] = useState<VipPost[]>(initialPosts);
+export function VipPostFeed({initialPosts, currentUserId}: Props) {
+  const [posts, setPosts] = useState<VipPost[]>(initialPosts);
+  // Blocked from the "…" menu: their posts leave the feed now (RLS keeps them out on the next load).
+  const dropAuthor = (id: string) => setPosts((p) => p.filter((x) => x.author_id !== id));
+  const [now] = useState(() => Date.now());
+  const reduce = useReducedMotion();
 
   if (posts.length === 0) {
     return (
-      <div className="text-center py-16">
-        <p
-          className="font-body text-sm italic mb-2"
-          style={{color: 'rgba(244,232,208,0.2)'}}
-        >
-          the inner room is quiet tonight
+      <div className="vip-empty">
+        <p className="ah-serif-i" style={{margin: 0, fontSize: 26, lineHeight: 1.1, color: 'var(--ah-text)'}}>
+          The Inner Room is quiet tonight.
         </p>
-        <p
-          className="font-label text-[8px] tracking-[0.3em] uppercase"
-          style={{color: 'rgba(201,169,97,0.15)'}}
-        >
-          be the first to post
-        </p>
+        <p style={{margin: '8px 0 0', fontSize: 13, color: 'var(--ah-mute)'}}>Be the first to post.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {posts.map((post, i) => (
-        <motion.div
-          key={post.id}
-          initial={{opacity: 0, y: 12}}
-          animate={{opacity: 1, y: 0}}
-          transition={{delay: i * 0.06, duration: 0.4}}
-          className="group"
-          style={{
-            border: '1px solid rgba(201,169,97,0.1)',
-            background:
-              'linear-gradient(135deg, rgba(74,25,34,0.08) 0%, rgba(6,2,3,0.85) 100%)',
-          }}
-        >
-          {/* Author row */}
-          <div
-            className="flex items-center gap-3 px-4 pt-4 pb-3"
-            style={{borderBottom: '1px solid rgba(201,169,97,0.06)'}}
+    <div className="vip-feed">
+      {posts.map((post, i) => {
+        const name = post.author?.display_name ?? post.author?.username ?? 'Member';
+        return (
+          <motion.article
+            key={post.id}
+            initial={reduce ? false : {opacity: 0, y: 12}}
+            animate={{opacity: 1, y: 0}}
+            transition={{delay: i * 0.06, duration: 0.4}}
+            className="vip-post"
           >
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
-              style={{
-                border: '1px solid rgba(201,169,97,0.25)',
-                background: 'rgba(20,10,12,0.9)',
-              }}
-            >
-              {post.author?.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={post.author.avatar_url}
-                  alt={post.author.display_name ?? post.author.username}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span
-                  className="font-label text-[10px]"
-                  style={{color: 'rgba(201,169,97,0.6)'}}
-                >
-                  {(post.author?.display_name ?? post.author?.username ?? '?')[0].toUpperCase()}
-                </span>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="font-display text-sm tracking-wide truncate"
-                style={{color: '#E8C87A'}}
-              >
-                {post.author?.display_name ?? post.author?.username ?? 'Member'}
-              </p>
-              {post.author?.vibe && (
-                <p
-                  className="font-label text-[8px] tracking-[0.25em] uppercase"
-                  style={{color: 'rgba(201,169,97,0.3)'}}
-                >
-                  {post.author.vibe}
-                </p>
-              )}
-            </div>
-            <span
-              className="font-mono text-[9px] shrink-0"
-              style={{color: 'rgba(244,232,208,0.15)'}}
-            >
-              {timeAgo(post.created_at)}
-            </span>
-          </div>
-
-          {/* Media */}
-          {post.media_urls && post.media_urls.length > 0 && (
-            <div className="relative w-full aspect-video overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.media_urls[0]}
-                alt="post media"
-                className="w-full h-full object-cover opacity-85 group-hover:opacity-95 transition-opacity duration-500"
-              />
-            </div>
-          )}
-
-          {/* Content */}
-          {post.content && (
-            <div className="px-4 py-3">
-              <p
-                className="font-body text-sm leading-relaxed"
-                style={{color: 'rgba(244,232,208,0.65)'}}
-              >
-                {post.content}
-              </p>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex items-center gap-4 px-4 pb-4 pt-1">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="font-label text-[9px] tracking-wider"
-                style={{color: 'rgba(201,169,97,0.3)'}}
-              >
-                ♥
+            {/* Author row */}
+            <div className="vip-post-head">
+              <span className="vip-avatar">
+                {post.author?.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={post.author.avatar_url} alt={post.author.display_name ?? post.author.username} />
+                ) : (
+                  <span aria-hidden>{(post.author?.display_name ?? post.author?.username ?? '?')[0].toUpperCase()}</span>
+                )}
               </span>
-              <span
-                className="font-mono text-[9px]"
-                style={{color: 'rgba(244,232,208,0.2)'}}
-              >
+              <div style={{flex: 1, minWidth: 0}}>
+                <p className="vip-post-name">{name}</p>
+                {post.author?.vibe && <p className="vip-post-vibe">{post.author.vibe}</p>}
+              </div>
+              <time className="vip-post-time ah-num" dateTime={post.created_at} suppressHydrationWarning>{timeAgo(post.created_at, now)}</time>
+              <ModerationMenu kind="vip_post" targetId={post.id} memberId={post.author_id} name={post.author?.display_name ?? post.author?.username}
+                own={post.author_id === currentUserId} onBlocked={() => { if (post.author_id) dropAuthor(post.author_id); }} />
+            </div>
+
+            {/* Media */}
+            {post.media_urls && post.media_urls.length > 0 && (
+              <div className="vip-post-media">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.media_urls[0]} alt="post media" />
+              </div>
+            )}
+
+            {/* Content */}
+            {post.content && <p className="vip-post-body">{post.content}</p>}
+
+            {/* Footer */}
+            <div className="vip-post-foot">
+              <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.2C.9 8.4 3 4.5 6.8 4.5c2.1 0 3.6 1.1 5.2 3 1.6-1.9 3.1-3 5.2-3 3.8 0 5.9 3.9 4.4 7.3C19.5 16.4 12 21 12 21z" />
+              </svg>
+              <span className="ah-num">
                 {post.likes_count}
+                <span className="sr-only"> likes</span>
               </span>
             </div>
-          </div>
-        </motion.div>
-      ))}
+          </motion.article>
+        );
+      })}
     </div>
   );
 }

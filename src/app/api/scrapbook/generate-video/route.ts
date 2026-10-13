@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import {createClient as createSessionClient} from '@/lib/supabase/server';
 
 const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai/v1';
 const HIGGSFIELD_KEY_ID = process.env.HIGGSFIELD_API_KEY_ID!;
@@ -15,17 +14,7 @@ const serviceClient = createClient(
 export async function POST(req: Request) {
   try {
     // Auth check
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll() {},
-        },
-      },
-    );
+    const supabase = await createSessionClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

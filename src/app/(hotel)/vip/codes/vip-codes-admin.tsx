@@ -152,7 +152,8 @@ export function VipCodesAdmin() {
   }, []);
 
   useEffect(() => {
-    fetchCodes();
+    const id = setTimeout(() => void fetchCodes(), 0);
+    return () => clearTimeout(id);
   }, [fetchCodes]);
 
   const handleGenerate = async () => {

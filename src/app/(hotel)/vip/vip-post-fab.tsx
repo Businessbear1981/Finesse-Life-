@@ -2,8 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
 import {Plus, X} from 'lucide-react';
+import {useHouseRules} from '@/components/moderation';
 
 export function VipPostFabClient() {
   const [open, setOpen] = useState(false);
@@ -12,36 +12,39 @@ export function VipPostFabClient() {
   const [error, setError] = useState('');
   const router = useRouter();
 
+  const rules = useHouseRules();
+
+  const send = () => fetch('/api/vip/posts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: content.trim()}),
+  });
+
+  // Posts go through POST /api/vip/posts (house rules, text filter, VIP check) — never straight to the table.
   const handlePost = async () => {
     const text = content.trim();
     if (!text || posting) return;
-    setPosting(true);
     setError('');
+    if (!(await rules.ensure())) return;
+    setPosting(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: {user},
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Not authenticated.');
-        return;
+      let res = await send();
+      let data = (await res.json().catch(() => ({}))) as {error?: string; message?: string};
+      if (res.status === 403 && data.error === 'terms_required') {
+        if (!(await rules.require())) { setError('Accept the house rules to post. Nothing was posted.'); return; }
+        res = await send();
+        data = (await res.json().catch(() => ({}))) as {error?: string; message?: string};
       }
-
-      const {error: insertErr} = await supabase.from('vip_posts').insert({
-        author_id: user.id,
-        content: text,
-      });
-
-      if (insertErr) {
-        setError(insertErr.message);
+      if (!res.ok) {
+        setError(res.status === 401 ? 'Sign in first. Nothing was posted.' : data.message ?? 'Nothing was posted. Try again.');
       } else {
         setContent('');
         setOpen(false);
         router.refresh();
       }
     } catch {
-      setError('Failed to post. Try again.');
+      setError('The house line is down. Nothing was posted.');
     } finally {
       setPosting(false);
     }
@@ -49,91 +52,59 @@ export function VipPostFabClient() {
 
   return (
     <>
-      {/* Post Modal */}
+      {rules.sheet}
+      {/* Post sheet */}
       {open && (
         <div
-          className="fixed inset-0 z-[60] flex items-end justify-center pb-8 px-4"
-          style={{background: 'rgba(6,2,3,0.85)'}}
+          className="vip-scrim"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
-          <div
-            className="w-full max-w-lg"
-            style={{
-              border: '1px solid rgba(201,169,97,0.25)',
-              background:
-                'linear-gradient(135deg, rgba(74,25,34,0.15) 0%, rgba(6,2,3,0.98) 100%)',
-              boxShadow: '0 0 40px rgba(201,169,97,0.08)',
-            }}
-          >
-            {/* Modal header */}
-            <div
-              className="flex items-center justify-between px-5 py-4"
-              style={{borderBottom: '1px solid rgba(201,169,97,0.1)'}}
-            >
-              <span
-                className="font-label text-[9px] tracking-[0.4em] uppercase"
-                style={{color: 'rgba(201,169,97,0.4)'}}
-              >
-                New Inner Room Post
-              </span>
-              <button
-                onClick={() => setOpen(false)}
-                style={{color: 'rgba(244,232,208,0.25)'}}
-              >
-                <X size={16} />
+          <div className="vip-sheet" role="dialog" aria-modal="true" aria-labelledby="vip-post-title">
+            <div style={{display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12}}>
+              <div>
+                <p className="ah-eyebrow">The Inner Room</p>
+                <p id="vip-post-title" className="ah-serif-i" style={{margin: '4px 0 0', fontSize: 28, lineHeight: 1}}>New post.</p>
+              </div>
+              <button type="button" onClick={() => setOpen(false)} className="vip-sheet-x" aria-label="Close">
+                <X size={18} />
               </button>
             </div>
 
-            {/* Textarea */}
-            <div className="px-5 py-4">
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="What's happening in the inner room..."
-                rows={4}
-                autoFocus
-                className="w-full bg-transparent font-body text-sm leading-relaxed placeholder:opacity-20 focus:outline-none resize-none"
-                style={{color: '#F4E8D0', caretColor: '#C9A961'}}
-              />
-            </div>
+            <label htmlFor="vip-post-text" className="sr-only">Your post</label>
+            <textarea
+              id="vip-post-text"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="What’s happening in the Inner Room…"
+              rows={4}
+              autoFocus
+              className="ah-input"
+              style={{marginTop: 16, caretColor: 'var(--ah-rose)'}}
+            />
 
             {error && (
-              <p
-                className="px-5 pb-2 font-body text-xs italic"
-                style={{color: 'rgba(255,77,125,0.7)'}}
-              >
+              <p role="alert" style={{margin: '10px 0 0', fontSize: 13, color: 'var(--ah-rose)'}}>
                 {error}
               </p>
             )}
 
-            {/* Footer */}
-            <div
-              className="flex items-center justify-between px-5 py-4"
-              style={{borderTop: '1px solid rgba(201,169,97,0.08)'}}
-            >
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 16}}>
               <span
-                className="font-mono text-[9px]"
-                style={{
-                  color:
-                    content.length > 450
-                      ? 'rgba(255,77,125,0.6)'
-                      : 'rgba(244,232,208,0.15)',
-                }}
+                className="ah-num"
+                style={{fontSize: 12, color: content.length > 450 ? 'var(--ah-rose)' : 'var(--ah-faint)'}}
               >
                 {content.length}/500
               </span>
               <button
+                type="button"
                 onClick={handlePost}
                 disabled={posting || !content.trim() || content.length > 500}
-                className="px-6 py-2.5 font-label text-[9px] tracking-[0.3em] uppercase transition-all duration-300 disabled:opacity-30"
-                style={{
-                  background: 'linear-gradient(135deg, #C9A961, #E8C87A)',
-                  color: '#06020A',
-                }}
+                className="ah-pill ah-pill-rose"
+                style={{minWidth: 120}}
               >
-                {posting ? 'posting...' : 'Post'}
+                {posting ? 'Posting\u2026' : 'Post'}
               </button>
             </div>
           </div>
@@ -141,21 +112,8 @@ export function VipPostFabClient() {
       )}
 
       {/* FAB */}
-      <button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-[72px] z-50 w-12 h-12 flex items-center justify-center transition-all duration-300 group"
-        style={{
-          background: 'linear-gradient(135deg, #C9A961, #E8C87A)',
-          boxShadow: '0 0 20px rgba(201,169,97,0.3), 0 4px 12px rgba(0,0,0,0.6)',
-        }}
-        title="New post"
-      >
-        <Plus
-          size={20}
-          strokeWidth={2}
-          style={{color: '#06020A'}}
-          className="group-hover:rotate-90 transition-transform duration-300"
-        />
+      <button type="button" onClick={() => setOpen(true)} className="vip-fab" title="New post" aria-label="New post">
+        <Plus size={22} strokeWidth={2} />
       </button>
     </>
   );

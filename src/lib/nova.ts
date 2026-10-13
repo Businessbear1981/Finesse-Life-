@@ -98,7 +98,7 @@ const PERSONA_PROMPTS: Record<NovaPersona, string> = {
   telegram: `You are Nova, a luxury AI lifestyle concierge for Finesse. The member is messaging via Telegram. Be warm, direct, and elevated. Keep responses concise for mobile.`,
 };
 
-const TOOL_GUIDANCE = `Tools: when the member asks about their vault balance, call check_vault_balance. When asked for recommendations, call get_recommendations. When asked what to do next, call get_next_action. Log purchase intent with log_intent when the member expresses interest in a specific service. Use real data from tools — never fabricate it.`;
+const TOOL_GUIDANCE = `Tools: when the member asks about their vault balance, call check_vault_balance. When asked for recommendations, call get_recommendations. When asked what to do next, call get_next_action. Log purchase intent with log_intent when the member expresses interest in a specific service. When the member asks you to find something, check a price, style them for an occasion, source an item, or plan a table/ride/trip/evening, call draft_request so it appears for them to confirm — then tell them it is ready to confirm (never say it is booked or done). Use real data from tools — never fabricate it.`;
 
 /** Build the fixed server system prompt. Member data goes in tagged blocks, JSON-encoded. */
 export function buildPersonaSystem(
@@ -239,6 +239,23 @@ function buildNovaTools(userId: string) {
           return await predictNextAction(userId, {page: 'concierge'});
         } catch {
           return {action: null as string | null, reason: 'Could not predict next action', confidence: 0};
+        }
+      },
+    }),
+    draft_request: tool({
+      description: 'Draft a request for the member to confirm (find an item, price check, style for an occasion, source an item, or plan a table/ride/trip/evening). Nothing runs until the member confirms.',
+      inputSchema: z.object({
+        kind: z.enum(['find_item', 'price_check', 'style_for_occasion', 'procurement', 'plan']),
+        title: z.string().min(1).max(140).describe('Short title the member will see, e.g. "Black slingbacks under $600"'),
+        details: z.record(z.string(), z.unknown()).describe('find_item {query, budget_cents?}; price_check {title, brand, category, retail_cents}; style_for_occasion {occasion, occasion_type}; procurement {title, category, price_cents}; plan {topic: table|ride|trip|evening|appointment|other, brief, when? (ISO), party_size?}'),
+      }),
+      execute: async (input: {kind: 'find_item' | 'price_check' | 'style_for_occasion' | 'procurement' | 'plan'; title: string; details: Record<string, unknown>}) => {
+        try {
+          const {createDraft} = await import('@/lib/nova-requests');
+          const out = await createDraft(userId, {...input, room: 'concierge'});
+          return out.ok ? {drafted: true, request: out.request} : {drafted: false, error: out.error};
+        } catch {
+          return {drafted: false, error: 'requests_unavailable'};
         }
       },
     }),

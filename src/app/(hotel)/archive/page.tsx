@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { CONSENT_DECLINED_TEXT, ensureAiConsent } from '@/components/nova/ai-consent';
+import { ReportReply } from '@/components/nova/report-reply';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -79,7 +81,7 @@ function EntryCard({
   // Poll when pending
   useEffect(() => {
     if (videoStatus !== 'pending') return;
-    setPolling(true);
+    const start = setTimeout(() => setPolling(true), 0);
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/scrapbook/video-status?entry_id=${entry.id}`);
@@ -99,7 +101,10 @@ function EntryCard({
         // keep polling
       }
     }, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(start);
+      clearInterval(interval);
+    };
   }, [videoStatus, entry.id, onVideoReady]);
 
   const typeColor = ENTRY_TYPE_COLORS[entry.entry_type] ?? '#C9A961';
@@ -237,9 +242,11 @@ function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () 
   const [novaLoading, setNovaLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const [novaLine, setNovaLine] = useState<{id: string; text: string} | null>(null);
 
   async function handleNovaWrite() {
     if (!title.trim()) return;
+    if (!(await ensureAiConsent('ai_processing'))) { setError(CONSENT_DECLINED_TEXT); return; }
     setNovaLoading(true);
     try {
       const res = await fetch('/api/nova', {
@@ -257,7 +264,7 @@ function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () 
         if (limit) setError(limit);
         return;
       }
-      if (data.text) setDescription(data.text);
+      if (data.text) { setDescription(data.text); setNovaLine({ id: `scrapbook:${Date.now()}`, text: data.text }); }
     } catch {
       // no-op
     } finally {
@@ -353,6 +360,7 @@ function AddMomentTab({ userId, onAdded }: { userId: string | null; onAdded: () 
           disabled={!userId}
           className="w-full bg-transparent border border-lamp/20 px-4 py-3 font-body text-sm text-cream/70 placeholder-cream/20 focus:outline-none focus:border-lamp/50 transition-colors resize-none italic disabled:opacity-30"
         />
+        {novaLine && description === novaLine.text && <ReportReply key={novaLine.id} targetId={novaLine.id} text={novaLine.text} />}
       </div>
 
       {error && (
@@ -417,7 +425,8 @@ export default function ArchivePage() {
   }, [userId]);
 
   useEffect(() => {
-    fetchEntries();
+    const id = setTimeout(() => void fetchEntries(), 0);
+    return () => clearTimeout(id);
   }, [fetchEntries]);
 
   async function handleGenerateVideo(entryId: string) {

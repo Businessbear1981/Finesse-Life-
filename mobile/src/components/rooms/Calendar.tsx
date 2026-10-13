@@ -1,21 +1,23 @@
-// The Calendar — week strip, day timeline (7 AM–11 PM), tap an entry to move it ±30 min, mark it done or
-// remove it. From the design. Signed in, the timeline is the member's own Diary (GET /api/diary; moves and
-// removals PATCH /api/diary/items/:id and only show once the server confirms). Signed out, the labelled
-// sample day (with Nova's suggestions and auto-arrange) is shown; nothing there is saved or booked.
+// The Calendar (After Hours skin) — week strip, day timeline (7 AM–11 PM), tap an entry to move it ±30 min,
+// mark it done or remove it. From the design. Signed in, the timeline is the member's own Diary (GET /api/diary;
+// moves and removals PATCH /api/diary/items/:id and only show once the server confirms). Signed out, the
+// labelled sample day (with Nova's suggestions and auto-arrange) is shown; nothing there is saved or booked.
 import {useState} from 'react';
 import {Pressable, Text, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
-import {deco, fonts, track, type Side} from '@/lib/deco';
+import {track, type Side} from '@/lib/deco';
 import {DIARY_LABEL, addDays, clock, diaryAct, fromISO, localISO, mondayOf, readDiaryDay, type DiaryDay, type DiaryItem} from '@/lib/diary';
 import {failure, useLive} from '@/lib/live';
 import {useMember} from '@/lib/member';
-import {SampleNote, SectionHead, Segmented, s} from './shared';
+import {AHCard, AHEyebrow, AHTitle} from '@/components/ah';
+import {SampleNote, Segmented} from './shared';
 import {LiveGate, Loading, SignInPrompt, Status} from './live';
+import {Fine, Head, Pick, Round, ah, ahFonts, t} from './RoomKit';
 
 type Kind = 'self' | 'work' | 'social';
 type Ev = {id: string; title: string; t: number; d: number; kind: Kind; flex?: boolean; why?: string};
 const PX = 0.8, START = 7 * 60, SPAN = 960;
-const fmt = (m: number) => { const t = START + m, hh = Math.floor(t / 60), mm = t % 60; return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
+const fmt = (m: number) => { const x = START + m, hh = Math.floor(x / 60), mm = x % 60; return `${((hh + 11) % 12) + 1}:${String(mm).padStart(2, '0')} ${hh < 12 ? 'AM' : 'PM'}`; };
 const BASE: Ev[] = [
   {id: 'gym', title: 'Gym · lower body', t: 0, d: 60, kind: 'self', flex: true},
   {id: 'stand', title: 'Team stand-up', t: 150, d: 30, kind: 'work'},
@@ -30,17 +32,81 @@ const SUGG: Ev[] = [
 ];
 const DOW = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+const cap = (x: string) => x.charAt(0) + x.slice(1).toLowerCase();
 
 export function Calendar({side}: {side: Side}) {
   const member = useMember();
   if (member === undefined) return <Loading />;
-  if (member === null) return <View style={{gap: 10}}><SignInPrompt what="your diary on the calendar" /><CalendarSample side={side} /></View>;
-  return <CalendarLive side={side} />;
+  if (member === null) return <View style={{gap: 14}}><Intro /><SignInPrompt what="your diary on the calendar" /><CalendarSample side={side} /></View>;
+  return <View style={{gap: 14}}><Intro /><CalendarLive side={side} /></View>;
+}
+
+function Intro() {
+  return (
+    <View style={{gap: 6}}>
+      <AHTitle size={34}>Your week, on one page.</AHTitle>
+    </View>
+  );
+}
+
+/** One day pill in the week strip. */
+function DayPill({dow, date, on, dot, onPress, a11y}: {dow: string; date: number; on: boolean; dot?: string; onPress: () => void; a11y: string}) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={a11y}
+      style={({pressed}) => ({flex: 1, minHeight: 60, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)', opacity: pressed ? 0.85 : 1})}>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.6, color: on ? '#000' : ah.mute}}>{cap(dow).slice(0, 3)}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 16, color: on ? '#000' : ah.text, fontVariant: ['tabular-nums']}}>{date}</Text>
+      <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: dot ? (on ? '#000' : dot) : 'transparent'}} />
+    </Pressable>
+  );
+}
+
+/** Hour grid behind the timeline. */
+function Hours() {
+  return (
+    <>
+      {Array.from({length: 17}, (_, i) => (
+        <View key={i} style={{position: 'absolute', top: i * 60 * PX, left: -34, right: 0, flexDirection: 'row', alignItems: 'flex-start'}}>
+          <Text style={{width: 30, fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.faint, marginTop: -6}}>{((7 + i + 11) % 12) + 1}{7 + i < 12 ? 'a' : 'p'}</Text>
+          <View style={{flex: 1, height: 1, backgroundColor: ah.line}} />
+        </View>
+      ))}
+    </>
+  );
+}
+
+function Block({title, sub, bar, on, onPress, a11y, h}: {title: string; sub?: string; bar: string; on: boolean; onPress: () => void; a11y: string; h: number}) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={a11y}
+      style={{flex: 1, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: bar, backgroundColor: on ? ah.white : 'rgba(255,255,255,0.07)', paddingHorizontal: 9, paddingVertical: 3, justifyContent: h < 30 ? 'center' : 'flex-start', overflow: 'hidden'}}>
+      <Text numberOfLines={1} style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: on ? '#000' : ah.text}}>{title}</Text>
+      {sub ? <Text numberOfLines={1} style={{fontFamily: ahFonts.sans, fontSize: 11, color: on ? 'rgba(0,0,0,0.6)' : ah.mute}}>{sub}</Text> : null}
+    </Pressable>
+  );
+}
+
+function MonthGrid({lead, dim, isSel, isToday, onPick, dayLabel}: {lead: number; dim: number; isSel: (n: number) => boolean; isToday?: (n: number) => boolean; onPick: (n: number) => void; dayLabel?: (n: number) => string}) {
+  return (
+    <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
+      {DOW.map((d) => <Text key={d} style={{width: `${100 / 7}%`, textAlign: 'center', fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint, paddingVertical: 6}}>{d[0]}</Text>)}
+      {Array.from({length: Math.ceil((lead + dim) / 7) * 7}, (_, i) => {
+        const n = i - lead + 1; const real = n >= 1 && n <= dim; const on = real && isSel(n); const today = real && !!isToday?.(n);
+        return (
+          <View key={i} style={{width: `${100 / 7}%`, aspectRatio: 1, padding: 2}}>
+            <Pressable disabled={!real} onPress={() => onPick(n)} accessibilityRole={real ? 'button' : undefined} accessibilityLabel={real ? (dayLabel?.(n) ?? String(n)) : undefined} accessibilityState={{selected: on}}
+              style={{flex: 1, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ah.white : 'transparent', borderWidth: today && !on ? 1 : 0, borderColor: ah.rose}}>
+              <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 13, color: real ? (on ? '#000' : today ? ah.rose : ah.text) : 'transparent', fontVariant: ['tabular-nums']}}>{real ? n : ''}</Text>
+            </Pressable>
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 function CalendarSample({side}: {side: Side}) {
   const acc = track[side].acc;
-  const KIND: Record<Kind, [string, string]> = {self: ['#7AF5B8', 'rgba(0,255,136,0.08)'], work: [deco.brass, 'rgba(201,169,97,0.1)'], social: [acc, 'rgba(255,77,125,0.1)']};
+  const KIND: Record<Kind, string> = {self: ah.ok, work: ah.platinum, social: acc};
   const [day, setDay] = useState(3);
   const [view, setView] = useState<'day' | 'month'>('day');
   const [evs, setEvs] = useState<Ev[]>(BASE);
@@ -51,116 +117,82 @@ function CalendarSample({side}: {side: Side}) {
   const arrange = () => setEvs((list) => {
     const placed = list.filter((e) => !e.flex).sort((a, b) => a.t - b.t);
     list.filter((e) => e.flex).forEach((e) => {
-      let t = 0;
-      for (const f of [...placed].sort((a, b) => a.t - b.t)) { if (t + e.d <= f.t) break; t = Math.max(t, f.t + f.d); }
-      placed.push({...e, t: Math.min(t, SPAN - e.d)});
+      let x = 0;
+      for (const f of [...placed].sort((a, b) => a.t - b.t)) { if (x + e.d <= f.t) break; x = Math.max(x, f.t + f.d); }
+      placed.push({...e, t: Math.min(x, SPAN - e.d)});
     });
     return placed;
   });
   const sugg = SUGG.filter((g) => !handled.includes(g.id));
 
   return (
-    <View style={{gap: 10}}>
-      <View style={{flexDirection: 'row', borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)'}}>
-        {DOW.map((d, i) => {
-          const on = i === day;
-          return (
-            <Pressable key={d} onPress={() => setDay(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${DAYS[i]} ${13 + i} October`}
-              style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', gap: 1, backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 8, color: on ? '#140E08' : 'rgba(244,232,208,0.7)'}}>{d}</Text>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 14, color: on ? '#140E08' : deco.cream}}>{13 + i}</Text>
-              <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: [1, 3, 4, 5].includes(i) ? (on ? '#140E08' : acc) : 'transparent'}} />
-            </Pressable>
-          );
-        })}
+    <View style={{gap: 14}}>
+      <View style={{flexDirection: 'row', gap: 4}}>
+        {DOW.map((d, i) => <DayPill key={d} dow={d} date={13 + i} on={i === day} dot={[1, 3, 4, 5].includes(i) ? acc : undefined} onPress={() => setDay(i)} a11y={`${cap(DAYS[i])} ${13 + i} October`} />)}
       </View>
-      <Segmented options={[['day', 'DAY'], ['month', 'MONTH']]} value={view} onChange={setView} />
+      <Segmented options={[['day', 'Day'], ['month', 'Month']]} value={view} onChange={setView} />
 
       {view === 'month' ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 6}}>
-          <SectionHead>OCTOBER 2026</SectionHead>
-          <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
-            {DOW.map((d) => <Text key={d} style={{width: `${100 / 7}%`, textAlign: 'center', fontFamily: fonts.mono, fontSize: 8, color: deco.brass, paddingVertical: 4}}>{d[0]}</Text>)}
-            {Array.from({length: 35}, (_, i) => {
-              const n = i - 2; const real = n >= 1 && n <= 31;
-              return (
-                <Pressable key={i} disabled={!real} onPress={() => { if (n >= 13 && n <= 19) setDay(n - 13); setView('day'); }}
-                  style={{width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(201,169,97,0.15)', backgroundColor: n === 13 + day ? 'rgba(232,200,122,0.15)' : 'transparent'}}>
-                  <Text style={{fontFamily: fonts.body, fontSize: 11, color: real ? deco.cream : 'transparent'}}>{real ? n : ''}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={s.small}>Tap a date to open the day.</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 10}}>
+          <Head>October 2026</Head>
+          <MonthGrid lead={3} dim={31} isSel={(n) => n === 13 + day} onPick={(n) => { if (n >= 13 && n <= 19) setDay(n - 13); setView('day'); }} />
+          <Fine>Tap a date to open the day.</Fine>
         </Animated.View>
       ) : (
         <>
           {sugg.length ? (
-            <Animated.View entering={FadeInDown.duration(400)} style={{padding: 10, gap: 6, borderWidth: 1, borderColor: deco.brassHighlight, backgroundColor: 'rgba(232,200,122,0.06)'}}>
-              <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>NOVA FOUND TIME</Text>
-              {sugg.map((g) => (
-                <Animated.View key={g.id} layout={LinearTransition} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                  <View style={{flex: 1}}>
-                    <Text style={s.body}>{g.title}</Text>
-                    <Text style={s.small}>{fmt(g.t)} · {g.why}</Text>
-                  </View>
-                  <SmallBtn label="+" a11y={`Add ${g.title}`} onPress={() => { setEvs((l) => [...l, {...g}]); setHandled((h) => [...h, g.id]); setSel(g.id); }} />
-                  <SmallBtn label="×" a11y={`Skip ${g.title}`} onPress={() => setHandled((h) => [...h, g.id])} />
-                </Animated.View>
-              ))}
+            <Animated.View entering={FadeInDown.duration(400)}>
+              <AHCard pad={16} style={{borderColor: 'rgba(232,180,160,0.3)', backgroundColor: '#100C0D'}}>
+                <AHEyebrow color={ah.rose}>Nova found time</AHEyebrow>
+                <View style={{marginTop: 6}}>
+                  {sugg.map((g) => (
+                    <Animated.View key={g.id} layout={LinearTransition} style={{flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 56, paddingVertical: 6}}>
+                      <View style={{flex: 1}}>
+                        <Text style={t.name}>{g.title}</Text>
+                        <Text style={t.meta}>{fmt(g.t)} · {g.why}</Text>
+                      </View>
+                      <Round label="+" solid a11y={`Add ${g.title}`} onPress={() => { setEvs((l) => [...l, {...g}]); setHandled((h) => [...h, g.id]); setSel(g.id); }} />
+                      <Round label="×" a11y={`Skip ${g.title}`} onPress={() => setHandled((h) => [...h, g.id])} />
+                    </Animated.View>
+                  ))}
+                </View>
+              </AHCard>
             </Animated.View>
           ) : null}
-          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-            <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>{DAYS[day]} {13 + day} OCT</Text>
-            <Pressable onPress={arrange} accessibilityRole="button" style={{borderWidth: 1, borderColor: deco.brass, paddingHorizontal: 8, minHeight: 32, justifyContent: 'center'}}>
-              <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>AUTO-ARRANGE FLEX</Text>
-            </Pressable>
+          <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10}}>
+            <Text style={[t.title, {flexShrink: 1}]}>{cap(DAYS[day])} <Text style={{color: ah.mute}}>{13 + day} Oct</Text></Text>
+            <Pick label="Auto-arrange flex" onPress={arrange} />
           </View>
-          <View style={{height: SPAN * PX + 10, borderLeftWidth: 1, borderColor: 'rgba(201,169,97,0.3)', marginLeft: 26}}>
-            {Array.from({length: 17}, (_, i) => (
-              <View key={i} style={{position: 'absolute', top: i * 60 * PX, left: -26, right: 0, flexDirection: 'row', alignItems: 'flex-start'}}>
-                <Text style={{width: 24, fontFamily: fonts.mono, fontSize: 8, color: 'rgba(244,232,208,0.5)', marginTop: -5}}>{((7 + i + 11) % 12) + 1}{7 + i < 12 ? 'a' : 'p'}</Text>
-                <View style={{flex: 1, height: 1, backgroundColor: 'rgba(201,169,97,0.12)'}} />
-              </View>
-            ))}
+          <View style={{height: SPAN * PX + 10, marginLeft: 34}}>
+            <Hours />
             {evs.map((e) => {
-              const on = e.id === sel; const [bar, bg] = KIND[e.kind];
+              const on = e.id === sel;
+              const h = Math.max(24, e.d * PX - 2);
               return (
-                <Animated.View key={e.id} layout={LinearTransition.duration(300)} style={{position: 'absolute', left: 6, right: 0, top: e.t * PX, height: Math.max(24, e.d * PX - 2)}}>
-                  <Pressable onPress={() => setSel(on ? null : e.id)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${e.title}, ${fmt(e.t)} to ${fmt(e.t + e.d)}`}
-                    style={{flex: 1, borderLeftWidth: 3, borderColor: bar, backgroundColor: on ? deco.brassHighlight : bg, paddingHorizontal: 6, paddingVertical: 2, borderWidth: on ? 2 : 0, borderRightColor: deco.brassWhite, borderTopColor: deco.brassWhite, borderBottomColor: deco.brassWhite}}>
-                    <Text numberOfLines={1} style={{fontFamily: fonts.bodyStrong, fontSize: 11, color: on ? '#140E08' : deco.cream}}>{e.title}{e.flex ? ' · flex' : ''}</Text>
-                    {e.d >= 45 ? <Text style={{fontFamily: fonts.mono, fontSize: 8, color: on ? '#140E08' : 'rgba(244,232,208,0.6)'}}>{fmt(e.t)}–{fmt(e.t + e.d)}</Text> : null}
-                  </Pressable>
+                <Animated.View key={e.id} layout={LinearTransition.duration(300)} style={{position: 'absolute', left: 4, right: 0, top: e.t * PX + 1, height: h}}>
+                  <Block title={`${e.title}${e.flex ? ' · flex' : ''}`} sub={e.d >= 45 ? `${fmt(e.t)}–${fmt(e.t + e.d)}` : undefined} bar={KIND[e.kind]} on={on} h={h}
+                    onPress={() => setSel(on ? null : e.id)} a11y={`${e.title}, ${fmt(e.t)} to ${fmt(e.t + e.d)}`} />
                 </Animated.View>
               );
             })}
           </View>
           {selEv ? (
-            <Animated.View entering={FadeInDown.duration(300)} style={{padding: 10, gap: 8, borderWidth: 2, borderColor: deco.brassHighlight}}>
-              <Text style={s.body}>{selEv.title} · {fmt(selEv.t)}–{fmt(selEv.t + selEv.d)}</Text>
-              <View style={{flexDirection: 'row', gap: 6}}>
-                {[['−30 MIN', () => shift(-30)], ['+30 MIN', () => shift(30)], ['REMOVE', () => { setEvs((l) => l.filter((x) => x.id !== sel)); setSel(null); }]].map(([l, f]) => (
-                  <Pressable key={l as string} onPress={f as () => void} accessibilityRole="button" style={{flex: 1, minHeight: 38, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center'}}>
-                    <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>{l as string}</Text>
-                  </Pressable>
-                ))}
-              </View>
+            <Animated.View entering={FadeInDown.duration(300)}>
+              <AHCard pad={16}>
+                <Text style={t.title}>{selEv.title}</Text>
+                <Text style={t.meta}>{fmt(selEv.t)}–{fmt(selEv.t + selEv.d)}</Text>
+                <View style={{flexDirection: 'row', gap: 8, marginTop: 12}}>
+                  <Pick label="−30 min" flex onPress={() => shift(-30)} />
+                  <Pick label="+30 min" flex onPress={() => shift(30)} />
+                  <Pick label="Remove" flex onPress={() => { setEvs((l) => l.filter((x) => x.id !== sel)); setSel(null); }} />
+                </View>
+              </AHCard>
             </Animated.View>
           ) : null}
         </>
       )}
-      <SampleNote>SAMPLE DAY · NOT YOUR DIARY · CHANGES HERE ARE NOT SAVED · SIGN IN TO SEE YOURS</SampleNote>
+      <SampleNote>Sample day · Not your diary · Changes here are not saved · Sign in to see yours</SampleNote>
     </View>
-  );
-}
-
-function SmallBtn({label, a11y, onPress}: {label: string; a11y: string; onPress: () => void}) {
-  return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y}
-      style={{width: 36, height: 36, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center'}}>
-      <Text style={{color: deco.brassHighlight, fontSize: 16}}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -197,45 +229,27 @@ function CalendarLive({side}: {side: Side}) {
   const first = new Date(cur.getFullYear(), cur.getMonth(), 1);
   const lead = (first.getDay() + 6) % 7;
   const dim = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+  const isoOf = (n: number) => localISO(new Date(cur.getFullYear(), cur.getMonth(), n));
 
   return (
-    <View style={{gap: 10}}>
-      <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+    <View style={{gap: 14}}>
+      <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
         <WeekArrow label="‹" a11y="Previous week" onPress={() => pick(addDays(day, -7))} />
-        <View style={{flex: 1, flexDirection: 'row', borderWidth: 1, borderColor: 'rgba(201,169,97,0.5)'}}>
+        <View style={{flex: 1, flexDirection: 'row', gap: 3}}>
           {week.map((d, i) => {
-            const on = d === day; const dt = fromISO(d);
-            return (
-              <Pressable key={d} onPress={() => pick(d)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={dt.toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'})}
-                style={{flex: 1, minHeight: 50, alignItems: 'center', justifyContent: 'center', gap: 1, backgroundColor: on ? deco.brassHighlight : 'transparent'}}>
-                <Text style={{fontFamily: fonts.mono, fontSize: 8, color: on ? '#140E08' : 'rgba(244,232,208,0.7)'}}>{DOW[i]}</Text>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 14, color: on ? '#140E08' : deco.cream}}>{dt.getDate()}</Text>
-                <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: d === today ? (on ? '#140E08' : acc) : 'transparent'}} />
-              </Pressable>
-            );
+            const dt = fromISO(d);
+            return <DayPill key={d} dow={DOW[i]} date={dt.getDate()} on={d === day} dot={d === today ? acc : undefined} onPress={() => pick(d)} a11y={dt.toLocaleDateString([], {weekday: 'long', day: 'numeric', month: 'long'})} />;
           })}
         </View>
         <WeekArrow label="›" a11y="Next week" onPress={() => pick(addDays(day, 7))} />
       </View>
-      <Segmented options={[['day', 'DAY'], ['month', 'MONTH']]} value={view} onChange={setView} />
+      <Segmented options={[['day', 'Day'], ['month', 'Month']]} value={view} onChange={setView} />
 
       {view === 'month' ? (
-        <Animated.View entering={FadeIn.duration(300)} style={{gap: 6}}>
-          <SectionHead>{cur.toLocaleDateString([], {month: 'long', year: 'numeric'}).toUpperCase()}</SectionHead>
-          <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
-            {DOW.map((d) => <Text key={d} style={{width: `${100 / 7}%`, textAlign: 'center', fontFamily: fonts.mono, fontSize: 8, color: deco.brass, paddingVertical: 4}}>{d[0]}</Text>)}
-            {Array.from({length: Math.ceil((lead + dim) / 7) * 7}, (_, i) => {
-              const n = i - lead + 1; const real = n >= 1 && n <= dim;
-              const iso = real ? localISO(new Date(cur.getFullYear(), cur.getMonth(), n)) : '';
-              return (
-                <Pressable key={i} disabled={!real} onPress={() => { pick(iso); setView('day'); }} accessibilityLabel={real ? `Open ${iso}` : undefined}
-                  style={{width: `${100 / 7}%`, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: 'rgba(201,169,97,0.15)', backgroundColor: iso === day ? 'rgba(232,200,122,0.15)' : 'transparent'}}>
-                  <Text style={{fontFamily: fonts.body, fontSize: 11, color: real ? (iso === today ? acc : deco.cream) : 'transparent'}}>{real ? n : ''}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={s.small}>Tap a date to open that day of your diary.</Text>
+        <Animated.View entering={FadeIn.duration(300)} style={{gap: 10}}>
+          <Head>{cur.toLocaleDateString([], {month: 'long', year: 'numeric'})}</Head>
+          <MonthGrid lead={lead} dim={dim} isSel={(n) => isoOf(n) === day} isToday={(n) => isoOf(n) === today} dayLabel={(n) => `Open ${isoOf(n)}`} onPick={(n) => { pick(isoOf(n)); setView('day'); }} />
+          <Fine>Tap a date to open that day of your diary.</Fine>
         </Animated.View>
       ) : (
         <LiveGate live={live} reload={() => void reload()} what="your diary on the calendar">
@@ -243,53 +257,49 @@ function CalendarLive({side}: {side: Side}) {
             const inDay = data.items.filter((e) => { const m = minsOf(e.starts_at); return m >= 0 && m < SPAN; });
             const outside = data.items.filter((e) => !inDay.includes(e));
             const selEv = data.items.find((e) => e.id === sel);
+            const barOf = (e: DiaryItem) => (e.state === 'needs_member_action' ? acc : e.state === 'done' || e.state === 'approved' ? ah.ok : ah.platinum);
             return (
               <>
-                <Text style={{fontFamily: fonts.capsBold, fontSize: 10, letterSpacing: 2, color: deco.brassHighlight}}>
-                  {cur.toLocaleDateString([], {weekday: 'long'}).toUpperCase()} {cur.getDate()} {cur.toLocaleDateString([], {month: 'short'}).toUpperCase()} · {data.items.length ? `${data.items.length} IN YOUR DIARY` : 'NOTHING IN YOUR DIARY'}
-                </Text>
+                <View style={{gap: 2}}>
+                  <Text style={t.title}>{cur.toLocaleDateString([], {weekday: 'long'})} <Text style={{color: ah.mute}}>{cur.getDate()} {cur.toLocaleDateString([], {month: 'short'})}</Text></Text>
+                  <Text style={t.meta}>{data.items.length ? `${data.items.length} in your diary` : 'Nothing in your diary'}</Text>
+                </View>
                 {outside.length ? (
-                  <View style={{gap: 4}}>
+                  <View style={{gap: 6}}>
                     {outside.map((e) => (
-                      <Pressable key={e.id} onPress={() => setSel(sel === e.id ? null : e.id)} accessibilityRole="button" style={{flexDirection: 'row', gap: 8, minHeight: 36, alignItems: 'center', borderLeftWidth: 3, borderColor: deco.brass, paddingHorizontal: 8, backgroundColor: e.id === sel ? 'rgba(232,200,122,0.15)' : 'transparent'}}>
-                        <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.brass}}>{clock(e.starts_at)}</Text>
-                        <Text style={[s.body, {flex: 1}]} numberOfLines={1}>{e.title}</Text>
+                      <Pressable key={e.id} onPress={() => setSel(sel === e.id ? null : e.id)} accessibilityRole="button" accessibilityState={{selected: e.id === sel}} accessibilityLabel={`${e.title}, ${clock(e.starts_at)}`}
+                        style={{flexDirection: 'row', gap: 10, minHeight: 44, alignItems: 'center', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: barOf(e), paddingHorizontal: 12, backgroundColor: e.id === sel ? ah.white : 'rgba(255,255,255,0.06)'}}>
+                        <Text style={[t.meta, e.id === sel && {color: 'rgba(0,0,0,0.6)'}]}>{clock(e.starts_at)}</Text>
+                        <Text style={[t.name, {flex: 1, fontSize: 14}, e.id === sel && {color: '#000'}]} numberOfLines={1}>{e.title}</Text>
                       </Pressable>
                     ))}
                   </View>
                 ) : null}
-                <View style={{height: SPAN * PX + 10, borderLeftWidth: 1, borderColor: 'rgba(201,169,97,0.3)', marginLeft: 26}}>
-                  {Array.from({length: 17}, (_, i) => (
-                    <View key={i} style={{position: 'absolute', top: i * 60 * PX, left: -26, right: 0, flexDirection: 'row', alignItems: 'flex-start'}}>
-                      <Text style={{width: 24, fontFamily: fonts.mono, fontSize: 8, color: 'rgba(244,232,208,0.5)', marginTop: -5}}>{((7 + i + 11) % 12) + 1}{7 + i < 12 ? 'a' : 'p'}</Text>
-                      <View style={{flex: 1, height: 1, backgroundColor: 'rgba(201,169,97,0.12)'}} />
-                    </View>
-                  ))}
+                <View style={{height: SPAN * PX + 10, marginLeft: 34}}>
+                  <Hours />
                   {inDay.map((e) => {
-                    const on = e.id === sel; const t = minsOf(e.starts_at);
-                    const bar = e.state === 'needs_member_action' ? acc : e.state === 'done' || e.state === 'approved' ? '#7AF5B8' : deco.brass;
+                    const on = e.id === sel; const m = minsOf(e.starts_at);
+                    const h = Math.max(24, Math.min(BLOCK, SPAN - m) * PX - 2);
                     return (
-                      <Animated.View key={e.id} layout={LinearTransition.duration(300)} style={{position: 'absolute', left: 6, right: 0, top: t * PX, height: Math.max(24, Math.min(BLOCK, SPAN - t) * PX - 2)}}>
-                        <Pressable onPress={() => setSel(on ? null : e.id)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${e.title}, ${clock(e.starts_at)}, ${DIARY_LABEL[e.state] ?? e.state}`}
-                          style={{flex: 1, borderLeftWidth: 3, borderColor: bar, backgroundColor: on ? deco.brassHighlight : 'rgba(201,169,97,0.1)', paddingHorizontal: 6, paddingVertical: 2}}>
-                          <Text numberOfLines={1} style={{fontFamily: fonts.bodyStrong, fontSize: 11, color: on ? '#140E08' : deco.cream}}>{e.title}</Text>
-                          <Text style={{fontFamily: fonts.mono, fontSize: 8, color: on ? '#140E08' : 'rgba(244,232,208,0.6)'}}>{clock(e.starts_at)} · {DIARY_LABEL[e.state] ?? e.state.toUpperCase()}</Text>
-                        </Pressable>
+                      <Animated.View key={e.id} layout={LinearTransition.duration(300)} style={{position: 'absolute', left: 4, right: 0, top: m * PX + 1, height: h}}>
+                        <Block title={e.title} sub={`${clock(e.starts_at)} · ${DIARY_LABEL[e.state] ?? e.state.toUpperCase()}`} bar={barOf(e)} on={on} h={h}
+                          onPress={() => setSel(on ? null : e.id)} a11y={`${e.title}, ${clock(e.starts_at)}, ${DIARY_LABEL[e.state] ?? e.state}`} />
                       </Animated.View>
                     );
                   })}
                 </View>
-                {data.items.length === 0 ? <Text style={[s.small, {textAlign: 'center'}]}>A clear day. Add entries from the Diary.</Text> : null}
+                {data.items.length === 0 ? <Fine style={{textAlign: 'center'}}>A clear day. Add entries from the Diary.</Fine> : null}
                 {selEv ? (
-                  <Animated.View entering={FadeInDown.duration(300)} style={{padding: 10, gap: 8, borderWidth: 2, borderColor: deco.brassHighlight}}>
-                    <Text style={s.body}>{selEv.title} · {clock(selEv.starts_at)} · {DIARY_LABEL[selEv.state] ?? selEv.state.toUpperCase()}</Text>
-                    <View style={{flexDirection: 'row', gap: 6}}>
-                      {([['−30 MIN', -30], ['+30 MIN', 30], ...(selEv.state !== 'done' ? [['DONE', 'done']] : []), ['REMOVE', 'cancel']] as Array<[string, number | 'done' | 'cancel']>).map(([l, v]) => (
-                        <Pressable key={l} onPress={() => act(selEv, v)} disabled={busy} accessibilityRole="button" style={{flex: 1, minHeight: 38, borderWidth: 1, borderColor: deco.brass, alignItems: 'center', justifyContent: 'center', opacity: busy ? 0.5 : 1}}>
-                          <Text style={{fontFamily: fonts.mono, fontSize: 9, color: deco.cream}}>{l}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
+                  <Animated.View entering={FadeInDown.duration(300)}>
+                    <AHCard pad={16}>
+                      <Text style={t.title}>{selEv.title}</Text>
+                      <Text style={t.meta}>{clock(selEv.starts_at)} · {DIARY_LABEL[selEv.state] ?? selEv.state.toUpperCase()}</Text>
+                      <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12}}>
+                        {([['−30 min', -30], ['+30 min', 30], ...(selEv.state !== 'done' ? [['Done', 'done']] : []), ['Remove', 'cancel']] as Array<[string, number | 'done' | 'cancel']>).map(([l, v]) => (
+                          <Pick key={l} label={l} on={v === 'done'} flex onPress={() => void act(selEv, v)} disabled={busy} />
+                        ))}
+                      </View>
+                    </AHCard>
                   </Animated.View>
                 ) : null}
                 <Status msg={msg} />
@@ -298,15 +308,15 @@ function CalendarLive({side}: {side: Side}) {
           }}
         </LiveGate>
       )}
-      <SampleNote>YOUR DIARY · CHANGES SAVE ONLY WHEN THE HOUSE CONFIRMS · NOTHING IS BOOKED OUTSIDE THE APP</SampleNote>
+      <SampleNote>Your diary · Changes save only when the house confirms · Nothing is booked outside the app</SampleNote>
     </View>
   );
 }
 
 function WeekArrow({label, a11y, onPress}: {label: string; a11y: string; onPress: () => void}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} hitSlop={6} style={{width: 26, minHeight: 50, alignItems: 'center', justifyContent: 'center'}}>
-      <Text style={{color: deco.brassHighlight, fontSize: 18}}>{label}</Text>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a11y} hitSlop={8} style={({pressed}) => ({width: 28, minHeight: 60, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.6 : 1})}>
+      <Text style={{color: ah.text, fontSize: 22, fontFamily: ahFonts.sans}}>{label}</Text>
     </Pressable>
   );
 }

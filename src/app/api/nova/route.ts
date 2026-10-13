@@ -4,6 +4,7 @@ import {parseBody} from '@/lib/api/validate';
 import {createClient} from '@/lib/supabase/server';
 import {emit} from '@/lib/intelligence';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {
   MAX_HISTORY_TURNS,
   MAX_IMAGES,
@@ -17,7 +18,7 @@ import {
 
 // POST /api/nova — members only, rate limited.
 // Body: {prompt, persona?, style?, images? (≤3), image? (legacy), history? (≤12)}
-// → 200 {text, tool_calls?} | 401 signed_out | 400 invalid | 413 too large | 429 rate_limited
+// → 200 {text, tool_calls?} | 401 signed_out | 403 consent_required {kind} | 400 invalid | 413 too large | 429 rate_limited
 //   | 502 empty_response | 503 nova_unavailable (502/503 carry an honest `text`).
 // `system` is accepted for backward compatibility but NEVER used as instructions.
 
@@ -54,6 +55,9 @@ export async function POST(req: Request) {
 
   const resolved = resolvePersona({persona, style, system});
   noteLegacySystem(resolved);
+
+  const noConsent = await requireAiConsent(supabase, user.id, {photo: allImages.length > 0});
+  if (noConsent) return noConsent;
 
   const limited = await guardAiCall(user.id, allImages.length > 0 ? 'image' : 'nova');
   if (limited) return limited;

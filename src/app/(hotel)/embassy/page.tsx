@@ -2,65 +2,27 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { NovaAction } from '@/components/nova/request-card';
+import { useSignedIn } from '@/components/nova/requests-api';
+import { CONSENT_DECLINED_TEXT, ensureAiConsent } from '@/components/nova/ai-consent';
+import { ReportReply } from '@/components/nova/report-reply';
+import {
+  brandSignals, categoryTrends, fromEmbassy, fromScale,
+  type BrandSignal, type CategoryTrend, type PipelineDeal,
+} from '@/lib/embassy-insights';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
-interface Deal {
-  id: string;
-  brand: string;
-  item: string;
-  source: string;
-  retail: number;
-  members_price: number;
-  status: 'live' | 'pending' | 'review';
-  category: string;
-  tier: 'budget' | 'mid' | 'contemporary' | 'premium' | 'factory';
-  margin_pct: number;
-}
+type Deal = PipelineDeal;
 
-interface Trend {
-  category: string;
-  trend: string;
-  period: string;
-  top_brand: string;
-  insight: string;
-}
-
-interface BrandCard {
-  name: string;
-  tier: string;
-  margin: string;
-  opportunity: string;
-  status: 'active' | 'prospect';
-}
-
-// ─── Fallback data (shown only if Nova call fails) ────────────────────────────
-const FALLBACK_TRENDS: Trend[] = [
-  { category: 'Bags', trend: '+34%', period: 'this week', top_brand: 'Bottega Veneta', insight: 'Members upgrading from mid-tier. Premium bag sourcing opportunity.' },
-  { category: 'Fragrance', trend: '+28%', period: 'this week', top_brand: 'Le Labo', insight: 'Dark woody scents dominating. Members spending +$200 on fragrance.' },
-  { category: 'Shoes', trend: '+19%', period: 'this week', top_brand: 'Amina Muaddi', insight: 'Heel moment. Mule and kitten heel demand spiking among 25-34 segment.' },
-  { category: 'Streetwear', trend: '+41%', period: 'this week', top_brand: 'Off-White', insight: 'Male members 18-24 driving streetwear volume. Budget→premium crossover.' },
-  { category: 'Watches', trend: '+22%', period: 'this week', top_brand: 'AP Royal Oak', insight: "Men's luxury watch demand up. AP and Rolex are the targets." },
-  { category: 'Golf Gear', trend: '+67%', period: 'this week', top_brand: 'Titleist', insight: 'New Carpe Diem members indexing high on golf. Source premium clubs + apparel.' },
-];
-
-const FALLBACK_BRAND_RADAR: BrandCard[] = [
-  { name: 'Jacquemus', tier: 'Premium', margin: '35%', opportunity: 'Limited drops, high demand. Direct contact: partnerships@jacquemus.com', status: 'active' },
-  { name: 'Toteme', tier: 'Premium', margin: '42%', opportunity: 'Quiet luxury moment. Underserved in group buys. Stockholm + Paris drops.', status: 'prospect' },
-  { name: 'Fashion Nova', tier: 'Mid', margin: '28%', opportunity: 'Highest volume. API available. Budget tier but massive scale.', status: 'active' },
-  { name: 'Alibaba Verified Suppliers', tier: 'Factory', margin: '65%', opportunity: 'Factory direct = highest margins. White-label potential for Finesse house brand.', status: 'prospect' },
-  { name: 'Amina Muaddi', tier: 'Premium', margin: '32%', opportunity: 'Shoe moment. Size-inclusive. Strong demographic alignment.', status: 'active' },
-  { name: 'Cult Gaia', tier: 'Contemporary', margin: '38%', opportunity: 'Instagram-native. Member demographics aligned. LA-based = reachable.', status: 'prospect' },
-  { name: 'Titleist / Callaway', tier: 'Sports', margin: '25%', opportunity: 'Carpe Diem golf segment growing 67% WoW. Source premium clubs.', status: 'prospect' },
-  { name: 'Rolex Gray Market', tier: 'Luxury', margin: '8-15%', opportunity: "Men's watch demand high. Gray market arbitrage on AP/Rolex/IWC.", status: 'prospect' },
-];
-
-const SOURCES = ['Direct', 'Fashion Nova API', 'Shein API', 'Temu API', 'Alibaba', 'Factory Direct', 'Other'];
+// Sources a member can name when submitting a deal. Only real channels — we have no retailer APIs wired.
+const SOURCES = ['Direct', 'Brand partnership', 'Alibaba', 'Factory Direct', 'Other'];
 const CATEGORIES = ['Bags', 'Clothes', 'Shoes', 'Accessories', 'Outerwear', 'Fragrance', 'Jewelry', 'Other'];
-const TIERS = ['budget', 'mid', 'contemporary', 'premium', 'factory'] as const;
+// /api/embassy/deals (and the embassy_deals check) accept these four.
+const SUBMIT_TIERS = ['budget', 'mid', 'contemporary', 'premium'] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function savings(retail: number, members: number): string {
-  return `${Math.round(((retail - members) / retail) * 100)}%`;
+  return retail > 0 ? `${Math.round(((retail - members) / retail) * 100)}%` : '—';
 }
 
 function statusConfig(status: string): { dot: string; label: string } {
@@ -81,9 +43,11 @@ function tierColor(tier: string): string {
 function SubmitDealSheet({
   open,
   onClose,
+  onSubmitted,
 }: {
   open: boolean;
   onClose: () => void;
+  onSubmitted?: () => void;
 }) {
   const [form, setForm] = useState({
     brand: '',
@@ -92,30 +56,38 @@ function SubmitDealSheet({
     retail_price: '',
     members_price: '',
     category: 'Bags',
-    tier: 'mid' as typeof TIERS[number],
+    tier: 'mid' as typeof SUBMIT_TIERS[number],
   });
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   async function handleSubmit() {
     if (!form.brand.trim() || !form.item.trim()) return;
     setLoading(true);
+    setError(null);
     try {
-      await fetch('/api/embassy/deals', {
+      const res = await fetch('/api/embassy/deals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           brand: form.brand,
           item: form.item,
           source: form.source,
-          retail_price: parseFloat(form.retail_price) || 0,
-          members_price: parseFloat(form.members_price) || 0,
+          retail_price: parseFloat(form.retail_price) > 0 ? parseFloat(form.retail_price) : undefined,
+          members_price: parseFloat(form.members_price) > 0 ? parseFloat(form.members_price) : undefined,
           category: form.category,
           tier: form.tier,
         }),
       });
+      // Only a saved row counts as submitted.
+      if (!res.ok) {
+        setError(res.status === 401 ? 'Sign in to submit a deal.' : 'This deal couldn’t be submitted just now. Nothing was saved — try again.');
+        return;
+      }
+      onSubmitted?.();
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
@@ -123,7 +95,7 @@ function SubmitDealSheet({
         setForm({ brand: '', item: '', source: 'Direct', retail_price: '', members_price: '', category: 'Bags', tier: 'mid' });
       }, 2500);
     } catch {
-      // graceful fail
+      setError('This deal couldn’t be submitted just now. Nothing was saved — try again.');
     } finally {
       setLoading(false);
     }
@@ -203,9 +175,9 @@ function SubmitDealSheet({
                   </div>
                   <div>
                     <label className="font-label text-[8px] tracking-[0.3em] text-cream/25 uppercase block mb-1">Tier</label>
-                    <select value={form.tier} onChange={(e) => set('tier', e.target.value as typeof TIERS[number])}
+                    <select value={form.tier} onChange={(e) => set('tier', e.target.value as typeof SUBMIT_TIERS[number])}
                       className="w-full px-3 py-2.5 bg-ink border border-cream/10 text-cream font-body text-sm capitalize focus:border-[#C9A961] focus:outline-none">
-                      {TIERS.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
+                      {SUBMIT_TIERS.map((t) => <option key={t} value={t} className="capitalize">{t}</option>)}
                     </select>
                   </div>
                 </div>
@@ -214,6 +186,7 @@ function SubmitDealSheet({
                   className="w-full py-3 mt-2 font-label text-[10px] tracking-[0.3em] uppercase text-ink bg-[#C9A961] hover:opacity-90 transition-opacity disabled:opacity-30 disabled:cursor-not-allowed">
                   {loading ? 'Submitting...' : 'Submit for Review'}
                 </button>
+                {error && <p role="alert" className="font-body text-xs italic text-red-300/80 text-center">{error}</p>}
               </div>
             )}
           </motion.div>
@@ -223,10 +196,17 @@ function SubmitDealSheet({
   );
 }
 
+type LoadState = 'loading' | 'ready' | 'signed_out' | 'error';
+
+function EmptyNote({ children }: { children: React.ReactNode }) {
+  return <p className="py-10 text-center font-display text-lg italic text-cream/35">{children}</p>;
+}
+
 // ─── Tab 1: Deal Pipeline ─────────────────────────────────────────────────────
-function DealPipeline({ deals }: { deals: Deal[] }) {
+function DealPipeline({ deals, state, onSubmitted }: { deals: Deal[]; state: LoadState; onSubmitted: () => void }) {
   const [filter, setFilter] = useState<'all' | 'live' | 'pending' | 'premium' | 'mid' | 'budget'>('all');
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
 
   const filtered = deals.filter((d) => {
     if (filter === 'all') return true;
@@ -237,7 +217,7 @@ function DealPipeline({ deals }: { deals: Deal[] }) {
 
   return (
     <>
-      <SubmitDealSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <SubmitDealSheet open={sheetOpen} onClose={() => setSheetOpen(false)} onSubmitted={onSubmitted} />
 
       {/* Header row */}
       <div className="flex items-center justify-between mb-5">
@@ -245,33 +225,48 @@ function DealPipeline({ deals }: { deals: Deal[] }) {
           <h2 className="font-display text-2xl italic text-[#C9A961] tracking-wide">Deal Pipeline</h2>
           <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">sourced · reviewed · live</p>
         </div>
-        <button onClick={() => setSheetOpen(true)}
-          className="px-4 py-2 font-label text-[9px] tracking-[0.25em] uppercase text-ink bg-[#C9A961] hover:opacity-90 transition-opacity">
-          + Submit Deal
-        </button>
+        {state !== 'signed_out' && (
+          <button onClick={() => setSheetOpen(true)}
+            className="px-4 py-2 font-label text-[9px] tracking-[0.25em] uppercase text-ink bg-[#C9A961] hover:opacity-90 transition-opacity">
+            + Submit Deal
+          </button>
+        )}
       </div>
 
       {/* Filter chips */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        {(['all', 'live', 'premium', 'mid', 'budget'] as const).map((f) => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-3 py-1 text-[9px] font-label tracking-[0.2em] uppercase transition-all duration-200 capitalize ${
-              filter === f ? 'bg-[#C9A961] text-ink' : 'border border-cream/10 text-cream/30 hover:border-[#C9A961]/30'
-            }`}>
-            {f}
-          </button>
-        ))}
-      </div>
+      {deals.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-5">
+          {(['all', 'live', 'premium', 'mid', 'budget'] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`px-3 py-1 text-[9px] font-label tracking-[0.2em] uppercase transition-all duration-200 capitalize ${
+                filter === f ? 'bg-[#C9A961] text-ink' : 'border border-cream/10 text-cream/30 hover:border-[#C9A961]/30'
+              }`}>
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Deal rows */}
+      {state === 'loading' ? (
+        <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-20 border border-cream/6 bg-ink/40 animate-pulse" />)}</div>
+      ) : state === 'signed_out' ? (
+        <EmptyNote>Sign in to see the deal pipeline. <Link href="/login" className="text-[#C9A961] not-italic font-label text-[10px] tracking-[0.2em] uppercase ml-1">Sign in</Link></EmptyNote>
+      ) : state === 'error' ? (
+        <EmptyNote>The pipeline couldn’t be loaded just now. Try again in a moment.</EmptyNote>
+      ) : deals.length === 0 ? (
+        <EmptyNote>No deals in the pipeline yet — submit the first one.</EmptyNote>
+      ) : filtered.length === 0 ? (
+        <EmptyNote>Nothing matches this filter.</EmptyNote>
+      ) : (
       <div className="space-y-2">
         {filtered.map((deal, i) => {
           const sc = statusConfig(deal.status);
+          const query = `${deal.brand} ${deal.item}`.trim().slice(0, 200);
           return (
             <motion.div key={deal.id}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
+              transition={{ delay: Math.min(i, 10) * 0.04 }}
               className="p-4 border border-cream/6 bg-ink/40 hover:border-cream/12 transition-colors">
               <div className="flex items-start justify-between gap-3">
                 {/* Left: brand + item */}
@@ -289,21 +284,35 @@ function DealPipeline({ deals }: { deals: Deal[] }) {
 
                 {/* Right: pricing + status */}
                 <div className="text-right shrink-0">
-                  <div className="flex items-baseline gap-2 justify-end">
-                    <span className="font-mono text-xs text-cream/25 line-through">${deal.retail}</span>
-                    <span className="font-mono text-sm text-[#C9A961]">${deal.members_price}</span>
-                  </div>
-                  <p className="font-mono text-[9px] text-[#69C9D0] mt-0.5">{savings(deal.retail, deal.members_price)} off</p>
+                  {deal.retail > 0 && deal.members_price > 0 ? (
+                    <>
+                      <div className="flex items-baseline gap-2 justify-end">
+                        <span className="font-mono text-xs text-cream/25 line-through">${deal.retail}</span>
+                        <span className="font-mono text-sm text-[#C9A961]">${deal.members_price}</span>
+                      </div>
+                      <p className="font-mono text-[9px] text-[#69C9D0] mt-0.5">{savings(deal.retail, deal.members_price)} off</p>
+                    </>
+                  ) : <p className="font-mono text-[10px] text-cream/25">price tbc</p>}
                   <div className="flex items-center gap-1.5 justify-end mt-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
                     <span className={`font-label text-[7px] tracking-[0.2em] uppercase ${sc.label}`}>{deal.status}</span>
                   </div>
                 </div>
               </div>
+              {open === deal.id ? (
+                <NovaAction label="Find similar" accent="#69C9D0"
+                  build={() => ({ kind: 'find_item', title: `Similar to ${query}`.slice(0, 140), details: { query }, room: 'embassy' })} />
+              ) : (
+                <button type="button" onClick={() => setOpen(deal.id)}
+                  className="mt-3 font-label text-[8px] tracking-[0.2em] uppercase text-[#69C9D0]/70 hover:text-[#69C9D0]">
+                  ✦ Find similar
+                </button>
+              )}
             </motion.div>
           );
         })}
       </div>
+      )}
     </>
   );
 }
@@ -316,20 +325,32 @@ function novaLimitMessage(status: number, body: {retryAfterS?: unknown} | null |
   return Number.isFinite(s) && s > 0 ? `Nova needs a moment — try again in ${Math.ceil(s)} s.` : 'Nova needs a moment — try again shortly.';
 }
 
-// ─── Tab 2: Buying Trends ─────────────────────────────────────────────────────
-function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; trendsLoading: boolean; source: InsightSource }) {
+function DerivedNote() {
+  return (
+    <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
+      From live Scale + Embassy deals — not outside market data
+    </p>
+  );
+}
+
+// ─── Tab 2: Buying Trends (derived from the pipeline) ─────────────────────────
+function BuyingTrends({ trends, state }: { trends: CategoryTrend[]; state: LoadState }) {
   const [briefing, setBriefing] = useState<string | null>(null);
+  const [briefingId, setBriefingId] = useState<string | null>(null); // set only when the text is Nova's
   const [loading, setLoading] = useState(false);
 
   async function getIntel() {
+    if (trends.length === 0) return;
+    setBriefingId(null);
+    if (!(await ensureAiConsent('ai_processing'))) { setBriefing(CONSENT_DECLINED_TEXT); return; }
     setLoading(true);
     try {
-      const trendSummary = trends.map((t) => `- ${t.category} ${t.trend} (top: ${t.top_brand})`).join('\n');
-      const prompt = `Based on these Finesse platform buying trends this week:\n${trendSummary}\n\nGenerate 2-3 specific deal recommendations for our sourcing team. Be concise and actionable. Format as a brief intelligence memo.`;
+      const trendSummary = trends.map((t) => `- ${t.category}: ${t.deals} deals (${t.live} live), avg member savings ${t.avg_savings_pct}%, ${t.joins} group-buy joins, most deals from ${t.top_brand}`).join('\n');
+      const prompt = `These are the categories in our Embassy deal pipeline right now (real counts):\n${trendSummary}\n\nGive 2-3 specific sourcing recommendations for the team. Be concise and actionable. Don't invent statistics beyond these.`;
       const res = await fetch('/api/nova', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle platform. Provide sharp, actionable deal sourcing recommendations based on member buying data.', persona: 'embassy' }),
+        body: JSON.stringify({ prompt, persona: 'embassy' }),
       });
       const data = (await res.json().catch(() => ({}))) as { text?: string; retryAfterS?: unknown };
       if (!res.ok || !data.text) {
@@ -337,6 +358,7 @@ function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; tren
         return;
       }
       setBriefing(data.text);
+      setBriefingId(`embassy-trends:${Date.now()}`);
     } catch {
       setBriefing('Intelligence feed unavailable. Check back shortly.');
     } finally {
@@ -348,17 +370,24 @@ function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; tren
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl italic text-[#C9A961] tracking-wide">Buying Trends</h2>
-        <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">client intelligence · what&apos;s moving this week</p>
+        <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">what&apos;s moving in the pipeline</p>
       </div>
-      {!trendsLoading && <InsightSourceNote source={source} />}
 
-      {trendsLoading ? (
+      {state === 'loading' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div key={i} className="p-5 border border-cream/6 bg-ink/40 animate-pulse" style={{ height: '120px' }} />
           ))}
         </div>
+      ) : state === 'signed_out' ? (
+        <EmptyNote>Sign in to see what members are buying.</EmptyNote>
+      ) : state === 'error' ? (
+        <EmptyNote>Trends couldn’t be loaded just now.</EmptyNote>
+      ) : trends.length === 0 ? (
+        <EmptyNote>No deals yet, so no trends to read. They appear as deals come in.</EmptyNote>
       ) : (
+      <>
+      <DerivedNote />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
         {trends.map((t, i) => (
           <motion.div key={t.category}
@@ -368,21 +397,22 @@ function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; tren
             className="p-5 border border-cream/6 bg-ink/40">
             <div className="flex items-start justify-between mb-3">
               <h3 className="font-display text-xl italic text-cream/80 tracking-wide">{t.category}</h3>
-              <span className="font-mono text-sm text-green-400">{t.trend}</span>
+              <span className="font-mono text-sm text-green-400">{t.deals} {t.deals === 1 ? 'deal' : 'deals'}</span>
             </div>
-            <p className="font-label text-[8px] tracking-[0.2em] text-[#C9A961]/70 uppercase mb-2">{t.top_brand}</p>
-            <p className="font-body text-xs text-cream/40 italic leading-relaxed">{t.insight}</p>
+            {t.top_brand && <p className="font-label text-[8px] tracking-[0.2em] text-[#C9A961]/70 uppercase mb-2">{t.top_brand}</p>}
+            <p className="font-body text-xs text-cream/40 italic leading-relaxed">
+              {t.live} live{t.avg_savings_pct > 0 ? ` · avg ${t.avg_savings_pct}% member savings` : ''}{t.joins > 0 ? ` · ${t.joins} group-buy ${t.joins === 1 ? 'join' : 'joins'}` : ''}
+            </p>
           </motion.div>
         ))}
       </div>
-      )}
 
       {/* Source Intel button */}
       <div className="border border-[#69C9D0]/15 bg-[#69C9D0]/3 p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
             <p className="font-label text-[9px] tracking-[0.35em] text-[#69C9D0]/80 uppercase">Source Intel</p>
-            <p className="font-body text-xs text-cream/30 italic mt-0.5">Nova generates deal recommendations from trend data</p>
+            <p className="font-body text-xs text-cream/30 italic mt-0.5">Nova reads these numbers and suggests where to source next</p>
           </div>
           <button onClick={getIntel} disabled={loading}
             className="px-4 py-2 font-label text-[9px] tracking-[0.2em] uppercase border border-[#69C9D0]/40 text-[#69C9D0] hover:bg-[#69C9D0]/10 transition-colors disabled:opacity-40">
@@ -395,33 +425,43 @@ function BuyingTrends({ trends, trendsLoading, source }: { trends: Trend[]; tren
             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden">
               <div className="h-px bg-[#69C9D0]/10 mb-4" />
-              <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova estimate, not market data</p>
+              <p className="mb-2 font-label text-[8px] uppercase tracking-[0.3em] text-cream/40">Nova&apos;s read, not market data</p>
               <p className="font-body text-sm text-cream/60 italic leading-relaxed whitespace-pre-wrap">{briefing}</p>
+              {briefingId && <ReportReply key={briefingId} targetId={briefingId} text={briefing} />}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+      </>
+      )}
     </div>
   );
 }
 
-// ─── Tab 3: Brand Radar ───────────────────────────────────────────────────────
-function BrandRadar({ brands, brandsLoading, source }: { brands: BrandCard[]; brandsLoading: boolean; source: InsightSource }) {
+// ─── Tab 3: Brand Radar (derived from the pipeline) ───────────────────────────
+function BrandRadar({ brands, state }: { brands: BrandSignal[]; state: LoadState }) {
   return (
     <div>
       <div className="mb-6">
         <h2 className="font-display text-2xl italic text-[#C9A961] tracking-wide">Brand Radar</h2>
-        <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">brands worth chasing right now</p>
+        <p className="font-label text-[8px] tracking-[0.4em] text-[#69C9D0]/60 uppercase mt-0.5">brands in the pipeline</p>
       </div>
-      {!brandsLoading && <InsightSourceNote source={source} />}
 
-      {brandsLoading ? (
+      {state === 'loading' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[...Array(8)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div key={i} className="p-5 border border-cream/6 bg-ink/40 animate-pulse" style={{ height: '140px' }} />
           ))}
         </div>
+      ) : state === 'signed_out' ? (
+        <EmptyNote>Sign in to see the brand radar.</EmptyNote>
+      ) : state === 'error' ? (
+        <EmptyNote>The radar couldn’t be loaded just now.</EmptyNote>
+      ) : brands.length === 0 ? (
+        <EmptyNote>No brands on the radar yet. Every submitted deal adds one.</EmptyNote>
       ) : (
+      <>
+      <DerivedNote />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {brands.map((b, i) => (
           <motion.div key={b.name}
@@ -432,201 +472,72 @@ function BrandRadar({ brands, brandsLoading, source }: { brands: BrandCard[]; br
             <div className="flex items-start justify-between mb-3">
               <div>
                 <p className="font-display text-base italic text-cream/80 tracking-wide">{b.name}</p>
-                <p className="font-label text-[7px] tracking-[0.25em] text-cream/25 uppercase mt-0.5">{b.tier}</p>
+                <p className="font-label text-[7px] tracking-[0.25em] text-cream/25 uppercase mt-0.5">{b.categories.join(' · ')}</p>
               </div>
               <div className="text-right">
-                <p className="font-mono text-sm text-[#C9A961]">{b.margin}</p>
-                <p className="font-label text-[7px] tracking-[0.15em] text-cream/20 uppercase">est. margin</p>
+                <p className="font-mono text-sm text-[#C9A961]">{b.avg_savings_pct > 0 ? `${b.avg_savings_pct}%` : '—'}</p>
+                <p className="font-label text-[7px] tracking-[0.15em] text-cream/20 uppercase">avg member savings</p>
               </div>
             </div>
 
-            <p className="font-body text-xs text-cream/40 italic leading-relaxed mb-3">{b.opportunity}</p>
+            <p className="font-body text-xs text-cream/40 italic leading-relaxed mb-3">
+              {b.deals} {b.deals === 1 ? 'deal' : 'deals'} · {b.live} live
+            </p>
 
             <div className="flex items-center gap-1.5">
               <span className={`w-1.5 h-1.5 rounded-full ${b.status === 'active' ? 'bg-green-500' : 'bg-amber-400'}`} />
               <span className={`font-label text-[7px] tracking-[0.2em] uppercase ${b.status === 'active' ? 'text-green-400' : 'text-amber-400'}`}>
-                {b.status}
+                {b.status === 'active' ? 'live deals' : 'in review'}
               </span>
             </div>
           </motion.div>
         ))}
       </div>
+      </>
       )}
     </div>
-  );
-}
-
-// ─── Helpers for parsing Nova intelligence response ────────────────────────────
-function parseTrendsFromNova(text: string): Trend[] | null {
-  try {
-    const lines = text.split('\n').filter(Boolean);
-    const trends: Trend[] = [];
-    for (const line of lines) {
-      // Look for lines like: "Category: +N% | Top brand: X | Insight: Y"
-      // or any structured list format — extract what we can
-      const catMatch = line.match(/\*?\*?([A-Za-z &]+)\*?\*?[:\s]+([+-]?\d+%)/);
-      const brandMatch = line.match(/(?:top[:\s]+|brand[:\s]+)([A-Za-z ]+)/i);
-      const insightMatch = line.match(/(?:insight[:\s]+|[-–]\s*)(.{20,})/i);
-      if (catMatch) {
-        trends.push({
-          category: catMatch[1].trim(),
-          trend: catMatch[2].trim(),
-          period: 'this week',
-          top_brand: brandMatch ? brandMatch[1].trim() : '',
-          insight: insightMatch ? insightMatch[1].trim() : line.slice(line.indexOf('%') + 1).trim() || '',
-        });
-      }
-    }
-    return trends.length >= 3 ? trends : null;
-  } catch {
-    return null;
-  }
-}
-
-function parseBrandsFromNova(text: string): BrandCard[] | null {
-  try {
-    const lines = text.split('\n').filter(Boolean);
-    const brands: BrandCard[] = [];
-    for (const line of lines) {
-      const brandMatch = line.match(/\*?\*?([A-Za-z /&]+)\*?\*?[:\s]/);
-      const marginMatch = line.match(/(\d+(?:\.\d+)?(?:-\d+)?%)/);
-      if (brandMatch && brands.length < 8) {
-        brands.push({
-          name: brandMatch[1].trim(),
-          tier: marginMatch && parseInt(marginMatch[1]) >= 40 ? 'Premium' : 'Contemporary',
-          margin: marginMatch ? marginMatch[1] : '--',
-          opportunity: line.replace(brandMatch[0], '').replace(marginMatch?.[0] ?? '', '').trim() || line,
-          status: 'prospect',
-        });
-      }
-    }
-    return brands.length >= 4 ? brands : null;
-  } catch {
-    return null;
-  }
-}
-
-// Where the trend / radar figures came from. Neither is market data:
-// 'sample' = hard-coded placeholders, 'nova' = LLM-generated estimates.
-type InsightSource = 'sample' | 'nova';
-
-function InsightSourceNote({ source }: { source: InsightSource }) {
-  return (
-    <p className="mb-4 font-label text-[9px] uppercase tracking-[0.35em] text-cream/40">
-      {source === 'nova' ? 'Nova estimate, not market data' : 'Sample figures, not market data'}
-    </p>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function EmbassyPage() {
   const [tab, setTab] = useState<'pipeline' | 'trends' | 'radar'>('pipeline');
+  const signedIn = useSignedIn();
 
-  // Real data state
+  // Real data: scale_deals (group buys) + embassy_deals (submitted/sourced). Trends + radar derive from these.
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [trends, setTrends] = useState<Trend[]>(FALLBACK_TRENDS);
-  const [brands, setBrands] = useState<BrandCard[]>(FALLBACK_BRAND_RADAR);
-  const [trendsLoading, setTrendsLoading] = useState(true);
-  const [brandsLoading, setBrandsLoading] = useState(true);
-  const [trendsSource, setTrendsSource] = useState<InsightSource>('sample');
-  const [brandsSource, setBrandsSource] = useState<InsightSource>('sample');
+  const [loaded, setLoaded] = useState<'ready' | 'error' | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
-    // ── 1. Load scale_deals from Supabase ──────────────────────────────────
+    if (!signedIn) return;
+    let alive = true;
     import('@/lib/supabase/client').then(async ({ createClient }) => {
       try {
         const sb = createClient();
-        const { data } = await sb.from('scale_deals')
-          .select('id, title, brand, description, original_price_cents, group_price_cents, goal_count, current_count, category, status')
-          .order('created_at', { ascending: false });
-        if (data && data.length > 0) {
-          const mapped: Deal[] = data.map((d) => {
-            const tier: Deal['tier'] =
-              d.original_price_cents >= 100000 ? 'premium' :
-              d.original_price_cents >= 30000  ? 'contemporary' :
-              d.original_price_cents >= 5000   ? 'mid' : 'budget';
-            const pipelineStatus: Deal['status'] =
-              d.status === 'met' ? 'live' :
-              d.status === 'open' ? (d.current_count >= d.goal_count * 0.5 ? 'live' : 'pending') :
-              'review';
-            const savingsRate = ((d.original_price_cents - d.group_price_cents) / d.original_price_cents) * 100;
-            return {
-              id: d.id,
-              brand: d.brand,
-              item: d.title,
-              source: 'Scale Direct',
-              retail: d.original_price_cents / 100,
-              members_price: d.group_price_cents / 100,
-              status: pipelineStatus,
-              category: d.category ?? 'Accessories',
-              tier,
-              margin_pct: Math.round(savingsRate),
-            };
-          });
-          setDeals(mapped);
-        }
-      } catch { /* deals stay empty */ }
+        const [scale, embassy] = await Promise.all([
+          sb.from('scale_deals')
+            .select('id, title, brand, original_price_cents, group_price_cents, goal_count, current_count, category, status')
+            .order('created_at', { ascending: false }).limit(100),
+          sb.from('embassy_deals')
+            .select('id, brand, item, source, retail_price_cents, members_price_cents, category, tier, status')
+            .neq('status', 'rejected')
+            .order('created_at', { ascending: false }).limit(100),
+        ]);
+        if (!alive) return;
+        if (scale.error && embassy.error) { setLoaded('error'); return; }
+        setDeals([...(embassy.data ?? []).map(fromEmbassy), ...(scale.data ?? []).map(fromScale)]);
+        setLoaded('ready');
+      } catch {
+        if (alive) setLoaded('error');
+      }
     });
+    return () => { alive = false; };
+  }, [signedIn, reload]);
 
-    // ── 2. One Nova call for trends + brand radar (10s timeout) ────────────
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000);
-
-    fetch('/api/nova', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        prompt: `Generate a luxury fashion market intelligence report for the Finesse platform. Include:
-
-1. BUYING TRENDS (6 categories): For each, give category name, week-over-week percentage change, the top brand driving it, and a 1-sentence sourcing insight. Format each line as:
-Category: +XX% | Top: BrandName | Insight text here
-
-2. BRAND RADAR (8 brands): For each, give brand name, tier (Premium/Contemporary/Mid/Factory), estimated margin percentage, and a sourcing opportunity note. Format each line as:
-BrandName | Tier | Margin% | Opportunity note here
-
-Focus on what's actually moving in luxury streetwear, handbags, footwear, fragrance, and menswear right now.`,
-        system: 'You are the Embassy intelligence engine for Finesse, a luxury lifestyle group-buying platform. Provide sharp, structured market intelligence. Be specific about brand names, percentages, and actionable opportunities. Always follow the exact format requested.',
-        persona: 'embassy',
-      }),
-    })
-      .then(async (res) => {
-        // Background load: on 401 (signed out) / 429 (rate limited) / any failure the
-        // labelled sample trends stay up; the member-initiated briefing surfaces the reason.
-        if (!res.ok) throw new Error('nova unavailable');
-        return (await res.json()) as { text?: string };
-      })
-      .then((data: { text?: string }) => {
-        clearTimeout(timeout);
-        if (!data.text) return;
-
-        const text = data.text;
-
-        // Split on the BRAND RADAR header to separate the two sections
-        const splitIdx = text.search(/brand radar|BRAND RADAR/i);
-        const trendsSection = splitIdx > 0 ? text.slice(0, splitIdx) : text;
-        const brandsSection = splitIdx > 0 ? text.slice(splitIdx) : '';
-
-        const parsedTrends = parseTrendsFromNova(trendsSection);
-        if (parsedTrends) { setTrends(parsedTrends); setTrendsSource('nova'); }
-
-        const parsedBrands = parseBrandsFromNova(brandsSection || text);
-        if (parsedBrands) { setBrands(parsedBrands); setBrandsSource('nova'); }
-      })
-      .catch(() => {
-        // Nova failed — fallbacks already set as initial state
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        setTrendsLoading(false);
-        setBrandsLoading(false);
-      });
-
-    return () => {
-      clearTimeout(timeout);
-      controller.abort();
-    };
-  }, []);
+  const state: LoadState = signedIn === false ? 'signed_out' : signedIn === null || loaded === null ? 'loading' : loaded;
+  const trends = categoryTrends(deals);
+  const brands = brandSignals(deals);
 
   const TABS = [
     { id: 'pipeline' as const, label: 'Deal Pipeline' },
@@ -687,7 +598,7 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <DealPipeline deals={deals} />
+              <DealPipeline deals={deals} state={state} onSubmitted={() => setReload((n) => n + 1)} />
             </motion.div>
           )}
           {tab === 'trends' && (
@@ -696,7 +607,7 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BuyingTrends trends={trends} trendsLoading={trendsLoading} source={trendsSource} />
+              <BuyingTrends trends={trends} state={state} />
             </motion.div>
           )}
           {tab === 'radar' && (
@@ -705,7 +616,7 @@ Focus on what's actually moving in luxury streetwear, handbags, footwear, fragra
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -6 }}
               transition={{ duration: 0.25 }}>
-              <BrandRadar brands={brands} brandsLoading={brandsLoading} source={brandsSource} />
+              <BrandRadar brands={brands} state={state} />
             </motion.div>
           )}
         </AnimatePresence>

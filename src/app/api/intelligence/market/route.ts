@@ -1,19 +1,20 @@
 // Members only.
 // GET  /api/intelligence/market?category=Sneakers   (DB aggregate, no model call)
 // GET  /api/intelligence/market?mode=anomalies
-// POST /api/intelligence/market  { mode: 'price', item: {...} }   (model call — rate limited)
+// POST /api/intelligence/market  { mode: 'price', item: {...} }   (model call — AI consent required, rate limited)
 
 import {NextResponse} from 'next/server';
 import {z} from 'zod';
 import {parseBody} from '@/lib/api/validate';
 import {createClient} from '@/lib/supabase/server';
 import {guardAiCall} from '@/lib/ai-rate-limit';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 import {getMarketSignals, recommendListingPrice, detectMarketAnomalies} from '@/lib/intelligence';
 
 async function signedInUser() {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
-  return user;
+  return user ? Object.assign(user, {supabase}) : null;
 }
 
 const signedOut = () => NextResponse.json({error: 'signed_out'}, {status: 401, headers: {'Cache-Control': 'no-store'}});
@@ -55,6 +56,8 @@ export async function POST(req: Request) {
   const parsed = await parseBody(req, priceSchema);
   if (parsed.error) return parsed.error;
 
+  const noConsent = await requireAiConsent(user.supabase, user.id);
+  if (noConsent) return noConsent;
   const limited = await guardAiCall(user.id, 'nova');
   if (limited) return limited;
 

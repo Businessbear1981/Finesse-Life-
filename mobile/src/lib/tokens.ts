@@ -1,13 +1,14 @@
 export const colors = {
-  ink: '#080406',
-  oxblood: '#17090D',
-  burgundy: '#3A121B',
-  brassShadow: '#6B5028',
-  brass: '#C9A961',
-  brassHighlight: '#E8C87A',
-  cream: '#F4E8D0',
-  finessePink: '#FF4D7D',
-  carpeLamp: '#FFA96B',
+  // After Hours values under the historic names (see src/lib/deco.ts).
+  ink: '#050505',
+  oxblood: '#0C0C0E',
+  burgundy: '#1A1517',
+  brassShadow: '#55575C',
+  brass: '#B9BCC2',
+  brassHighlight: '#EDEBE7',
+  cream: '#EDEBE7',
+  finessePink: '#E8B4A0',
+  carpeLamp: '#C9CCD2',
 } as const;
 
 export const motionMs = { press: 180, room: 450, arrival: 900, doors: 1250 } as const;
