@@ -5,6 +5,8 @@
 import {useState} from 'react';
 import {useRouter} from 'expo-router';
 import {ActivityIndicator, Pressable, Text} from 'react-native';
+import {SUPPORT_EMAIL} from '@/lib/consents';
+import {openUrl} from '@/components/legal/LegalLinks';
 import {api, liftToken} from '@/lib/api';
 import {useMember} from '@/lib/member';
 import {supabase} from '@/lib/supabase';
@@ -39,7 +41,7 @@ export default function DeleteAccount() {
       : r.status === 401 ? 'That password is not right. Nothing was deleted.'
       : r.status === 429 ? 'Too many attempts. Wait a while before trying again. Nothing was deleted.'
       : r.status === 404 || r.status === 405 ? 'Account deletion is not open on the server yet. Nothing was deleted.'
-      : r.ok ? 'The house did not confirm the deletion. Your account may still exist — try again or contact the front desk.'
+      : r.ok ? `The house did not confirm the deletion. Your account may still exist — try again or email ${SUPPORT_EMAIL}.`
       // A server message is shown as-is: a 500 can mean a partial deletion, so we don't claim "nothing was deleted".
       : r.body.message ?? `The house could not delete the account (${r.body.error ?? r.status}).`);
   };
@@ -77,6 +79,14 @@ export default function DeleteAccount() {
       ) : null}
 
       <AHPill label="Keep my account" variant="ghost" block onPress={() => router.back()} style={{marginTop: 16}} />
+
+      <AHCard style={{marginTop: 20, gap: 6}} pad={16}>
+        <AHEyebrow>Can’t sign in, or need help?</AHEyebrow>
+        <AHBody mute>
+          Email the front desk at <Text accessibilityRole="link" onPress={openUrl(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('Delete my Finesse account')}`)} style={{color: ah.rose, textDecorationLine: 'underline'}}>{SUPPORT_EMAIL}</Text> from
+          the address on your account and ask for deletion. Details: <Text accessibilityRole="link" onPress={openUrl('https://finesselife.vip/account/delete-info')} style={{color: ah.rose, textDecorationLine: 'underline'}}>finesselife.vip/account/delete-info</Text>
+        </AHBody>
+      </AHCard>
     </AHScreen>
   );
 }

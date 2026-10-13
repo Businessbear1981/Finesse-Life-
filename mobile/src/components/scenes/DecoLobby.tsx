@@ -4,7 +4,8 @@
 //   Same props as before so every caller keeps working.
 // - LobbyRoom: the Lobby inside the hotel (mirrors web lobby-view.tsx). Everything shown is real member data
 //   or an honest empty state: who is signed in, their name from the identity endpoint, who has posted in the
-//   Lounge, and their Vault balance. Nothing is invented when a call fails.
+//   Lounge, and their Vault balance. Nothing is invented when a call fails. Store builds leave out every room
+//   lib/release.ts hides (the Vault card, the private lift, Backstage) — no link leads to a dead end.
 // - HouseIndex: the 31-room manifest as a numbered index with floor tabs (shared with /lobby).
 import {useEffect, useId, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View} from 'react-native';
@@ -18,6 +19,7 @@ import {useMember} from '@/lib/member';
 import {secureStorage} from '@/lib/secure-storage';
 import {rooms, roomById, type Room} from '@/lib/registry';
 import {Icon} from '@/lib/icons';
+import {RELEASE, isRoomVisible} from '@/lib/release';
 import {
   AHCard, AHChip, AHClock, AHDisplay, AHEyebrow, AHIndex, AHLiveDot, AHMemberCard, AHPill, AHRing, AHSection, AHSkeleton, AHSmoke,
   greetingFor, isFinish, type AHIndexItem, type Finish,
@@ -89,6 +91,7 @@ const TRUTH: Record<Room['truthState'], string> = {wired: 'Live', preview: 'Prev
 export function HouseIndex({onPick, bleed = 0}: {onPick: (room: Room) => void; bleed?: number}) {
   const [floor, setFloor] = useState(FLOORS[0].id);
   const items: AHIndexItem[] = useMemo(() => (FLOORS.find((f) => f.id === floor)?.roomIds ?? [])
+    .filter(isRoomVisible)
     .map((rid) => roomById(rid)).filter((r): r is Room => Boolean(r))
     .map((r) => {
       const key = r.id === 'vip-room' || r.truthState === 'gated';
@@ -108,9 +111,11 @@ export function HouseIndex({onPick, bleed = 0}: {onPick: (room: Room) => void; b
         })}
       </ScrollView>
       <AHIndex items={items} />
-      <Text style={{marginTop: 14, fontFamily: ahFonts.sans, fontSize: 12, lineHeight: 17, color: ah.faint}}>
-        The Penthouse is reached by the private lift inside the VIP Room.
-      </Text>
+      {RELEASE.vip ? (
+        <Text style={{marginTop: 14, fontFamily: ahFonts.sans, fontSize: 12, lineHeight: 17, color: ah.faint}}>
+          The Penthouse is reached by the private lift inside the VIP Room.
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -123,7 +128,7 @@ const FINISH_KEY = 'finesse_card_finish'; // read only; the Vault owns this choi
 const money = (c: number) => (c / 100).toLocaleString('en-US', {style: 'currency', currency: 'USD'});
 
 // Rooms reached from the Lobby that are off the rails (hotel ids).
-const ALSO = [
+const ALSO_ALL = [
   {id: 'ballroom', label: 'The Ballroom', note: 'Compose an evening'},
   {id: 'club', label: 'The Club', note: 'News · money · cars · locker room'},
   {id: 'closet', label: 'The Closet', note: 'The week, from pieces you own'},
@@ -131,6 +136,9 @@ const ALSO = [
   {id: 'camera', label: 'The Camera', note: 'Private intake, with consent'},
   {id: 'jazz-club', label: 'Jazz Club', note: 'Down the back stair'},
 ];
+const ALSO = ALSO_ALL.filter((r) => isRoomVisible(r.id));
+/** Rooms the directory can open in this build (the count shown on the Lobby). */
+export const visibleRoomCount = rooms.filter((r) => isRoomVisible(r.id)).length;
 
 const firstWord = (s: string) => s.trim().split(/\s+/)[0] ?? s;
 
@@ -166,9 +174,11 @@ export function LobbyRoom({side, onPick, onManifest, width}: {side: Side; onPick
       const n = r.ok ? (r.body.self?.display_name || r.body.self?.username || null) : null;
       setName(n ? firstWord(n) : null);
     });
-    api<Balance>('/api/vault/balance').then((r) => {
-      if (alive) setBalance(r.ok && typeof r.body.balance_cents === 'number' ? r.body.balance_cents : null);
-    });
+    if (RELEASE.vault) {
+      api<Balance>('/api/vault/balance').then((r) => {
+        if (alive) setBalance(r.ok && typeof r.body.balance_cents === 'number' ? r.body.balance_cents : null);
+      });
+    }
     return () => { alive = false; };
   }, [signedIn]);
 
@@ -221,7 +231,9 @@ export function LobbyRoom({side, onPick, onManifest, width}: {side: Side; onPick
           <AHEyebrow>{houseName} · By invitation</AHEyebrow>
           <AHDisplay size={Math.min(56, Math.round(inner / 3.6))} style={{marginTop: 8}}>Welcome.</AHDisplay>
           <Text style={{marginTop: 10, marginBottom: 20, fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.mute}}>
-            A private house for the night: guest lists, the Vault, Nova and the people worth knowing. Members only.
+            {RELEASE.vault
+              ? 'A private house for the night: guest lists, the Vault, Nova and the people worth knowing. Members only.'
+              : 'A private house for the night: guest lists, Nova and the people worth knowing. Members only.'}
           </Text>
           <AHPill label="Sign in" onPress={() => router.push('/sign-in')} />
         </View>
@@ -254,7 +266,7 @@ export function LobbyRoom({side, onPick, onManifest, width}: {side: Side; onPick
       </Animated.View>
 
       {/* the card: real balance when the Vault answers */}
-      {member ? (
+      {member && RELEASE.vault ? (
         <Animated.View entering={enter(220)}>
           <AHSection title="Your card" action={<Link2 label="The Vault" onPress={() => onPick('vault')} />}>
             <Pressable onPress={() => onPick('vault')} accessibilityRole="button" accessibilityLabel={`Your card. ${typeof balance === 'number' ? money(balance) : 'Open the Vault'}`} style={{paddingBottom: 14}}>
@@ -283,7 +295,7 @@ export function LobbyRoom({side, onPick, onManifest, width}: {side: Side; onPick
       </Animated.View>
 
       {/* the private lift */}
-      <Animated.View entering={enter(320)}>
+      {RELEASE.vip ? <Animated.View entering={enter(320)}>
         <Pressable onPress={() => router.push('/penthouse')} accessibilityRole="button" accessibilityLabel="The private lift to the Penthouse. By invitation."
           style={({pressed}) => ({marginTop: 28, opacity: pressed ? 0.8 : 1})}>
           <AHCard style={{flexDirection: 'row', alignItems: 'center', gap: 14, borderColor: 'rgba(232,180,160,0.28)'}} pad={16}>
@@ -291,20 +303,20 @@ export function LobbyRoom({side, onPick, onManifest, width}: {side: Side; onPick
               <Icon name="crown" size={18} color={ah.rose} />
             </View>
             <View style={{flex: 1}}>
-              <AHEyebrow color={ah.rose} style={{fontSize: 10}}>By invitation</AHEyebrow>
+              <AHEyebrow color={ah.rose} style={{fontSize: 11}}>By invitation</AHEyebrow>
               <Text style={{marginTop: 4, fontFamily: ahFonts.serif, fontSize: 24, lineHeight: 26, color: ah.text}}>The private lift</Text>
             </View>
             <Text style={{color: ah.mute, fontSize: 16}}>→</Text>
           </AHCard>
         </Pressable>
-      </Animated.View>
+      </Animated.View> : null}
 
       {/* off the rails */}
       <AHSection title="Also in the house">
         <AHIndex items={ALSO.map((r, i) => ({key: r.id, number: i + 1, name: r.label, sub: r.note, onPress: () => onPick(r.id)}))} />
       </AHSection>
 
-      <AHSection title={`The house · ${rooms.length} rooms`}>
+      <AHSection title={`The house · ${visibleRoomCount} rooms`}>
         <HouseIndex onPick={onManifest} bleed={pad} />
       </AHSection>
     </Animated.View>

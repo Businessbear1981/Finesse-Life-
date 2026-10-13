@@ -65,7 +65,7 @@ export function AHDisplay({children, size = 56, rose, style, accessibilityRole =
   const stops = rose ? roseStops : chromeStops;
   return (
     <View style={style} accessible accessibilityRole={accessibilityRole} accessibilityLabel={children}>
-      <Svg width="100%" height={h} accessibilityElementsHidden>
+      <Svg width="100%" height={h} aria-hidden>
         <Defs>
           <LinearGradient id={id} x1="0" y1="0" x2={rose ? '1' : '0'} y2={rose ? '0' : '1'}>
             {stops.map(([o, c]) => <Stop key={o} offset={o} stopColor={c} />)}
@@ -215,7 +215,7 @@ export function AHIndex({items}: {items: AHIndexItem[]}) {
             <Text style={{fontFamily: ahFonts.serif, fontSize: 24, lineHeight: 26, color: ah.text}}>{it.name}</Text>
             {it.sub ? <Text style={{marginTop: 2, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{it.sub}</Text> : null}
           </View>
-          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: it.tagTone === 'live' ? ah.ok : it.tagTone === 'key' ? ah.rose : ah.mute}}>{it.tag ?? '→'}</Text>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: it.tagTone === 'live' ? ah.ok : it.tagTone === 'key' ? ah.rose : ah.mute}}>{it.tag ?? '→'}</Text>
         </Pressable>
       ))}
     </View>
@@ -268,7 +268,7 @@ export function AHSkeleton({h = 16, w = '100%', r = 12, style}: {h?: number; w?:
     if (!reduce) o.value = withRepeat(withSequence(withTiming(1, {duration: 700}), withTiming(0.5, {duration: 700})), -1);
   }, [reduce, o]);
   const st = useAnimatedStyle(() => ({opacity: o.value}));
-  return <Animated.View accessibilityElementsHidden style={[{height: h, width: w, borderRadius: r, backgroundColor: '#18181B'}, st, style]} />;
+  return <Animated.View aria-hidden style={[{height: h, width: w, borderRadius: r, backgroundColor: '#18181B'}, st, style]} />;
 }
 
 /** Live clock "11:42 PM". */

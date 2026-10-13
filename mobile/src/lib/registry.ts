@@ -1,8 +1,10 @@
 /**
- * Mobile view of the canonical 31-room manifest. Same JSON as the web registry
- * (repo root FINESSE_31_ROOM_PROJECT.json) — one source of truth, no fork.
+ * Mobile view of the canonical 31-room manifest. room-manifest.json is a byte-for-byte copy of the repo-root
+ * FINESSE_31_ROOM_PROJECT.json (the web registry's source), kept inside mobile/ so EAS can build mobile/ on its
+ * own. Edit the root file, then run `node scripts/sync-room-manifest.mjs`; tests/room-manifest-sync.test.ts fails
+ * when the two drift.
  */
-import project from '../../../FINESSE_31_ROOM_PROJECT.json';
+import project from './room-manifest.json';
 
 export type Track = 'finesse' | 'carpe_diem';
 export type TruthState = 'wired' | 'specified' | 'preview' | 'gated';

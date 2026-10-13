@@ -8,6 +8,7 @@ import {motion, AnimatePresence} from 'framer-motion';
 import Link from 'next/link';
 import {useLocalPref} from '@/components/after-hours';
 import {LiveRoom, Notice, SampleLabel} from '@/components/live-room-states';
+import {ModerationMenu, useHouseRules} from '@/components/moderation';
 import {btnCls, fieldCls, roomCall} from '@/lib/room-client';
 import {clubErrorText, GAME_INFO, GAMES, seatsLeft, type ClubTable, type Game} from '@/lib/clubhouse';
 import {failureText, useRoomData} from '@/lib/rooms/live-room';
@@ -56,13 +57,22 @@ function HostForm({accent, onDone}: {accent: string; onDone: () => void}) {
   const [seats, setSeats] = useState(GAME_INFO.spades.defaultSeats);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const rules = useHouseRules();
   const pick = (g: Game) => { setGame(g); setSeats(GAME_INFO[g].defaultSeats); };
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const when = new Date(at);
     if (!title.trim() || busy || Number.isNaN(when.getTime())) return;
-    setBusy(true); setMsg(null);
-    const r = await roomCall<{error?: string}>('/api/clubhouse/tables', {method: 'POST', json: {game, title: title.trim(), note: note.trim() || null, starts_at: when.toISOString(), seats}});
+    setMsg(null);
+    // House rules & terms once, before a member's first table.
+    if (!(await rules.ensure())) return;
+    setBusy(true);
+    const open = () => roomCall<{error?: string}>('/api/clubhouse/tables', {method: 'POST', json: {game, title: title.trim(), note: note.trim() || null, starts_at: when.toISOString(), seats}});
+    let r = await open();
+    if (r.status === 403 && r.body.error === 'terms_required') {
+      if (!(await rules.require())) { setBusy(false); setMsg('Accept the house rules to host. No table was opened.'); return; }
+      r = await open();
+    }
     setBusy(false);
     if (!r.ok) { setMsg(r.body.error && r.status === 409 ? clubErrorText(r.body.error) : failureText(r.status, r.body, 'No table was opened.')); return; }
     setTitle(''); setNote('');
@@ -71,6 +81,7 @@ function HostForm({accent, onDone}: {accent: string; onDone: () => void}) {
   const info = GAME_INFO[game];
   return (
     <form onSubmit={submit} className="space-y-3 border border-cream/8 bg-ink/40 p-5">
+      {rules.sheet}
       <p className="font-label text-[9px] uppercase tracking-[0.3em]" style={{color: `${accent}90`}}>Host a table</p>
       <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Game">
         {GAMES.map((g) => (
@@ -119,9 +130,12 @@ function TableCard({t, accent, reload}: {t: ClubTable; accent: string; reload: (
           <p className="font-display text-lg tracking-wide text-cream/85">{t.title}</p>
           {t.note && <p className="font-body text-xs italic text-cream/35">{t.note}</p>}
         </div>
-        <div className="text-right">
+        <div className="flex items-start gap-2 text-right">
+          <div>
           <p className="whitespace-nowrap font-mono text-lg" style={{color: left === 0 ? 'rgba(244,232,208,0.4)' : accent}}>{t.seats_taken} / {t.seats}</p>
           <p className="font-label text-[7px] uppercase tracking-[0.15em] text-cream/30">{left === 0 ? 'full' : `${left} open`}</p>
+          </div>
+          <ModerationMenu kind="club_table" targetId={t.id} name={t.host_name} own={t.is_host} onBlocked={reload} />
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">

@@ -40,7 +40,7 @@ export default function PenthouseElevator() {
   const focusInput = () => { if (Platform.OS === 'web') setTimeout(() => input.current?.focus(), 80); };
 
   useEffect(() => {
-    supabase.auth.getSession().then(({data}) => setSignedIn(Boolean(data.session)));
+    supabase.auth.getSession().then(({data}) => setSignedIn(Boolean(data.session))).catch(() => setSignedIn(false));
     const {data: sub} = supabase.auth.onAuthStateChange((_e, s) => { setSignedIn(Boolean(s)); if (s) setNeedsSignIn(false); });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -85,8 +85,11 @@ export default function PenthouseElevator() {
       setNeedsSignIn(true);
       setPhase('closed');
     } else {
-      setMsg(r.body.message ?? 'The private lift is being serviced.');
-      setClosedCta(r.body.state === 'not_entitled' || r.body.state === 'expired' ? 'VIP access lives in your web profile.' : null);
+      // No membership is sold in the app, so the closed lift never points anywhere to buy or renew one
+      // (Apple 3.1.1 / Play Billing): one neutral line for "not a key holder" and "grant lapsed".
+      const noKey = r.body.state === 'not_entitled' || r.body.state === 'expired';
+      setMsg(noKey ? 'This floor opens for VIP key holders.' : r.body.message ?? 'The private lift is being serviced.');
+      setClosedCta(null);
       setPhase('closed');
     }
   }, []);

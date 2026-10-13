@@ -51,7 +51,7 @@ function PageLine({time, title, label, tone, last, children}: {time: string; tit
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
         <Text style={{width: 66, fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.mute}}>{time}</Text>
         <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 21, lineHeight: 24, color: ah.text}}>{title}</Text>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: tone ?? ah.faint}}>{sentence(label)}</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: tone ?? ah.faint}}>{sentence(label)}</Text>
       </View>
       {children}
     </Animated.View>

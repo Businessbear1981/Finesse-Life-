@@ -14,7 +14,7 @@
     "test": "vitest run",
     "smoke": "node scripts/smoke.mjs",
     "usage:obsidian": "node scripts/obsidian-sync-usage.mjs",
-    "test:db": "node tests/db/security-floor.mjs && node tests/db/account-lifecycle.mjs && node tests/db/stripe-billing.mjs && node tests/db/live-map.mjs && node tests/db/nova-requests.mjs && node tests/db/w2-entourage.mjs && node tests/db/w2-departures.mjs && node tests/db/w2-per-diem.mjs && node tests/db/w2-clubhouse.mjs && node tests/db/w3-rooms.mjs"
+    "test:db": "node tests/db/security-floor.mjs && node tests/db/account-lifecycle.mjs && node tests/db/stripe-billing.mjs && node tests/db/live-map.mjs && node tests/db/nova-requests.mjs && node tests/db/w2-entourage.mjs && node tests/db/w2-departures.mjs && node tests/db/w2-per-diem.mjs && node tests/db/w2-clubhouse.mjs && node tests/db/w3-rooms.mjs && node tests/db/s1-moderation.mjs && node tests/db/s2-consents.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

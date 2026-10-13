@@ -2,20 +2,25 @@
 // city-tonight card, members on the floor in chrome/rose rings with score bars, the house rules, and the
 // moments feed with a glass composer. Signed in it is live, from the same sources as the web Lounge page
 // (lib/rooms/lounge.ts): members from profiles ranked by the same compat score, moments from /api/posts with
-// likes, the composer POST /api/posts, and the open outings members host. After Dark and the Social Score have
-// no service yet, so signed-in members see them as "opening soon" — never sample people. Signed out, the whole
-// room is the labelled sample.
+// likes, the composer POST /api/posts, and the open outings members host. Every member post, profile and outing
+// carries Report / Block (components/rooms/moderation.tsx) and the first post asks for the house rules & terms.
+// After Dark and the Score have no service yet: dev builds show them as "opening soon", the store build hides the
+// tabs (RELEASE.loungeAfterDark / loungeScore). No sample dating profiles or named "score" people exist anywhere.
+// Signed out, the room is the labelled sample.
 import {useState, type ReactNode} from 'react';
 import {Pressable, ScrollView, Share, Text, TextInput, View, type StyleProp, type ViewStyle} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
 import {failure, useLive} from '@/lib/live';
 import {likePost, postMoment, readLounge, readOpenOutings, type LoungeData, type LoungeOuting, type Post} from '@/lib/rooms/lounge';
+import {needsTerms} from '@/lib/rooms/moderation';
+import {IS_STORE_BUILD, RELEASE} from '@/lib/release';
 import {ago, memberName} from '@/lib/rooms/logic';
 import {type Side} from '@/lib/deco';
 import {ah, ahFonts, radius} from '@/lib/ah';
 import {AHCard, AHChip, AHDisplay, AHEyebrow, AHLiveDot, AHPill, AHRing, AHSmoke} from '@/components/ah';
 import {Chips, SampleNote, Segmented, s, sentence} from './shared';
 import {LiveGate, Status} from './live';
+import {ModerationMenu, useHouseRules} from './moderation';
 
 
 /* ───────────────────────── small pieces ───────────────────────── */
@@ -48,13 +53,8 @@ function Ring({name, size, on}: {name: string; size: number; on?: boolean}) {
   );
 }
 
-/** Small pill toggle for row actions (pass / interested / cheer). */
-function Ghost({label, onPress, on, flex}: {label: string; onPress: () => void; on?: boolean; flex?: number}) {
-  return <AHPill label={label} onPress={onPress} small variant={on ? 'rose' : 'ghost'} block style={{flex: flex ?? 1}} />;
-}
-
 /** The moment / note card (web CallingCard). */
-function Moment({who, when, text, me}: {who: string; when: string; text: string; me?: boolean}) {
+function Moment({who, when, text, me, menu}: {who: string; when: string; text: string; me?: boolean; menu?: ReactNode}) {
   return (
     <AHCard pad={18} style={me ? {borderColor: 'rgba(232,180,160,0.35)', backgroundColor: 'rgba(183,110,121,0.08)'} : undefined}>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
@@ -66,6 +66,7 @@ function Moment({who, when, text, me}: {who: string; when: string; text: string;
             <Text style={{fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{when}</Text>
           </View>
         </View>
+        {menu}
       </View>
       <Text style={{marginTop: 12, fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.text}}>{text}</Text>
     </AHCard>
@@ -98,14 +99,14 @@ function HouseRules() {
 /** A card in the floor grid: ring, name, line, score bar. */
 function MemberCard({name, score, dist, on, onPress, width}: {name: string; score: number; dist: string; on: boolean; onPress: () => void; width: number}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${name}, ${dist}, score ${score}`} accessibilityState={{selected: on}}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${name}, ${dist}, match ${score}`} accessibilityState={{selected: on}}
       style={({pressed}) => ({width, alignItems: 'center', paddingTop: 18, paddingBottom: 14, paddingHorizontal: 12, borderRadius: radius.card,
         backgroundColor: on ? 'rgba(183,110,121,0.12)' : ah.ink2, borderWidth: 1, borderColor: on ? 'rgba(232,180,160,0.5)' : ah.line, opacity: pressed ? 0.85 : 1})}>
       <Ring name={name} size={60} on={on} />
       <Text numberOfLines={1} style={{marginTop: 10, fontFamily: ahFonts.serif, fontSize: 21, lineHeight: 23, color: ah.text}}>{name}</Text>
       <Text style={{marginTop: 2, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{dist}</Text>
       <View style={{marginTop: 12, alignSelf: 'stretch'}}><Bar value={score} /></View>
-      <Text style={{marginTop: 6, fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.8, color: ah.rose}}>Score {score}</Text>
+      <Text style={{marginTop: 6, fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.8, color: ah.rose}}>Match {score}</Text>
     </Pressable>
   );
 }
@@ -128,23 +129,28 @@ const OUTINGS: Array<[string, string, string, string, number, number, string]> =
   ['Sat · 11:00 AM', 'Inès', 'Gallery walk and brunch', 'Westside galleries, brunch at Nove', 5, 10, ''],
   ['Sun · 2:00 PM', 'Kofi', 'Vintage watch fair', 'The Exchange pop-up, Midtown', 3, 12, 'Members enter free'],
 ];
-const DATES: Array<[string, number, string, string, string[], string, string[], boolean]> = [
-  ['Inès', 31, '0.8 mi', 'Gallery director · Paris and Atlanta', ['VERIFIED', 'VIP'], '$250K+', ['Old Hollywood', 'Jazz', 'Travel'], true],
-  ['Marcus', 34, '1.6 mi', 'Founder · fintech', ['VERIFIED'], '$500K+', ['Watches', 'Golf', 'Whiskey'], false],
-  ['Camille', 29, '2.4 mi', 'Architect', ['VERIFIED', 'VIP'], '$150K+', ['Tailoring', 'Galleries', 'Quiet luxury'], true],
-  ['Julian', 36, '3.1 mi', 'Surgeon', ['VERIFIED'], '$500K+', ['Travel', 'Wine', 'Jazz'], false],
-];
-const INC: Record<string, number> = {Any: 0, '$150K+': 150, '$250K+': 250, '$500K+': 500};
-const MV: Array<[string, number, string, number]> = [['Maya', 3, 'Hosted the late set at the Jazz Club. Eleven came.', 6], ['Theo', -2, 'No-show at Saturday brunch. Second one this month.', 9], ['Sana', -1, 'Left a mutual match on read after the date.', 14], ['Kofi', 2, 'Two members vouched for him after the watch fair.', 3], ['Inès', 1, 'Returned every hello in the room last night.', 2]];
-const PARTS: Array<[string, number, string]> = [['Showing up', 30, 'Outings and tables you said yes to, and attended.'], ['Warmth', 25, 'Replies, hellos returned, how conversations feel to the other side.'], ['Vouches', 20, 'Members who have met you in person and vouch for you.'], ['Hosting', 15, 'Outings you planned that people enjoyed.'], ['Verified profile', 10, 'ID, photo and any status you choose to verify.']];
-const FAQ: Array<[string, string]> = [
-  ['Is it about money or followers?', 'No. Income, purchases and follower counts are never part of it. Two members with very different means can hold the same score.'],
-  ['Who sees my score?', 'Other members, next to your name in the Lounge and After Dark. Never you, and never brands or partners.'],
-  ['What does it change?', 'Where you sit in the Lounge, who is suggested to you, and priority when an outing fills up.'],
-  ['Can I reset it?', 'It moves on its own. Recent months count most, so a rough patch fades as you keep showing up.'],
-];
 const toggle = (l: string[], k: string) => (l.includes(k) ? l.filter((x) => x !== k) : [...l, k]);
-const MODES: Array<[Mode, string]> = [['social', 'Lounge'], ['outings', 'Outings'], ['dating', 'After Dark'], ['score', 'Score']];
+// After Dark (dating) and the Score need a full safety set before they ship: hidden in the store build.
+const MODES: Array<[Mode, string]> = [
+  ['social', 'Lounge'], ['outings', 'Outings'],
+  ...(RELEASE.loungeAfterDark ? [['dating', 'After Dark'] as [Mode, string]] : []),
+  ...(RELEASE.loungeScore ? [['score', 'Score'] as [Mode, string]] : []),
+];
+
+/** The one card After Dark and the Score show in dev builds — no people, no numbers. */
+function OpeningSoon({mode}: {mode: Mode}) {
+  return (
+    <Animated.View entering={FadeIn.duration(350)}>
+      <AHCard style={{gap: 8}}>
+        <AHEyebrow color={ah.rose}>{mode === 'dating' ? 'After Dark' : 'The Score'}</AHEyebrow>
+        <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 24, lineHeight: 28, color: ah.text}}>Opening soon.</Text>
+        <Text style={s.small}>{mode === 'dating'
+          ? 'After Dark opens to verified members once verification and its safety tools are live. No profiles are shown until it does.'
+          : 'Nothing is scored or shown until the service and its safeguards are live.'}</Text>
+      </AHCard>
+    </Animated.View>
+  );
+}
 /** "MAYA · 8:12 PM" → ["Maya", "8:12 PM"] */
 const splitWho = (who: string): [string, string] => {
   const [n, ...rest] = who.split(' · ');
@@ -172,12 +178,26 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
   const [posting, setPosting] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
   const [liked, setLiked] = useState<Record<string, boolean>>({});
-  const sel = data.members.find((m) => m.id === pick) ?? data.members[0];
+  // Members blocked from a ••• menu leave the room at once (the server hides them on the next read too).
+  const [gone, setGone] = useState<string[]>([]);
+  const rules = useHouseRules();
+  const authorOf = (p: Post) => p.author_id ?? p.profiles?.id ?? null;
+  const members = data.members.filter((m) => !gone.includes(m.id));
+  const posts = data.posts.filter((p) => !gone.includes(authorOf(p) ?? ''));
+  const blocked = (id: string | null) => { if (id) setGone((g) => [...g, id]); void reload(); };
+  const sel = members.find((m) => m.id === pick) ?? members[0];
   const send = async () => {
     const text = draft.trim();
     if (!text || posting) return;
-    setPosting(true); setMsg(null);
-    const r = await postMoment(text);
+    setMsg(null);
+    // The house rules & terms sheet, once, before a member's first post.
+    if (!(await rules.ensure())) return;
+    setPosting(true);
+    let r = await postMoment(text);
+    if (needsTerms(r)) {
+      if (!(await rules.require())) { setPosting(false); setMsg({ok: false, text: 'Accept the house rules to post. Nothing was posted.'}); return; }
+      r = await postMoment(text);
+    }
     setPosting(false);
     if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was posted.')}); return; }
     setDraft('');
@@ -192,6 +212,7 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
   };
   return (
     <View style={{gap: 14}}>
+      {rules.sheet}
       <View>
         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
           <AHEyebrow>The Lounge</AHEyebrow>
@@ -200,7 +221,7 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
         <AHDisplay size={52} style={{marginTop: 8}}>Who’s out.</AHDisplay>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
           <AHLiveDot />
-          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: ah.mute}}>{data.members.length} members on the floor</Text>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: ah.mute}}>{members.length} members on the floor</Text>
         </View>
       </View>
       <View accessible accessibilityLabel="The city, tonight. The live map is on the web.">
@@ -213,12 +234,12 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
 
       {mode === 'social' ? (
         <Animated.View entering={FadeIn.duration(350)} style={{gap: 14}}>
-          <Eyebrow>{`On the floor · ${data.members.length}`}</Eyebrow>
-          {data.members.length === 0 ? (
+          <Eyebrow>{`On the floor · ${members.length}`}</Eyebrow>
+          {members.length === 0 ? (
             <AHCard><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>The floor is quiet tonight.</Text><Text style={[s.small, {marginTop: 6}]}>No other member is in the Lounge yet.</Text></AHCard>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 8}} style={{marginHorizontal: -2}}>
-              {data.members.map((m) => <MemberCard key={m.id} name={memberName(m)} score={m.score} dist={m.city ?? (m.vibe ?? 'Member')} on={m.id === sel?.id} width={148} onPress={() => setPick(m.id)} />)}
+              {members.map((m) => <MemberCard key={m.id} name={memberName(m)} score={m.score} dist={m.city ?? (m.vibe ?? 'Member')} on={m.id === sel?.id} width={148} onPress={() => setPick(m.id)} />)}
             </ScrollView>
           )}
           {sel ? (
@@ -230,13 +251,14 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
                     <AHEyebrow>{[sel.city, sel.vibe].filter(Boolean).join(' · ') || 'Member'}</AHEyebrow>
                     <Text style={{marginTop: 2, fontFamily: ahFonts.serif, fontSize: 30, lineHeight: 32, color: ah.text}}>{memberName(sel)}</Text>
                   </View>
+                  <ModerationMenu kind="profile" targetId={sel.id} memberId={sel.id} name={memberName(sel)} own={sel.id === data.me} onBlocked={() => blocked(sel.id)} />
                 </View>
                 {sel.interests?.length ? <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>{sel.interests.slice(0, 6).map((i) => <AHChip key={i} label={i} tone="outline" />)}</View> : null}
                 <View style={{gap: 6}}>
                   <Bar value={sel.score} />
                   <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.mute}}>Match {sel.score} · from shared vibe, city and interests</Text>
                 </View>
-                <Text style={s.small}>Introductions open soon. Until then, say hello in the moments below.</Text>
+                {IS_STORE_BUILD ? null : <Text style={s.small}>Introductions open soon. Until then, say hello in the moments below.</Text>}
               </AHCard>
             </Animated.View>
           ) : null}
@@ -248,17 +270,19 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
             <AHPill small label={posting ? '…' : 'Post'} onPress={() => void send()} disabled={!draft.trim() || posting} accessibilityLabel="Post the moment" />
           </View>
           <Status msg={msg} />
-          {data.postsError ? <Text style={s.small}>{data.postsError}</Text> : data.posts.length === 0 ? (
+          {data.postsError ? <Text style={s.small}>{data.postsError}</Text> : posts.length === 0 ? (
             <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 18, color: ah.mute}}>No moments yet — be the first.</Text>
           ) : (
             <View style={{gap: 12}}>
-              {data.posts.map((p) => {
+              {posts.map((p) => {
                 const on = liked[p.id] ?? !!p.liked_by_me;
                 const n = Math.max(0, (p.likes_count ?? 0) + (liked[p.id] === undefined ? 0 : (on ? 1 : 0) - (p.liked_by_me ? 1 : 0)));
-                const mine = p.profiles?.id === data.me;
+                const author = authorOf(p);
+                const mine = author === data.me;
                 return (
                   <Animated.View key={p.id} entering={FadeInDown.duration(300)} layout={LinearTransition} style={{gap: 6}}>
-                    <Moment who={mine ? 'You' : memberName(p.profiles)} when={ago(p.created_at)} text={p.content} me={mine} />
+                    <Moment who={mine ? 'You' : memberName(p.profiles)} when={ago(p.created_at)} text={p.content} me={mine}
+                      menu={<ModerationMenu kind="post" targetId={p.id} memberId={author} name={memberName(p.profiles)} own={mine} onBlocked={() => blocked(author)} />} />
                     <View style={{flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 8}}>
                       <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.mute}}>{n} {n === 1 ? 'like' : 'likes'}</Text>
                       <Pressable onPress={() => void like(p)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={on ? 'Unlike' : 'Like'} style={{minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center'}}>
@@ -272,23 +296,14 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
           )}
           <Text style={{marginTop: 18, textAlign: 'center', fontFamily: ahFonts.serifItalic, fontSize: 18, color: ah.mute}}>The music is low. The company is right.</Text>
         </Animated.View>
-      ) : mode === 'outings' ? <LiveOutings me={data.me} /> : (
-        <Animated.View entering={FadeIn.duration(350)}>
-          <AHCard style={{gap: 8}}>
-            <AHEyebrow color={ah.rose}>{mode === 'dating' ? 'After Dark' : 'The Social Score'}</AHEyebrow>
-            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 24, lineHeight: 28, color: ah.text}}>Opening soon.</Text>
-            <Text style={s.small}>{mode === 'dating'
-              ? 'After Dark opens to verified members once verification is live. No profiles are shown until it does.'
-              : 'The score is computed from how members show up for each other. It goes live with the score service — nothing here is invented until then.'}</Text>
-          </AHCard>
-        </Animated.View>
-      )}
+      ) : mode === 'outings' ? <LiveOutings me={data.me} /> : <OpeningSoon mode={mode} />}
     </View>
   );
 }
 
 function LiveOutings({me}: {me: string}) {
   const {live, reload} = useLive<{outings: LoungeOuting[]}>(null, readOpenOutings);
+  const [gone, setGone] = useState<string[]>([]);
   return (
     <Animated.View entering={FadeIn.duration(350)} style={{gap: 12}}>
       <LiveGate live={live} reload={() => void reload()} what="the outings">
@@ -296,17 +311,21 @@ function LiveOutings({me}: {me: string}) {
           <AHCard><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>No open outings — plan one.</Text><Text style={[s.small, {marginTop: 6}]}>Plan an outing in the Registry and it shows here.</Text></AHCard>
         ) : (
           <View style={{gap: 12}}>
-            {d.outings.map((o) => (
+            {d.outings.filter((o) => !gone.includes(o.host_id)).map((o) => (
               <AHCard key={o.id} pad={18} style={{gap: 6, borderColor: o.host_id === me ? 'rgba(232,180,160,0.45)' : ah.line}}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', gap: 8}}>
                   <AHEyebrow color={o.host_id === me ? ah.rose : ah.mute}>{o.host_id === me ? 'Hosted by you' : (o.occasion_type || 'Outing')}</AHEyebrow>
-                  {o.date_at ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.text}}>{new Date(o.date_at).toLocaleString([], {weekday: 'short', hour: 'numeric', minute: '2-digit'})}</Text> : null}
+                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                    {o.date_at ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.text}}>{new Date(o.date_at).toLocaleString([], {weekday: 'short', hour: 'numeric', minute: '2-digit'})}</Text> : null}
+                    <ModerationMenu kind="outing" targetId={o.id} memberId={o.host_id} name="the host" own={o.host_id === me}
+                      onBlocked={() => { setGone((g) => [...g, o.host_id]); void reload(true); }} />
+                  </View>
                 </View>
                 <Text style={{fontFamily: ahFonts.serif, fontSize: 22, lineHeight: 25, color: ah.text}}>{o.title}</Text>
                 {o.note ? <Text style={s.small}>{o.note}</Text> : null}
               </AHCard>
             ))}
-            <Text style={s.small}>Joining an outing from the app opens soon.</Text>
+            {IS_STORE_BUILD ? null : <Text style={s.small}>Joining an outing from the app opens soon.</Text>}
           </View>
         )}
       </LiveGate>
@@ -327,21 +346,11 @@ function LoungeSample() {
   const [shared, setShared] = useState(false);
   const [mine, setMine] = useState(false);
   const [ins, setIns] = useState<string[]>([]);
-  const [f, setF] = useState({status: 'Verified', income: 'Any', interest: 'Any'});
-  const [seen, setSeen] = useState<string[]>([]);
-  const [liked, setLiked] = useState<string[]>([]);
-  const [spilled, setSpilled] = useState<string[]>([]);
-  const [cheered, setCheered] = useState<string[]>([]);
-  const [asked, setAsked] = useState(false);
-  const [faq, setFaq] = useState<number | null>(null);
 
   const geo = GEO[rad];
   let sel: Person = CLUSTERS[1][3][0];
   CLUSTERS.forEach((c) => c[3].forEach((p) => { if (p[0] === pick) sel = p; }));
   const send = () => { const t = draft.trim().slice(0, 140); if (t) { setMsgs((m) => [...m, t]); setDraft(''); } };
-  const pool = DATES.filter((d) => (f.status !== 'VIP' || d[4].includes('VIP')) && INC[d[5]] >= INC[f.income] && (f.interest === 'Any' || d[6].includes(f.interest)) && !seen.includes(d[0]));
-  const D = pool[0];
-  const isLiked = D ? liked.includes(D[0]) : false;
   const outings = [...(mine ? [['Fri · 9:30 PM', 'You', `Late table at ${place}`, `${place} · open to ${vis.toLowerCase()}`, 0, 6, ''] as (typeof OUTINGS)[number]] : []), ...OUTINGS];
   const feed: Array<[string, string, boolean]> = [...msgs.map((t) => ['YOU · NOW', t, true] as [string, string, boolean]).reverse(), ...CHAT];
 
@@ -400,9 +409,10 @@ function LoungeSample() {
               <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 19, lineHeight: 24, color: ah.text}}>{sel[3]}</Text>
               <View style={{gap: 6}}>
                 <Bar value={sel[1]} />
-                <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.mute}}>Social score {sel[1]} · shown to others, never to themselves</Text>
+                <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.mute}}>Match {sel[1]} · from shared style and interests</Text>
               </View>
-              <AHPill block variant={hellos.includes(sel[0]) ? 'ghost' : 'solid'} label={hellos.includes(sel[0]) ? `Hello sent to ${sel[0]}` : 'Say hello'} onPress={() => setHellos((h) => toggle(h, sel[0]))} />
+              {/* Introductions have no service yet: the store build leaves the sample control out. */}
+              {IS_STORE_BUILD ? null : <AHPill block variant={hellos.includes(sel[0]) ? 'ghost' : 'solid'} label={hellos.includes(sel[0]) ? `Hello sent to ${sel[0]}` : 'Say hello'} onPress={() => setHellos((h) => toggle(h, sel[0]))} />}
             </AHCard>
           </Animated.View>
 
@@ -426,7 +436,6 @@ function LoungeSample() {
             })}
           </View>
           <Text style={{marginTop: 18, textAlign: 'center', fontFamily: ahFonts.serifItalic, fontSize: 18, color: ah.mute}}>The music is low. The company is right.</Text>
-          <Text style={[s.small, {textAlign: 'center'}]}>Scores are shown to others, never to yourself. That keeps the room honest.</Text>
           <SampleNote>SAMPLE ROOM · PEOPLE AND CHAT ARE ILLUSTRATIVE · YOUR MESSAGES STAY ON THIS DEVICE UNTIL ROOM CHAT GOES LIVE</SampleNote>
         </Animated.View>
       ) : null}
@@ -461,121 +470,19 @@ function LoungeSample() {
                     <Text style={{flex: 1, fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.mute}}>{cnt} going · {cap - cnt} left</Text>
                   </View>
                   <Bar value={Math.round((cnt / cap) * 100)} />
-                  <AHPill small block style={{marginTop: 6}} variant={you ? 'ghost' : joined ? 'rose' : 'solid'} label={you ? 'Invite more' : joined ? 'You’re in' : 'I’m in'}
-                    onPress={() => { if (you) Share.share({message: `Join me: ${title} — finesselife.vip`}).catch(() => {}); else setIns((l) => toggle(l, title)); }} />
+                  {IS_STORE_BUILD && !you ? null : (
+                    <AHPill small block style={{marginTop: 6}} variant={you ? 'ghost' : joined ? 'rose' : 'solid'} label={you ? 'Invite more' : joined ? 'You’re in' : 'I’m in'}
+                      onPress={() => { if (you) Share.share({message: `Join me: ${title} — finesselife.vip`}).catch(() => {}); else setIns((l) => toggle(l, title)); }} />
+                  )}
                 </AHCard>
               </Animated.View>
             );
           })}
-          <SampleNote>SAMPLE OUTINGS · JOINING HERE IS A PREVIEW UNTIL OUTINGS GO LIVE</SampleNote>
+          <SampleNote>{IS_STORE_BUILD ? 'SAMPLE OUTINGS · SIGN IN TO SEE THE OUTINGS MEMBERS HOST' : 'SAMPLE OUTINGS · JOINING HERE IS A PREVIEW UNTIL OUTINGS GO LIVE'}</SampleNote>
         </Animated.View>
       ) : null}
 
-      {mode === 'dating' ? (
-        <Animated.View entering={FadeIn.duration(350)} style={{gap: 14}}>
-          <Card>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline'}}><AHEyebrow color={ah.rose}>Your filters</AHEyebrow><Text style={s.small}>Only you see these</Text></View>
-            <Chips options={['Verified', 'VIP']} value={f.status} onChange={(v) => setF((x) => ({...x, status: v}))} accent={ah.rose} />
-            <AHEyebrow style={{marginTop: 4}}>Income · self-declared, verified</AHEyebrow>
-            <Chips options={['Any', '$150K+', '$250K+', '$500K+']} value={f.income} onChange={(v) => setF((x) => ({...x, income: v}))} accent={ah.rose} />
-            <AHEyebrow style={{marginTop: 4}}>Interests</AHEyebrow>
-            <Chips options={['Any', 'Jazz', 'Travel', 'Watches', 'Galleries']} value={f.interest} onChange={(v) => setF((x) => ({...x, interest: v}))} accent={ah.rose} />
-          </Card>
-          <Eyebrow>{`${pool.length} in the room for you`}</Eyebrow>
-          {D ? (
-            <Animated.View key={D[0]} entering={FadeInDown.duration(450)} style={{gap: 12}}>
-              <AHSmoke aspect={1 / 1.1} top={
-                <View style={{flexDirection: 'row', gap: 6, flexWrap: 'wrap'}}>
-                  {D[4].map((b) => <AHChip key={b} label={sentence(b)} tone={b === 'VIP' ? 'rose' : 'glass'} />)}
-                  <AHChip label={D[5]} tone="outline" />
-                </View>
-              }>
-                <View style={{alignItems: 'flex-start', gap: 10}}>
-                  <Ring name={D[0]} size={84} on={isLiked} />
-                  <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 40, lineHeight: 42, color: ah.white}}>{D[0]}, {D[1]}</Text>
-                  <Text style={{fontFamily: ahFonts.sans, fontSize: 14, color: 'rgba(255,255,255,0.78)'}}>{D[3]} · {D[2]}</Text>
-                </View>
-              </AHSmoke>
-              <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>{D[6].map((t) => <AHChip key={t} label={t} tone="outline" />)}</View>
-              {isLiked && D[7] ? <Animated.View entering={FadeIn}><AHCard pad={14} style={{borderColor: 'rgba(126,226,184,0.4)', backgroundColor: 'rgba(126,226,184,0.08)'}}><Text style={{textAlign: 'center', fontFamily: ahFonts.sansSemi, fontSize: 13, color: ah.ok}}>It’s mutual · Nova can arrange drinks</Text></AHCard></Animated.View> : null}
-              <View style={{flexDirection: 'row', gap: 10}}>
-                <Ghost label="Pass" onPress={() => setSeen((l) => [...l, D[0]])} />
-                <Ghost flex={2} on label={isLiked ? (D[7] ? 'Ask Nova to arrange' : 'Interested · waiting') : 'Interested'} onPress={() => setLiked((l) => (l.includes(D[0]) ? l : [...l, D[0]]))} />
-              </View>
-            </Animated.View>
-          ) : <AHCard style={{alignItems: 'center'}}><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text, textAlign: 'center'}}>No one else in the room tonight with those filters.</Text><Text style={[s.small, {marginTop: 6, textAlign: 'center'}]}>Loosen one, or check back after nine.</Text></AHCard>}
-          <Text style={[s.small, {textAlign: 'center'}]}>Status and income show only when verified. Others see yours the same way. Your own score never shows to you.</Text>
-          <SampleNote>SAMPLE PROFILES · AFTER DARK OPENS TO VERIFIED MEMBERS</SampleNote>
-        </Animated.View>
-      ) : null}
-
-      {mode === 'score' ? (
-        <Animated.View entering={FadeIn.duration(350)} style={{gap: 14}}>
-          {/* the score stays hidden from you */}
-          <View style={{alignItems: 'center', gap: 10, marginTop: 6}}>
-            <View style={{width: 150, height: 150, borderRadius: 75, padding: 2, backgroundColor: ah.rose2, shadowColor: ah.rose2, shadowOpacity: 0.6, shadowRadius: 30, shadowOffset: {width: 0, height: 0}}}>
-              <View style={{flex: 1, borderRadius: 75, borderWidth: 4, borderColor: ah.ink, backgroundColor: '#141417', alignItems: 'center', justifyContent: 'center'}}>
-                <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 52, lineHeight: 56, color: ah.text}}>—</Text>
-                <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.6, textTransform: 'uppercase', color: ah.mute}}>Hidden from you</Text>
-              </View>
-            </View>
-            <Text style={{marginTop: 6, fontFamily: ahFonts.serifItalic, fontSize: 28, lineHeight: 30, color: ah.text, textAlign: 'center'}}>How you show up for each other.</Text>
-            <Text style={[s.small, {textAlign: 'center'}]}>A number from 0 to 100 that other members see next to your name. It measures how you treat the community, not what you own.</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 18, paddingVertical: 12, paddingHorizontal: 16}} style={{flexGrow: 0, borderRadius: 999, borderWidth: 1, borderColor: ah.line2, backgroundColor: ah.ink2}}>
-            {MV.map(([name, d]) => <Text key={name} style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.text}}>{name} <Text style={{color: d > 0 ? ah.ok : ah.danger}}>{d > 0 ? '▲' : '▼'}{Math.abs(d)}</Text></Text>)}
-          </ScrollView>
-          <Eyebrow>Your circle · last night</Eyebrow>
-          {MV.map(([name, d, why, n]) => {
-            const sp = spilled.includes(name), ch = cheered.includes(name), up = d > 0, col = up ? ah.ok : ah.danger;
-            return (
-              <AHCard key={name} pad={16} style={{gap: 10}}>
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-                  <AHRing name={name} size={42} label={false} />
-                  <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 22, color: ah.text}}>{name}</Text>
-                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 14, color: col}}>{up ? '▲ ' : '▼ '}{Math.abs(d)}</Text>
-                </View>
-                <Text style={{fontFamily: ahFonts.sans, fontSize: 14, lineHeight: 20, color: ah.text}}>{why}</Text>
-                <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.mute}}>{n + (sp ? 1 : 0) + (ch ? 1 : 0)} in your circle talking</Text>
-                <View style={{flexDirection: 'row', gap: 8}}>
-                  <Ghost label={sp ? 'Asked' : up ? 'Spill' : 'What happened?'} on={sp} onPress={() => setSpilled((l) => toggle(l, name))} />
-                  <Ghost label={ch ? 'Sent' : up ? 'Cheer' : 'Send love'} on={ch} onPress={() => setCheered((l) => toggle(l, name))} />
-                </View>
-              </AHCard>
-            );
-          })}
-          <AHCard glass style={{gap: 10, borderColor: 'rgba(232,180,160,0.3)'}}>
-            <AHEyebrow color={ah.rose}>They’re talking about you</AHEyebrow>
-            <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 21, lineHeight: 26, color: ah.text}}>Your score moved last night. Three people in your circle noticed. Your number stays hidden from you, so ask them.</Text>
-            <AHPill block variant={asked ? 'ghost' : 'solid'} label={asked ? 'Maya replied: “Girl. Tim?”' : 'Ask my circle'} onPress={() => setAsked(true)} />
-          </AHCard>
-          <Eyebrow>What it’s made of</Eyebrow>
-          {PARTS.map(([label, w, note]) => (
-            <View key={label} style={{gap: 6}}>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between'}}><Text style={{fontFamily: ahFonts.sansSemi, fontSize: 14, color: ah.text}}>{label}</Text><Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.rose}}>{w}%</Text></View>
-              <Bar value={Math.round((w / 30) * 100)} h={4} />
-              <Text style={s.small}>{note}</Text>
-            </View>
-          ))}
-          <View style={{flexDirection: 'row', gap: 10}}>
-            <AHCard pad={16} style={{flex: 1, gap: 6}}><AHEyebrow color={ah.ok}>Raises it</AHEyebrow>{['Attending what you join', 'Hosting an outing', 'A member’s vouch', 'Answering hellos'].map((t) => <Text key={t} style={s.small}>+ {t}</Text>)}</AHCard>
-            <AHCard pad={16} style={{flex: 1, gap: 6}}><AHEyebrow color={ah.danger}>Lowers it</AHEyebrow>{['No-shows', 'Ghosting a mutual match', 'Upheld reports', 'Spam in room chat'].map((t) => <Text key={t} style={s.small}>− {t}</Text>)}</AHCard>
-          </View>
-          <Eyebrow>Questions</Eyebrow>
-          <View>
-            {FAQ.map(([q, a], i) => (
-              <View key={q} style={{borderBottomWidth: 1, borderColor: ah.line}}>
-                <Pressable onPress={() => setFaq(faq === i ? null : i)} accessibilityRole="button" accessibilityState={{expanded: faq === i}} style={{minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                  <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 19, color: ah.text}}>{q}</Text>
-                  <Text style={{fontFamily: ahFonts.sans, fontSize: 20, color: ah.rose}}>{faq === i ? '−' : '+'}</Text>
-                </Pressable>
-                {faq === i ? <Animated.Text entering={FadeIn.duration(250)} style={[s.small, {paddingBottom: 14, fontSize: 13, lineHeight: 19}]}>{a}</Animated.Text> : null}
-              </View>
-            ))}
-          </View>
-          <SampleNote>SAMPLE CIRCLE · SCORES ARE ILLUSTRATIVE UNTIL THE SCORE SERVICE GOES LIVE</SampleNote>
-        </Animated.View>
-      ) : null}
+      {mode === 'dating' || mode === 'score' ? <OpeningSoon mode={mode} /> : null}
     </View>
   );
 }

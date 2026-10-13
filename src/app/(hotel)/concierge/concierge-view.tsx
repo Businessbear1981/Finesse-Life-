@@ -11,6 +11,8 @@ import {
   type AvatarConfig, type Message, type Option, type SetupStep,
 } from './nova-model';
 import {RequestCard, RequestsSheet} from '@/components/nova/request-card';
+import {ReportReply} from '@/components/nova/report-reply';
+import {AIConsentSheet, type AIConsentSheetProps} from '@/components/nova/ai-consent';
 import './concierge.css';
 
 export type ConciergeViewProps = {
@@ -31,6 +33,8 @@ export type ConciergeViewProps = {
   finishSetup: () => void;
   resetAvatar: () => void;
   send: (overrideText?: string) => void | Promise<void>;
+  /** The one-time AI disclosure sheet (use-concierge → useAiConsent). Absent in the design preview. */
+  consentSheet?: AIConsentSheetProps;
   /** Height of fixed app chrome above/below the room (the hotel banner and dock), in px. */
   chromeTop?: number;
   chromeBottom?: number;
@@ -296,6 +300,7 @@ function ChatView({bottomRef, ...p}: ConciergeViewProps) {
                     </div>
                   )}
                   {msg.requests?.map((r) => <RequestCard key={r.id} request={r} accent="var(--ah-rose)" />)}
+                  {!msg.id.startsWith('welcome') && <ReportReply targetId={`concierge:${msg.id}`} text={msg.text} />}
                 </div>
               </div>
             </li>
@@ -344,7 +349,11 @@ function ChatView({bottomRef, ...p}: ConciergeViewProps) {
             <ArrowUp />
           </button>
         </form>
+        <p className="nv-fine nv-ai-note">
+          {name} is an AI concierge (powered by Anthropic Claude). Don’t share sensitive info. Replies can be wrong — nothing is booked until you confirm it.
+        </p>
       </div>
+      {p.consentSheet && <AIConsentSheet {...p.consentSheet} />}
     </>
   );
 }

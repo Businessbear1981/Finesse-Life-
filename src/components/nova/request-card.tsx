@@ -6,6 +6,7 @@
 //   <NovaAction>      one button = POST /api/nova/requests {confirm:true}; renders the card it produced
 //   <RequestsSheet>   "Your requests" (GET /api/nova/requests) with status chips and the same actions
 // Honesty: nothing here buys or books. Plans say "Not booked"; links open the retailer, nothing more.
+// Every result Nova produced carries "Report this response" (report-reply.tsx → /api/moderation/report).
 
 import {useEffect, useState, type CSSProperties, type ReactNode} from 'react';
 import {
@@ -13,7 +14,19 @@ import {
   type ItemView, type NovaRequest, type RequestStatus,
 } from '@/lib/nova-request-view';
 import {closeRequest, confirmRequest, createRequest, listRequests, type NewRequest} from './requests-api';
+import {ReportReply} from './report-reply';
 import './request-card.css';
+
+/** What Nova produced for a request, as plain text for a report. */
+export function resultText(request: NovaRequest): string {
+  const v = resultView(request.result);
+  const body = v.type === 'plan' ? v.text
+    : v.type === 'items' ? v.items.map((i) => [i.title, i.brand, formatCents(i.price_cents)].filter(Boolean).join(' ')).join('; ')
+    : v.type === 'prices' ? v.prices.map((p) => `${p.source} ${formatCents(p.price_cents)}`).join('; ')
+    : v.type === 'path' ? [v.path.method, v.path.partner, v.path.instructions].filter(Boolean).join(' · ')
+    : 'empty result';
+  return `${request.title}: ${body}`;
+}
 
 type AccentProps = {accent?: string};
 const vars = (accent?: string) => (accent ? ({'--nr-accent': accent} as CSSProperties) : undefined);
@@ -157,6 +170,7 @@ export function RequestCard({request, onChange, itemActions, accent, draftLine =
       {req.status === 'failed' && !err && <p className="nr-err">{storedErrorText(req.error)}</p>}
       {req.status === 'cancelled' && <p className="nr-fine">Set aside. Nothing ran.</p>}
       {showResult && <RequestResult request={req} itemActions={itemActions} />}
+      {showResult && <ReportReply targetId={`request:${req.id}`} text={resultText(req)} />}
       {err && <p className="nr-err" role="alert">{err}</p>}
 
       {(acts.confirm || acts.retry || acts.done || acts.cancel) && (

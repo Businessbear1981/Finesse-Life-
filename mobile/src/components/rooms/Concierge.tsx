@@ -2,6 +2,8 @@
 // goes to /api/nova as {prompt, persona:'concierge'} (the server owns Nova's instructions); only a 2xx with
 // text is shown as Nova's reply, anything else is shown as not delivered. When Nova drafts a request
 // (draft_request tool) it appears as a card to Confirm / Not now — nothing runs until the member confirms.
+// Before the first message the member sees the AI disclosure and agrees (AIConsent.tsx → member_consents
+// 'ai_processing'); every reply carries "Report this response" (NovaReport.tsx).
 import {useId, useState} from 'react';
 import {ActivityIndicator, Pressable, ScrollView, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
@@ -13,6 +15,8 @@ import {AHEyebrow, AHLiveDot, AHTitle} from '@/components/ah';
 import {radius} from '@/lib/ah';
 import {ah, ahFonts, Pick, t} from './RoomKit';
 import {RequestCard, RequestsPanel} from './RequestCard';
+import {useAIConsent} from './AIConsent';
+import {NovaReport} from './NovaReport';
 
 type Docket = {id: number; ask: string; reply: string; at: string; failed: boolean; drafts: NovaRequest[]};
 
@@ -58,6 +62,7 @@ export function Concierge() {
   const [dockets, setDockets] = useState<Docket[]>([]);
   const [pending, setPending] = useState<string | null>(null);
   const [showRequests, setShowRequests] = useState(false);
+  const consent = useAIConsent();
   const send = async (override?: string) => {
     const prompt = (override ?? ask).trim();
     if (!prompt || busy) return;
@@ -75,7 +80,12 @@ export function Concierge() {
     if (override === undefined) setAsk('');
     setPending(null); setBusy(false);
   };
-  const tapSend = (override?: string) => { void Haptics.selectionAsync().catch(() => {}); void send(override); };
+  // Nothing leaves the phone until the member has agreed to AI processing (asked once).
+  const tapSend = (override?: string) => {
+    if (busy || !(override ?? ask).trim()) return;
+    void Haptics.selectionAsync().catch(() => {});
+    void consent.ensure('ai_processing', () => void send(override));
+  };
   const thread = [...dockets].reverse(); // stored newest-first; read top to bottom like a chat
   const first = dockets.length === 0 && !pending;
   const canSend = !busy && !!ask.trim();
@@ -120,6 +130,7 @@ export function Concierge() {
                 </View>
               ) : <Text selectable style={t.voice}>{d.reply}</Text>}
               {d.drafts.map((r) => <RequestCard key={r.id} request={r} />)}
+              {!d.failed ? <NovaReport targetId={`concierge:${d.id}`} text={d.reply} /> : null}
             </View>
           </Animated.View>
         ))}
@@ -156,8 +167,9 @@ export function Concierge() {
             {busy ? <ActivityIndicator color={ah.rose} /> : <Text style={{fontFamily: ahFonts.sansBold, fontSize: 18, color: canSend ? '#000' : ah.faint}}>↑</Text>}
           </Pressable>
         </View>
-        <Text style={[t.small, {textAlign: 'center', fontSize: 12}]}>Nova drafts and proposes. Nothing is booked, bought or sent until you confirm it.</Text>
+        <Text style={[t.small, {textAlign: 'center', fontSize: 12, lineHeight: 17}]}>Nova is an AI concierge (powered by Anthropic Claude). Don’t share sensitive info. Replies can be wrong — nothing is booked, bought or sent until you confirm it.</Text>
       </View>
+      {consent.sheet}
     </View>
   );
 }

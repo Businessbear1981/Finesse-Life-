@@ -15,6 +15,7 @@ import {AHChip, AHClock, AHEyebrow, AHGlow, AHMark, AHPill} from '@/components/a
 import {Door, Flood} from '@/components/keylock/Door';
 import {GuestList, KeyPad, useHoldShake} from '@/components/keylock/GuestList';
 import {TwoTone} from '@/components/keylock/TwoTone';
+import {LegalLinks} from '@/components/legal/LegalLinks';
 
 const PROMPT = 'Six digits, then open the door.';
 const EYEBROW = 'The door · Members & their guests';
@@ -186,6 +187,7 @@ export default function Entrance() {
               <Text style={styles.typeItText}>Type the code instead</Text>
             </Pressable>
           </View>
+          <LegalLinks align="flex-start" color={ah.mute} />
         </View>
       </ScrollView>
       <Flood open={open} reduced={reduced} />

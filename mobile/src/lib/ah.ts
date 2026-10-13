@@ -9,7 +9,10 @@ export const ah = {
   line2: 'rgba(255,255,255,0.14)',
   text: '#EDEBE7',
   mute: '#8A8A8F',
-  faint: '#5C5C62',
+  /** Quiet TEXT colour — #808086 is ≥ 4.5:1 on ink, ink2 and ink3 (WCAG AA). Use faintLine for non-text marks. */
+  faint: '#808086',
+  /** Non-text hairlines, rings and idle dots only (≈3:1 on ink) — never for text. */
+  faintLine: '#5C5C62',
   rose: '#E8B4A0',
   rose2: '#B76E79',
   rose3: '#8E4B55',

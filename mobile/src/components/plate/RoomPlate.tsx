@@ -47,7 +47,7 @@ export function RoomPlate({room, children}: {room: Room; children?: ReactNode}) 
 export function Panel({title, children}: {title?: string; children: ReactNode}) {
   return (
     <AHCard style={{gap: 12}}>
-      {title ? <AHEyebrow style={{fontSize: 10}}>{title}</AHEyebrow> : null}
+      {title ? <AHEyebrow style={{fontSize: 11}}>{title}</AHEyebrow> : null}
       {children}
     </AHCard>
   );

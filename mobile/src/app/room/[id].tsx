@@ -7,12 +7,25 @@ import {INTERIORS} from '@/components/rooms/interiors';
 import {useSide} from '@/lib/session';
 import {hotelId, manifestId} from '@/lib/room-ids';
 import {AHDisplay, AHEyebrow, AHPill} from '@/components/ah';
+import {isRoomVisible} from '@/lib/release';
 
 export default function RoomDetail() {
   const {id} = useLocalSearchParams<{id: string}>();
   const router = useRouter();
   const room = roomById(manifestId(id ?? '')); // accepts hotel ids (perdiem, profile) as well as manifest ids
   const side = useSide(); // hooks run before any early return
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/hotel'));
+  // Store builds: a room lib/release.ts hides is not available, even from a deep link — say so plainly.
+  if (room && !isRoomVisible(room.id)) {
+    return (
+      <View style={{flex: 1, backgroundColor: ah.ink, padding: 24, justifyContent: 'center', gap: 16}}>
+        <AHEyebrow>{room.name}</AHEyebrow>
+        <AHDisplay size={44}>Not available.</AHDisplay>
+        <Text style={plateText.small}>This room isn’t available in this version of the app.</Text>
+        <AHPill label="Go back" variant="ghost" onPress={back} />
+      </View>
+    );
+  }
   if (!room) {
     return (
       <View style={{flex: 1, backgroundColor: ah.ink, padding: 24, justifyContent: 'center', gap: 16}}>
@@ -34,7 +47,7 @@ export default function RoomDetail() {
           </Panel>
           <Panel title="What you will do here">
             <Text style={plateText.body}>{room.primaryAction}.</Text>
-            <Text style={plateText.small}>This room is being prepared. Nothing here is live yet.</Text>
+            <Text style={plateText.small}>This room isn’t open yet. Nothing here can be used.</Text>
           </Panel>
         </>
       )}

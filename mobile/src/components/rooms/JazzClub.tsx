@@ -2,6 +2,7 @@
 // (GET /api/jazz-club/program). The spotlight is lit only when the server says a set is genuinely live.
 // Joining and tipping are wired to the real routes, which refuse honestly until the audio partner and
 // performer payouts are connected (join 501/503, tips 409) — the room shows exactly that, never a fake seat.
+// Store builds (RELEASE.jazzLive false) show the programme and replays only: no join or tip control that can't complete.
 import {useEffect, useId, useState} from 'react';
 import {Linking, StyleSheet, Text, View} from 'react-native';
 import Animated, {FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withSequence, withTiming} from 'react-native-reanimated';
@@ -10,6 +11,7 @@ import {api} from '@/lib/api';
 import {track, type Side} from '@/lib/deco';
 import {ah, ahFonts, radius} from '@/lib/ah';
 import {failure, useLive} from '@/lib/live';
+import {RELEASE} from '@/lib/release';
 import {AHCard, AHChip, AHEyebrow, AHLiveDot, AHTitle} from '@/components/ah';
 import {ActionBar, SampleNote, s} from './shared';
 import {LiveGate, NumRow, OK_GREEN, RowBtn, Status} from './live';
@@ -122,12 +124,14 @@ function JazzLive({data, acc}: {data: JazzData; acc: string}) {
         {head?.performers?.length ? <Text style={[s.small, {fontSize: 13, color: 'rgba(237,235,231,0.75)'}]}>{head.performers.join(' · ')}</Text> : null}
       </Stage>
 
-      <AHCard pad={16} style={{flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: connected ? 'rgba(126,226,184,0.3)' : ah.line}}>
-        {connected ? <AHLiveDot color={OK_GREEN} /> : <View style={{width: 7, height: 7, borderRadius: 4, backgroundColor: ah.faint}} />}
-        <Text style={[s.small, {flex: 1, fontSize: 13, lineHeight: 19}]}>{connected ? 'House sound is connected.' : `House sound is not connected yet. ${SOUND_PENDING}`} Tips open once performer payouts are set up.</Text>
-      </AHCard>
+      {RELEASE.jazzLive ? (
+        <AHCard pad={16} style={{flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: connected ? 'rgba(126,226,184,0.3)' : ah.line}}>
+          {connected ? <AHLiveDot color={OK_GREEN} /> : <View style={{width: 7, height: 7, borderRadius: 4, backgroundColor: ah.faintLine}} />}
+          <Text style={[s.small, {flex: 1, fontSize: 13, lineHeight: 19}]}>{connected ? 'House sound is connected.' : `House sound is not connected yet. ${SOUND_PENDING}`} Tips open once performer payouts are set up.</Text>
+        </AHCard>
+      ) : null}
 
-      {data.live ? (
+      {RELEASE.jazzLive && data.live ? (
         <View style={{gap: 10}}>
           <ActionBar label={busy ? 'One moment…' : connected ? 'Join tonight’s room' : 'Join · opens with the audio partner'} color={acc} onPress={() => join(data.live!)} disabled={busy} />
           <RowBtn label="Tip the performers" onPress={tip} disabled={busy} />
@@ -143,11 +147,11 @@ function JazzLive({data, acc}: {data: JazzData; acc: string}) {
           return (
             <NumRow key={x.id} n={i + 1} meta={when(x.starts_at)} title={x.title} last={i === data.sessions.length - 1}
               sub={!x.performers?.length && !x.licensing_note ? undefined : <>{x.performers?.length ? x.performers.join(', ') : ''}{x.licensing_note ? <Text style={{color: ah.faint, fontSize: 11}}>{x.performers?.length ? '\n' : ''}{x.licensing_note}</Text> : null}</>}
-              right={canReplay ? <RowBtn label="Replay" onPress={() => replay(x)} disabled={busy} /> : <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, textTransform: 'uppercase', color: x.state === 'live' ? OK_GREEN : ah.mute}}>{x.state}</Text>} />
+              right={canReplay ? <RowBtn label="Replay" onPress={() => replay(x)} disabled={busy} /> : <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: x.state === 'live' ? OK_GREEN : ah.mute}}>{x.state}</Text>} />
           );
         })}
       </View>
-      <SampleNote>The house programme · no seat, ticket or tip is taken until the audio partner and payouts are live</SampleNote>
+      <SampleNote>{RELEASE.jazzLive ? 'The house programme · no seat, ticket or tip is taken until the audio partner and payouts are live' : 'The house programme'}</SampleNote>
     </Animated.View>
   );
 }

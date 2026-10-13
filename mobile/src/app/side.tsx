@@ -69,7 +69,7 @@ function Floor({f, onPress}: {f: (typeof FLOORS)[number]; onPress: () => void}) 
       </Svg>
       <View style={styles.cardTop}>
         <Text style={styles.floorNo}>Floor {f.n}</Text>
-        <Text style={styles.floorNo} accessibilityElementsHidden>→</Text>
+        <Text style={styles.floorNo} aria-hidden>→</Text>
       </View>
       <Text style={styles.name}>{f.name}</Text>
       <Text style={styles.sub}>{f.sub}</Text>

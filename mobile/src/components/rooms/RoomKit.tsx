@@ -89,7 +89,7 @@ export function TextBtn({label, onPress, on, a11y, tone}: {label: string; onPres
 export function Tag({children, tone = ah.mute, fill}: {children: ReactNode; tone?: string; fill?: boolean}) {
   return (
     <View style={{alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: fill ? tone : 'rgba(255,255,255,0.07)'}}>
-      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.1, textTransform: 'uppercase', color: fill ? '#000' : tone}}>{children}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: fill ? '#000' : tone}}>{children}</Text>
     </View>
   );
 }

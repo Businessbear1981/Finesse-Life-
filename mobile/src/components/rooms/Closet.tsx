@@ -203,7 +203,7 @@ function ClosetSample() {
             <View key={d} style={{flex: 1, gap: 6}}>
               <View style={{alignSelf: 'center', width: 1.5, height: 12, backgroundColor: ah.platinum, opacity: 0.6}} />
               <View style={{aspectRatio: 3 / 4, borderRadius: 8, borderWidth: 1, borderColor: ah.line2, backgroundColor: '#141215'}} />
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, color: ah.mute, textAlign: 'center'}}>{d}</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.mute, textAlign: 'center'}}>{d}</Text>
             </View>
           ))}
         </View>

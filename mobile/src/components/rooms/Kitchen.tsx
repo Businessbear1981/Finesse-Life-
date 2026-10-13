@@ -10,6 +10,7 @@
 // derived from kitchen_orders / kitchen_plans (/api/kitchen/history).
 // Signed out, PLAN, SHOP, MASTERS and the recipe book are labelled samples.
 import {useEffect, useState} from 'react';
+import {router} from 'expo-router';
 import {Pressable, Text, TextInput, View} from 'react-native';
 import Animated, {FadeIn, FadeInDown} from 'react-native-reanimated';
 import {api} from '@/lib/api';
@@ -58,7 +59,7 @@ function Frame({h, label, icon, children}: {h: number; label?: string; icon?: st
     <View style={{height: h, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: ah.ink3, borderBottomWidth: 1, borderColor: ah.line}}>
       {icon ? <Icon name={icon} size={34} color={ah.faint} strokeWidth={1.1} /> : null}
       {children}
-      {label ? <Text style={[t.eyebrow, {color: ah.faint, fontSize: 10}]}>{label}</Text> : null}
+      {label ? <Text style={[t.eyebrow, {color: ah.faint, fontSize: 11}]}>{label}</Text> : null}
     </View>
   );
 }
@@ -386,7 +387,7 @@ function MealLine({when, children, right}: {when: string; children: React.ReactN
   return (
     <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 64, paddingVertical: 12, borderBottomWidth: 1, borderColor: ah.line}}>
       <View style={{flex: 1, gap: 3}}>
-        <Text style={[t.eyebrow, {fontSize: 10, color: ah.blush}]}>{when}</Text>
+        <Text style={[t.eyebrow, {fontSize: 11, color: ah.blush}]}>{when}</Text>
         {children}
       </View>
       {right}
@@ -410,7 +411,7 @@ function SamplePlan() {
         </Animated.View>
         <View style={{paddingVertical: 16}}><Ledger total={total} target={1900} /></View>
       </AHCard>
-      <ActionBar label="Sign in to plan your week" color={ah.white} disabled />
+      <ActionBar label="Sign in to plan your week" color={ah.white} onPress={() => router.push('/sign-in')} />
       <SampleNote>Sample menu · Not your plan · Nothing is ordered</SampleNote>
     </View>
   );

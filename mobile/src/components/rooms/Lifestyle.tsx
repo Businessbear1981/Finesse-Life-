@@ -23,6 +23,8 @@ import {
 import {dollars, planNight, readNight, toggleStop, totals, type PerDiemPlan} from '@/lib/rooms/perdiem';
 import {ActionBar, Chips, SampleNote, Segmented} from './shared';
 import {LiveGate, Status, Tick} from './live';
+import {ModerationMenu, useHouseRules} from './moderation';
+import {needsTerms} from '@/lib/rooms/moderation';
 import {Fine, Head, Meter, Num, Pick, Row, Step, Tag, TextBtn, ah, ahFonts, t} from './RoomKit';
 
 /* ─────────────── NightVision ─────────────── */
@@ -360,14 +362,23 @@ function HostTable({acc, onDone}: {acc: string; onDone: () => void}) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<Msg>(null);
   const info = GAME_INFO[game];
+  const rules = useHouseRules();
   const open = async () => {
     if (!title.trim() || busy) return;
     const d = new Date();
     d.setDate(d.getDate() + (DAY_OFFSETS.find((x) => x[0] === day)?.[1] ?? 0));
     d.setHours(HOURS.find((x) => x[0] === hour)?.[1] ?? 21, 0, 0, 0);
     if (d.getTime() < Date.now()) { setMsg({ok: false, text: 'That time has passed — pick a later one. No table was opened.'}); return; }
-    setBusy(true); setMsg(null);
-    const r = await hostTable({game, title: title.trim(), note: null, starts_at: d.toISOString(), seats});
+    setMsg(null);
+    // House rules & terms, once, before a member's first table.
+    if (!(await rules.ensure())) return;
+    setBusy(true);
+    const send = () => hostTable({game, title: title.trim(), note: null, starts_at: d.toISOString(), seats});
+    let r = await send();
+    if (needsTerms(r)) {
+      if (!(await rules.require())) { setBusy(false); setMsg({ok: false, text: 'Accept the house rules to host. No table was opened.'}); return; }
+      r = await send();
+    }
     setBusy(false);
     if (!r.ok) { setMsg({ok: false, text: r.status === 409 || r.status === 400 ? clubErrorText(r.body.error) : failure(r.status, r.body, 'No table was opened.')}); return; }
     setTitle('');
@@ -376,6 +387,7 @@ function HostTable({acc, onDone}: {acc: string; onDone: () => void}) {
   };
   return (
     <AHCard style={{gap: 12}}>
+      {rules.sheet}
       <AHEyebrow>Host a table</AHEyebrow>
       <Chips options={GAMES.map((g) => GAME_INFO[g].label)} value={info.label} onChange={(l) => { const g = GAMES.find((x) => GAME_INFO[x].label === l) ?? 'spades'; setGame(g); setSeats(GAME_INFO[g].defaultSeats); }} />
       <Fine>{info.blurb}</Fine>
@@ -419,6 +431,7 @@ function BoardTable({tb, n, acc, reload}: {tb: ClubTable; n: number; acc: string
             {tb.note ? <Text style={t.small}>{tb.note}</Text> : null}
           </View>
           {new Date(tb.starts_at).getTime() <= Date.now() ? <AHChip label="Live" live /> : null}
+          <ModerationMenu kind="club_table" targetId={tb.id} name={tb.host_name} own={tb.is_host} onBlocked={reload} />
         </View>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14}}>
           {Array.from({length: Math.min(6, tb.seats)}, (_, k) => <View key={k} style={{width: 14, height: 14, borderRadius: 7, borderWidth: 1, borderColor: k < lit ? 'transparent' : ah.line2, backgroundColor: k < lit ? (tb.seated && k === lit - 1 ? ah.rose : ah.white) : 'transparent'}} />)}

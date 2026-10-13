@@ -1,6 +1,7 @@
 // The hotel, After Hours edition (mirrors web src/components/finesse-layout.tsx): a glass top bar with the
 // profile circle, chrome wordmark and VIP crown; two quiet room rails; a glass dock with the rose-gold Nova
-// orb; the room in the middle. Rooms without an interior yet say so.
+// orb; the room in the middle. Rooms without an interior yet say so. Store builds leave out every room
+// lib/release.ts hides (Vault, Lab studios, the VIP lift) so no navigation surface leads to a dead end.
 import {useCallback, useEffect, useId, useMemo, useState} from 'react';
 import {Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {useRouter} from 'expo-router';
@@ -18,6 +19,8 @@ import type {Room} from '@/lib/registry';
 import {LobbyRoom} from '@/components/scenes/DecoLobby';
 import {AHCard, AHEyebrow, AHLiveDot, AHPill, AHTitle} from '@/components/ah';
 import {INTERIORS, LIVE_ROOMS} from '@/components/rooms/interiors';
+import {LegalLinks} from '@/components/legal/LegalLinks';
+import {RELEASE, isRoomVisible} from '@/lib/release';
 
 type RoomDef = {id: string; label: string; icon: string; wing: string; line: string; cta: string};
 const RM = (id: string, label: string, icon: string, wing: string, line = '', cta = ''): RoomDef => ({id, label, icon, wing, line, cta});
@@ -57,12 +60,16 @@ const NOVA = RM('concierge', 'Nova', 'power', 'ORCHESTRATOR');
 // Rooms off the rails, reached from the Lobby directory.
 const HOUSE = [RM('ballroom', 'Ballroom', 'sparkles', 'PUBLIC FLOOR'), RM('club', 'The Club', 'briefcase', 'PUBLIC FLOOR'),
   RM('closet', 'The Closet', 'shirt', 'PRIVATE LIFE'), RM('diary', 'The Diary', 'bookopen', 'PRIVATE LIFE'), RM('camera', 'The Camera', 'camera', 'ORCHESTRATOR'), RM('jazz-club', 'Jazz Club', 'music', 'PUBLIC FLOOR')];
+// Store builds drop hidden rooms from every rail, the dock and the house list (lib/release.ts).
+const shown = (list: RoomDef[]) => list.filter((r) => isRoomVisible(r.id));
+const L_HER_S = shown(L_HER), L_HIM_S = shown(L_HIM), R_HER_S = shown(R_HER), R_HIM_S = shown(R_HIM);
+const D_L_S = shown(D_L), D_R_S = shown(D_R), HOUSE_S = shown(HOUSE);
 // Interiors (and which of them are live) are registered in components/rooms/interiors.ts, shared with /room/[id].
 const BUILT = INTERIORS;
 const TOP = 60;
+/** Fixed-height chrome (top bar, rails, dock) grows with Dynamic Type only this far, so labels never clip. */
+const CHROME_MAX_SCALE = 1.3;
 
-/** "COMPOSE A LOOK" → "Compose a look". */
-const sentence = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s);
 const WING: Record<string, string> = {'ARRIVAL': 'Arrival', 'PRIVATE LIFE': 'Private life', 'PUBLIC FLOOR': 'Public floor', 'ORCHESTRATOR': 'Orchestrator'};
 
 // Rooms that open with their own hero title; the shell shows only the status line above them.
@@ -73,12 +80,14 @@ export default function HotelScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const {width} = useWindowDimensions();
-  const [room, setRoom] = useState('lobby');
-  const left = her ? L_HER : L_HIM, right = her ? R_HER : R_HIM;
-  const all = useMemo(() => [...left, ...right, ...D_L, ...D_R, PROFILE, NOVA, ...HOUSE], [left, right]);
+  const [room, setRoomRaw] = useState('lobby');
+  // A hidden room (store build) is never opened, whichever surface asked for it.
+  const setRoom = useCallback((id: string) => { if (isRoomVisible(id)) setRoomRaw(id); }, []);
+  const left = her ? L_HER_S : L_HIM_S, right = her ? R_HER_S : R_HIM_S;
+  const all = useMemo(() => [...left, ...right, ...D_L_S, ...D_R_S, PROFILE, NOVA, ...HOUSE_S], [left, right]);
   const current = all.find((r) => r.id === room) ?? L_HER[0];
-  // Phones get a narrow rail (icon + tiny label) so the room in the middle has the width.
-  const rail = width < 480 ? 52 : 72;
+  // Phones get a narrow rail (icon + short label) so the room in the middle has the width.
+  const rail = width < 480 ? 56 : 72;
   const contentW = width - rail * 2;
   const novaOn = room === 'concierge';
   const Built = BUILT[room];
@@ -87,6 +96,7 @@ export default function HotelScreen() {
   // A room from the house index: open it here when the hotel has it, otherwise on its own page.
   const openManifest = useCallback((r: Room) => {
     const id = hotelId(r.id);
+    if (!isRoomVisible(r.id)) return;
     if (r.id === 'vip-room') router.push('/penthouse');
     else if (all.some((x) => x.id === id)) setRoom(id);
     else router.push({pathname: '/room/[id]', params: {id: r.id}});
@@ -101,9 +111,11 @@ export default function HotelScreen() {
         <Pressable onPress={() => setRoom('lobby')} accessibilityRole="button" accessibilityLabel={`${her ? 'Finesse' : 'Carpe Diem'}, return to the Lobby`} style={styles.markHit}>
           <ChromeMark label={her ? 'FINESSE' : 'CARPE DIEM'} />
         </Pressable>
-        <RoundButton label="VIP, the Private Lift" active={false} vip onPress={() => router.push('/penthouse')}>
-          <Icon name="crown" size={16} color={ah.rose} />
-        </RoundButton>
+        {RELEASE.vip ? (
+          <RoundButton label="VIP, the Private Lift" active={false} vip onPress={() => router.push('/penthouse')}>
+            <Icon name="crown" size={16} color={ah.rose} />
+          </RoundButton>
+        ) : <View style={styles.roundHit} />}
       </View>
 
       <View style={{flex: 1, flexDirection: 'row'}}>
@@ -114,8 +126,8 @@ export default function HotelScreen() {
               <Animated.View entering={FadeIn.duration(400)} style={{paddingHorizontal: 12, paddingTop: 22, gap: 14}}>
                 <View style={{gap: 8}}>
                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                    {live ? <AHLiveDot color={ah.ok} /> : <View style={{width: 7, height: 7, borderRadius: 4, borderWidth: 1, borderColor: ah.faint}} />}
-                    <AHEyebrow style={{fontSize: 10, letterSpacing: 1.6}} color={live ? ah.ok : ah.mute}>{live ? 'Room on' : 'Sample room'} · {WING[current.wing] ?? current.wing}</AHEyebrow>
+                    {live ? <AHLiveDot color={ah.ok} /> : <View style={{width: 7, height: 7, borderRadius: 4, borderWidth: 1, borderColor: ah.faintLine}} />}
+                    <AHEyebrow style={{fontSize: 11, letterSpacing: 1.6}} color={live ? ah.ok : ah.mute}>{live ? 'Room on' : 'Sample room'} · {WING[current.wing] ?? current.wing}</AHEyebrow>
                   </View>
                   {!SELF_HEADED.has(room) && <AHTitle size={38}>{current.label}</AHTitle>}
                   {!SELF_HEADED.has(room) && current.line ? <Text style={styles.roomLine}>{current.line}</Text> : null}
@@ -130,9 +142,9 @@ export default function HotelScreen() {
       </View>
 
       <View style={[styles.dock, {paddingBottom: insets.bottom, height: 70 + insets.bottom}]}>
-        {D_L.map((d) => <DockButton key={d.id} r={d} active={room === d.id} onPress={() => setRoom(d.id)} />)}
+        {D_L_S.map((d) => <DockButton key={d.id} r={d} active={room === d.id} onPress={() => setRoom(d.id)} />)}
         <NovaButton on={novaOn} onPress={() => setRoom(novaOn ? 'lobby' : 'concierge')} />
-        {D_R.map((d) => <DockButton key={d.id} r={d} active={room === d.id} onPress={() => setRoom(d.id)} />)}
+        {D_R_S.map((d) => <DockButton key={d.id} r={d} active={room === d.id} onPress={() => setRoom(d.id)} />)}
       </View>
     </View>
   );
@@ -179,7 +191,7 @@ function RoseGlow({size}: {size: number}) {
 }
 
 function Rail({rooms, room, onPick, edge, width}: {rooms: RoomDef[]; room: string; onPick: (id: string) => void; edge: 'left' | 'right'; width: number}) {
-  const narrow = width < 60;
+  const narrow = width < 64;
   return (
     <View style={[styles.rail, {width}, edge === 'left' ? {borderRightWidth: 1} : {borderLeftWidth: 1}]}>
       {rooms.map((r, i) => {
@@ -189,7 +201,7 @@ function Rail({rooms, room, onPick, edge, width}: {rooms: RoomDef[]; room: strin
             style={({pressed}) => [styles.railItem, {opacity: pressed ? 0.6 : 1}]}>
             {on ? <RoseGlow size={width - 6} /> : null}
             <Icon name={r.icon} size={19} color={on ? ah.white : ah.mute} strokeWidth={on ? 2 : 1.5} />
-            <Text style={[styles.railLabel, {fontSize: narrow ? 8 : 9, color: on ? ah.white : ah.faint}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{r.label}</Text>
+            <Text style={[styles.railLabel, {color: on ? ah.white : ah.faint}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={narrow ? 0.78 : 0.9} maxFontSizeMultiplier={CHROME_MAX_SCALE}>{r.label}</Text>
             <View style={[styles.dot, on && {backgroundColor: ah.rose, shadowColor: ah.rose, shadowOpacity: 0.9}]} />
           </Pressable>
         );
@@ -203,7 +215,7 @@ function DockButton({r, active, onPress}: {r: RoomDef; active: boolean; onPress:
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={r.label} accessibilityState={{selected: active}}
       style={({pressed}) => [styles.dockItem, {opacity: pressed ? 0.6 : 1}]}>
       <Icon name={r.icon} size={20} color={active ? ah.white : ah.mute} strokeWidth={active ? 2 : 1.5} />
-      <Text style={[styles.dockLabel, {color: active ? ah.rose : ah.faint}]}>{r.label}</Text>
+      <Text style={[styles.dockLabel, {color: active ? ah.rose : ah.faint}]} numberOfLines={1} maxFontSizeMultiplier={CHROME_MAX_SCALE}>{r.label}</Text>
     </Pressable>
   );
 }
@@ -231,7 +243,7 @@ function NovaButton({on, onPress}: {on: boolean; onPress: () => void}) {
         </Svg>
         <View style={{position: 'relative', zIndex: 2}}><Icon name="bell" size={17} color="#2A1014" strokeWidth={1.9} /></View>
       </View>
-      <Text style={[styles.dockLabel, {color: on ? ah.rose : ah.text}]}>{on ? 'Nova on' : 'Nova'}</Text>
+      <Text style={[styles.dockLabel, {color: on ? ah.rose : ah.text}]} numberOfLines={1} maxFontSizeMultiplier={CHROME_MAX_SCALE}>{on ? 'Nova on' : 'Nova'}</Text>
     </Pressable>
   );
 }
@@ -268,6 +280,7 @@ function AccountDesk() {
           <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 14, color: ah.danger}}>Delete account</Text>
         </Pressable>
       ) : null}
+      <LegalLinks align="flex-start" style={{borderTopWidth: 1, borderColor: ah.line, paddingTop: 2}} />
     </AHCard>
   );
 }
@@ -279,8 +292,7 @@ function Interior({room}: {room: RoomDef}) {
         <RoseGlow size={170} />
         <Icon name={room.icon} size={40} color={ah.rose} strokeWidth={1.2} />
       </AHCard>
-      <AHPill label={sentence(room.cta) || 'Enter'} block disabled />
-      <Text style={styles.note}>This interior is being prepared.</Text>
+      <Text style={styles.note}>This room isn’t open yet. Nothing here can be used.</Text>
     </View>
   );
 }
@@ -292,14 +304,14 @@ const styles = StyleSheet.create({
   roundHit: {width: 44, height: 44, alignItems: 'center', justifyContent: 'center'},
   round: {width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.04)'},
   rail: {backgroundColor: 'rgba(5,5,5,0.9)', borderColor: ah.line, paddingVertical: 4},
-  railItem: {flex: 1, minHeight: 46, maxHeight: 76, alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 2},
-  railLabel: {fontFamily: ahFonts.sansSemi, letterSpacing: 0.2, textAlign: 'center', maxWidth: '100%'},
+  railItem: {flex: 1, minHeight: 46, alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 2},
+  railLabel: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.1, textAlign: 'center', maxWidth: '100%'},
   dot: {width: 4, height: 4, borderRadius: 2, backgroundColor: 'transparent', shadowRadius: 6, shadowOffset: {width: 0, height: 0}, shadowOpacity: 0},
   dock: {flexDirection: 'row', alignItems: 'stretch', borderTopWidth: 1, borderColor: ah.line, backgroundColor: 'rgba(5,5,5,0.94)'},
   dockItem: {flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, minHeight: 56},
-  dockLabel: {fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 0.6},
+  dockLabel: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.4},
   nova: {flex: 1.1, alignItems: 'center', justifyContent: 'center', gap: 2, minHeight: 56},
   roomLine: {fontFamily: ahFonts.sans, fontSize: 14, lineHeight: 20, color: ah.mute},
-  note: {fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.faint, textAlign: 'center'},
+  note: {fontFamily: ahFonts.sansMedium, fontSize: 13, color: ah.faint, textAlign: 'center'},
   danger: {minHeight: 48, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,138,160,0.4)', alignItems: 'center', justifyContent: 'center'},
 });

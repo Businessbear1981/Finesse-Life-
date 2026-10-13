@@ -1,4 +1,5 @@
-import {Stack} from 'expo-router';
+import {Stack, router, type ErrorBoundaryProps} from 'expo-router';
+import {ScrollView, Text, View} from 'react-native';
 import {StatusBar} from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import {useEffect} from 'react';
@@ -13,9 +14,39 @@ import {InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic} from '@ex
 import {InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold, InterTight_700Bold} from '@expo-google-fonts/inter-tight';
 import {Anton_400Regular} from '@expo-google-fonts/anton';
 import {colors} from '@/lib/tokens';
-import {ahFonts} from '@/lib/ah';
+import {ah, ahFonts} from '@/lib/ah';
+import {AHDisplay, AHEyebrow, AHGlow, AHPill} from '@/components/ah';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
+
+/**
+ * Expo Router's root error boundary: any render error below the root layout lands here instead of a blank
+ * screen. After Hours styling, an honest line, and two ways out: try the same screen again, or go back to the Lobby.
+ */
+export function ErrorBoundary({error, retry}: ErrorBoundaryProps) {
+  const toLobby = () => {
+    try { router.replace('/hotel'); } catch { /* the navigator itself may be what failed; retry still re-renders */ }
+    void retry();
+  };
+  return (
+    <View style={{flex: 1, backgroundColor: ah.ink}}>
+      <StatusBar style="light" />
+      <AHGlow />
+      <ScrollView contentContainerStyle={{flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 64, gap: 16, width: '100%', maxWidth: 560, alignSelf: 'center'}}>
+        <AHEyebrow>After Hours · A wrong turn</AHEyebrow>
+        <AHDisplay size={44}>Something went wrong.</AHDisplay>
+        <Text style={{fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.mute}}>
+          This screen hit a problem and could not open. Nothing you saved was lost. Try again, or head back to the Lobby.
+        </Text>
+        {__DEV__ ? <Text selectable style={{fontFamily: ahFonts.sans, fontSize: 12, lineHeight: 17, color: ah.faint}}>{error.message}</Text> : null}
+        <View style={{gap: 10, marginTop: 8}}>
+          <AHPill label="Try again" block onPress={() => void retry()} />
+          <AHPill label="Return to the Lobby" variant="ghost" block onPress={toLobby} />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({InstrumentSerif_400Regular, InstrumentSerif_400Regular_Italic, InterTight_400Regular, InterTight_500Medium, InterTight_600SemiBold, InterTight_700Bold, Anton_400Regular, PlayfairDisplay_400Regular_Italic, PlayfairDisplay_700Bold_Italic, PlayfairDisplay_800ExtraBold_Italic, Marcellus_400Regular, Manrope_500Medium, Manrope_600SemiBold, Cinzel_600SemiBold, Cinzel_700Bold, CormorantGaramond_400Regular_Italic, JetBrainsMono_400Regular});

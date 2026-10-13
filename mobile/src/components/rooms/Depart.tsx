@@ -59,8 +59,8 @@ function Pass({from, fromCity, to, toCity, label, stub}: {from: string; fromCity
       </View>
     }>
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 10, letterSpacing: 3.5, color: 'rgba(237,235,231,0.85)'}}>FINESSE</Text>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 2, color: ah.mute}}>{label}</Text>
+        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 11, letterSpacing: 3.5, color: 'rgba(237,235,231,0.85)'}}>FINESSE</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, color: ah.mute}}>{label}</Text>
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
         <View style={{flex: 1}}>
@@ -234,7 +234,7 @@ function Ride({acc}: {acc: string}) {
       ) : null}
       <AHCard pad={16} style={{gap: 6, backgroundColor: 'transparent'}}>
         <Meta color={ah.text}>Ride partners</Meta>
-        <Text style={s.small}>Ride partners connect soon — your plan is saved. No car is requested from this room yet.</Text>
+        <Text style={s.small}>No ride partner is connected — your plan is saved, and no car is requested from this room.</Text>
       </AHCard>
     </Animated.View>
   );

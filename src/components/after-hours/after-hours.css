@@ -11,7 +11,8 @@
   --ah-line-2: rgba(255, 255, 255, 0.14);
   --ah-text: #edebe7;
   --ah-mute: #8a8a8f;
-  --ah-faint: #5c5c62;
+  --ah-faint: #808086; /* quiet text: >= 4.5:1 on --ah-ink/ink2/ink3 (WCAG AA) */
+  --ah-faint-line: #5c5c62; /* non-text hairlines and idle marks only */
   --ah-rose: #e8b4a0;
   --ah-rose-2: #b76e79;
   --ah-rose-3: #8e4b55;

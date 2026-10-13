@@ -32,6 +32,7 @@ export function CallingCard({
   avatar,
   children,
   footer,
+  menu,
 }: {
   name: string;
   nameHref?: string;
@@ -42,6 +43,8 @@ export function CallingCard({
   tilt?: number;
   children: ReactNode;
   footer?: ReactNode;
+  /** The "…" report / block menu (src/components/moderation). */
+  menu?: ReactNode;
 }) {
   const vibeColor = VIBE_COLORS[vibe || ''] || 'var(--ah-rose)';
   return (
@@ -67,6 +70,7 @@ export function CallingCard({
             <span>{time}</span>
           </p>
         </div>
+        {menu}
       </div>
       <div style={{marginTop: 12}}>{children}</div>
       {footer && <div style={{marginTop: 10, paddingTop: 6, borderTop: '1px solid var(--ah-line)'}}>{footer}</div>}

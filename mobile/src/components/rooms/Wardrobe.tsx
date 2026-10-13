@@ -280,7 +280,7 @@ function Tier({label, items, w, h, row, index, onMove}: {label: string; items: P
         })}
       </Animated.View>
       <View style={{position: 'absolute', left: 0, top: 0, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: 'rgba(5,5,5,0.85)', borderWidth: 1, borderColor: ah.line2}}>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.4, color: ah.mute}}>{label}</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.4, color: ah.mute}}>{label}</Text>
       </View>
       {items.length > 1 ? <ArrowBtn side="left" onPress={() => onMove(-1)} label={`Previous ${name}`} row={row} /> : null}
       {items.length > 1 ? <ArrowBtn side="right" onPress={() => onMove(1)} label={`Next ${name}`} row={row} /> : null}

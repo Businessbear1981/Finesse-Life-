@@ -123,7 +123,7 @@ export function VaultLocked({reason}: {reason: 'signed_out' | 'not_vip'}) {
         <AHDisplay size={50} style={{marginTop: 6, width: reason === 'not_vip' ? 290 : 160}}>{reason === 'not_vip' ? 'By key only.' : 'Closed.'}</AHDisplay>
       </View>
       <Text style={{marginTop: 12, maxWidth: 340, textAlign: 'center', fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.mute}}>
-        {reason === 'signed_out' ? 'Sign in to open your Vault.' : 'The Vault is for key holders: your prepaid Finesse card in Nano Black, Platinum or Rose Gold, with 12% back on every purchase.'}
+        {reason === 'signed_out' ? 'Sign in to open your Vault.' : 'The Vault is for key holders: your prepaid Finesse card in Nano Black, Platinum or Rose Gold, with 12% back on Finesse purchases once the card partner is live.'}
       </Text>
       {reason === 'signed_out' ? (
         <Link href="/sign-in" asChild>
@@ -292,7 +292,7 @@ export function Vault({side}: {side: Side}) {
             <AHDisplay size={64} rose accessibilityRole="text">12%</AHDisplay>
           </View>
           <View style={{flex: 1, gap: 4}}>
-            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 15, color: ah.text}}>Back on every purchase</Text>
+            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 15, color: ah.text}}>Back on Finesse purchases</Text>
             <Text style={{fontFamily: ahFonts.sans, fontSize: 13, lineHeight: 18, color: ah.mute}}>{open ? `${earned} earned so far${isLive ? '' : ' · sample'}. ` : ''}On Finesse purchases, credited as rebates once our card partner is live.</Text>
           </View>
         </AHCard>

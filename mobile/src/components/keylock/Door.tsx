@@ -30,7 +30,7 @@ export function Door({width: W, progress, open}: Props) {
   const ropeW = W * 1.12;
   const SQ = Math.round(H * 1.6);
   return (
-    <View style={{width: W, height: H + 26, alignSelf: 'center'}} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <View style={{width: W, height: H + 26, alignSelf: 'center'}} pointerEvents="none" aria-hidden>
       {/* halo + floor light (gradients sit on circles/ellipses so no box edge ever shows) */}
       <Animated.View style={[{position: 'absolute', left: W / 2 - SQ / 2, top: H * 0.55 - SQ / 2, width: SQ, height: SQ}, halo]}>
         <Svg width={SQ} height={SQ}>

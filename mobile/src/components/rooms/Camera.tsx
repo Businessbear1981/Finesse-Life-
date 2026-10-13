@@ -3,6 +3,8 @@
 // asks (POST /api/camera/identify). The reticle only "resolves" on real model output — an unrecognised
 // piece says so and the member names it. The member reviews and catalogues (POST /api/camera/catalogue),
 // then chooses where it goes (POST /api/camera/items/:id/route). Photo and record can be deleted at any time.
+// The model is a third-party AI (AI_PROCESSOR): the consent copy names it, and the first "Ask the reticle" asks
+// once for photo-AI consent (AIConsent.tsx, member_consents 'photo_ai').
 import {useEffect, useId, useState} from 'react';
 import {ActivityIndicator, Image, Pressable, StyleSheet, Text, View} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,6 +18,8 @@ import {failure, useLive} from '@/lib/live';
 import {AHCard, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
 import {Consent, ERR_PINK, LiveGate, Meta, OK_GREEN, RowBtn, Status, Tile} from './live';
+import {useAIConsent} from './AIConsent';
+import {AI_PROCESSOR} from '@/lib/consents';
 
 type Item = {id: string; viewUrl: string | null; label: string | null; category: string | null; brand_guess: string | null; confidence: number | null; model: string | null; state: string; routed_to: string | null; created_at: string};
 type CameraData = {items: Item[]};
@@ -94,7 +98,7 @@ function CameraLive({data, acc, reload}: {data: CameraData; acc: string; reload:
       </Reticle>
 
       <Consent checked={consent} onToggle={() => setConsent((c) => !c)}>
-        I consent to Finesse storing this photo privately and, only when I ask, letting the model describe it. I can delete the photo and its record at any time.
+        I consent to Finesse storing this photo privately and, only when I ask, sending it to {AI_PROCESSOR} — an AI model — to describe it. I can delete the photo and its record at any time.
       </Consent>
 
       <View style={{flexDirection: 'row', gap: 10}}>
@@ -109,7 +113,7 @@ function CameraLive({data, acc, reload}: {data: CameraData; acc: string; reload:
       </View>
       {data.items.length === 0 ? <Text style={[s.small, {textAlign: 'center'}]}>Nothing scanned yet. Your photos stay private to you.</Text> : null}
       {data.items.map((it) => <ItemCard key={it.id} item={it} acc={acc} reload={reload} onDeleted={() => setMsg({ok: true, text: 'Deleted — the photo and its record.'})} />)}
-      <SampleNote>Private intake · nothing is analysed unless you ask · no guesses — unrecognised means unrecognised</SampleNote>
+      <SampleNote>Private intake · nothing is analysed unless you ask · descriptions are AI ({AI_PROCESSOR}) and can be wrong</SampleNote>
     </Animated.View>
   );
 }
@@ -120,6 +124,7 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  const consent = useAIConsent();
   useEffect(() => { setLabel(item.label ?? ''); setCat(item.category ?? 'other'); }, [item.label, item.category]);
   const call = async (path: string, init: {method: string; json?: unknown}, ok: string) => {
     setBusy(true); setMsg(null);
@@ -152,7 +157,7 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
             </Meta>
             {item.label && !reviewing ? <Text style={{fontFamily: ahFonts.serif, fontSize: 22, lineHeight: 25, color: ah.text}}>{item.label}{item.category ? <Text style={[s.small, {fontSize: 13}]}>  · {item.category}</Text> : null}</Text> : null}
             {item.brand_guess ? <Text style={s.small}>Brand read from a visible logo: {item.brand_guess}</Text> : null}
-            {item.state === 'uploaded' ? <RowBtn label={busy ? 'Looking…' : 'Ask the reticle'} onPress={() => call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}}, 'The model has described it. Review before it is filed.')} disabled={busy} tone={acc} /> : null}
+            {item.state === 'uploaded' ? <RowBtn label={busy ? 'Looking…' : 'Ask the reticle'} onPress={() => void consent.ensure('photo_ai', () => void call('/api/camera/identify', {method: 'POST', json: {itemId: item.id}}, 'The AI has described it — it can be wrong. Review before it is filed.'))} disabled={busy} tone={acc} /> : null}
             {item.state === 'routed' ? <Text style={s.small}>{item.routed_to === 'closet' ? 'Hanging privately in your Closet.' : `Marked for the ${item.routed_to} as your choice.`}</Text> : null}
           </View>
         </View>
@@ -175,6 +180,7 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
           <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12.5, color: confirmDel ? ERR_PINK : ah.faint}}>{confirmDel ? 'Tap again to delete photo and record' : 'Delete photo and record'}</Text>
         </Pressable>
         <Status msg={msg} />
+        {consent.sheet}
       </AHCard>
     </Animated.View>
   );

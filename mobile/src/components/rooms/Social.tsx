@@ -385,8 +385,8 @@ export function Lab() {
         {(data) => !data.open ? (
           <AHCard pad={22} style={{gap: 8}}>
             <AHEyebrow>The studios</AHEyebrow>
-            <Text style={t.voice}>Studios open on the web first.</Text>
-            <Fine>The Lab’s studios are opening at finesselife.vip. Your jobs will show here — with the same keep or discard — as soon as they do. Nothing is generated from the app yet.</Fine>
+            <Text style={t.voice}>The studios aren’t open yet.</Text>
+            <Fine>Nothing is generated from the Lab yet. When the studios open, your jobs show here with keep or discard on each one.</Fine>
           </AHCard>
         ) : <LabLive data={data} reload={() => reload(true)} />}
       </LiveGate>

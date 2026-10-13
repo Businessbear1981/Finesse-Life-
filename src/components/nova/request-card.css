@@ -1,6 +1,6 @@
 /* Nova request cards. Dark-room neutral; each room tints it with --nr-accent. Falls back to the
    After Hours tokens, then to the older room fonts, so it sits in either look. */
-.nr-card, .nr-action, .nr-list, .nr-sheet {
+.nr-card, .nr-action, .nr-list, .nr-sheet, .nr-report {
   --nr-accent: var(--ah-rose, #e8b4a0);
   --nr-text: var(--ah-text, #edebe7);
   --nr-mute: var(--ah-mute, rgba(237, 235, 231, 0.55));
@@ -119,3 +119,12 @@
 }
 .nr-sheet-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .nr-sheet-title { margin: 0; font-family: var(--nr-serif); font-style: italic; font-weight: 400; font-size: 26px; }
+
+/* "Report this response" (report-reply.tsx) */
+.nr-report { margin-top: 8px; }
+.nr-report-btn {
+  min-height: 44px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--nr-mute, #8a8a8f);
+}
+.nr-report-btn:hover, .nr-report-btn:focus-visible, .nr-report-btn[aria-expanded='true'] { color: var(--nr-text, #edebe7); }
+.nr-report .nr-btn { min-height: 44px; }

@@ -2,6 +2,7 @@
 
 import {useState, useRef} from 'react';
 import {motion, AnimatePresence} from 'framer-motion';
+import {useHouseRules} from '@/components/moderation';
 import type {Post} from './post-card';
 
 const MAX = 500;
@@ -13,19 +14,29 @@ export function PostComposer({onPost, defaultOpen = false}: {userId: string; onP
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const rules = useHouseRules();
+
+  const send = () => fetch('/api/posts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: text.trim()}),
+  });
 
   const submit = async () => {
     if (!text.trim() || submitting) return;
-    setSubmitting(true);
     setError('');
+    // The house rules & terms sheet shows once, before a member's first post.
+    if (!(await rules.ensure())) return;
+    setSubmitting(true);
     try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({content: text.trim()}),
-      });
-      const data = await res.json();
-      if (!res.ok) {setError(data.error || 'Failed'); return;}
+      let res = await send();
+      let data = await res.json();
+      if (res.status === 403 && data.error === 'terms_required') {
+        if (!(await rules.require())) {setError('Accept the house rules to post. Nothing was posted.'); return;}
+        res = await send();
+        data = await res.json();
+      }
+      if (!res.ok) {setError(data.message || data.error || 'Nothing was posted. Try again.'); return;}
       onPost(data.post);
       setText('');
       setOpen(false);
@@ -38,6 +49,7 @@ export function PostComposer({onPost, defaultOpen = false}: {userId: string; onP
 
   return (
     <div style={{marginBottom: 22}}>
+      {rules.sheet}
       <AnimatePresence mode="wait">
         {!open ? (
           <motion.button

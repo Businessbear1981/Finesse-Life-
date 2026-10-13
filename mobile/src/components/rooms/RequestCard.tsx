@@ -1,6 +1,7 @@
 // Nova request cards (mobile mirror of src/components/nova/request-card.tsx). A drafted request shows
 // "Ready when you are" with Confirm / Not now; confirming runs the agent and shows its result. Plans always
-// carry "Not booked — Nova drafted this". Nothing here buys or books anything.
+// carry "Not booked — Nova drafted this". Nothing here buys or books anything. Every result Nova produced
+// carries "Report this response" (NovaReport.tsx → POST /api/moderation/report, target_kind 'nova_reply').
 import {useEffect, useState} from 'react';
 import {ActivityIndicator, Linking, Pressable, Text, View} from 'react-native';
 import Animated, {FadeIn} from 'react-native-reanimated';
@@ -10,6 +11,18 @@ import {
   STATUS_LABEL, storedErrorText, type NovaRequest, type RequestStatus,
 } from '@/lib/rooms/nova-requests';
 import {ah, ahFonts, Fine, Pick, t} from './RoomKit';
+import {NovaReport} from './NovaReport';
+
+/** What Nova produced for a request, as plain text for a report. */
+export function resultText(request: NovaRequest): string {
+  const v = resultView(request.result);
+  const body = v.type === 'plan' ? v.text
+    : v.type === 'items' ? v.items.map((i) => [i.title, i.brand, formatCents(i.price_cents)].filter(Boolean).join(' ')).join('; ')
+    : v.type === 'prices' ? v.prices.map((p) => `${p.source} ${formatCents(p.price_cents)}`).join('; ')
+    : v.type === 'path' ? [v.path.method, v.path.partner, v.path.instructions].filter(Boolean).join(' · ')
+    : 'empty result';
+  return `${request.title}: ${body}`;
+}
 
 const STATUS_TONE: Record<RequestStatus, string> = {drafted: ah.rose, running: ah.warn, ready: ah.ok, failed: ah.danger, done: ah.text, cancelled: ah.faint};
 
@@ -135,6 +148,7 @@ export function RequestCard({request, onChange}: {request: NovaRequest; onChange
       {req.status === 'failed' && !err ? <Text style={[t.small, {color: ah.danger}]}>{storedErrorText(req.error)}</Text> : null}
       {req.status === 'cancelled' ? <Fine>Set aside. Nothing ran.</Fine> : null}
       {(req.status === 'ready' || req.status === 'done') && req.result ? <RequestResult request={req} /> : null}
+      {(req.status === 'ready' || req.status === 'done') && req.result ? <NovaReport targetId={`request:${req.id}`} text={resultText(req)} /> : null}
       {err ? <Text style={[t.small, {color: ah.danger}]} accessibilityLiveRegion="polite">{err}</Text> : null}
       {acts.confirm || acts.retry || acts.done || acts.cancel ? (
         <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 8}}>

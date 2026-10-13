@@ -3,6 +3,7 @@
 // nothing is analysed until the member asks. When they do, the photo goes through the same analysis the web
 // Stylist runs (POST /api/stylist/analyze-photo → archetype, labels, brands, price range — saved as their style
 // DNA), and "Style me for…" asks the orchestrator (POST /api/nova/requests, kind style_for_occasion).
+// Before the first photo goes to the AI provider the member agrees once (AIConsent.tsx, member_consents 'photo_ai').
 import {useState} from 'react';
 import {ActivityIndicator, Image, Pressable, Text, View} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -16,6 +17,8 @@ import {AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, s} from './shared';
 import {Consent, ERR_PINK, Meta, OK_GREEN, RowBtn, SignInPrompt, Tile} from './live';
 import {NovaAskButton} from './NovaAsk';
+import {useAIConsent} from './AIConsent';
+import {AI_PROCESSOR} from '@/lib/consents';
 
 type Shot = {id: string; uri: string; mimeType?: string | null; fileName?: string | null; occasion: string; note: string; state: 'ready' | 'sending' | 'sent' | 'failed'; msg?: string};
 const OCCASIONS = ['Tonight', 'Work', 'Weekend', 'Event', 'Travel'];
@@ -101,7 +104,7 @@ export function Stylist({side}: {side: Side}) {
               <AHInput value={note} onChangeText={(v) => setNote(v.slice(0, 280))} placeholder="A note for your stylist (optional)" multiline accessibilityLabel="Note for your stylist"
                 style={{minHeight: 84, paddingTop: 14, textAlignVertical: 'top'}} />
               <Consent checked={consent} onToggle={() => setConsent((c) => !c)}>
-                I consent to Finesse storing these photos privately so my stylist can see them. I can delete them at any time. Nothing is analysed unless I ask.
+                I consent to Finesse storing these photos privately so my stylist can see them. I can delete them at any time. Nothing is analysed unless I ask — if I ask Nova to read a photo, that photo is sent to {AI_PROCESSOR} for the read.
               </Consent>
               <ActionBar label={`Send ${pending.length} to my stylist`} color={acc} onPress={send} disabled={!consent} />
             </>
@@ -113,7 +116,7 @@ export function Stylist({side}: {side: Side}) {
       {member === null ? <SignInPrompt what="the dressing room" /> : null}
       {lastSent && member ? <StyleRead key={lastSent.id} shot={lastSent} /> : null}
       {member ? <StyleMe side={side} /> : null}
-      <SampleNote>Photos are stored privately, only with your consent · Nova reads a photo only when you ask · nothing is bought</SampleNote>
+      <SampleNote>Photos are stored privately, only with your consent · Nova (AI, {AI_PROCESSOR}) reads a photo only when you ask · nothing is bought</SampleNote>
     </View>
   );
 }
@@ -123,6 +126,7 @@ function StyleRead({shot}: {shot: Shot}) {
   const [busy, setBusy] = useState(false);
   const [read, setRead] = useState<StyleAnalysis | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const consent = useAIConsent();
   const ask = async () => {
     setBusy(true); setErr(null);
     const r = await analyzePhoto(shot);
@@ -143,11 +147,13 @@ function StyleRead({shot}: {shot: Shot}) {
       ) : (
         <View style={{gap: 10}}>
           <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text}}>Want Nova to read your style from this photo?</Text>
-          <RowBtn label={busy ? 'Nova is looking…' : 'Read my style'} onPress={() => void ask()} disabled={busy} tone={ah.rose} />
+          <RowBtn label={busy ? 'Nova is looking…' : 'Read my style'} onPress={() => void consent.ensure('photo_ai', () => void ask())} disabled={busy} tone={ah.rose} />
+          <Text style={[s.small, {fontSize: 12}]}>Nova’s read is AI ({AI_PROCESSOR}) and can be wrong.</Text>
           {busy ? <ActivityIndicator color={ah.rose} /> : null}
           {err ? <Text style={[s.small, {color: ERR_PINK}]}>{err}</Text> : null}
         </View>
       )}
+      {consent.sheet}
     </AHSmoke>
   );
 }

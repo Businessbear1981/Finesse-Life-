@@ -6,7 +6,7 @@ import {supabase} from '../supabase';
 import {asMember, ok, pgFail} from './db';
 import {rankMembers, type LoungeMember, type Me} from './logic';
 
-export type Post = {id: string; content: string; media_urls?: string[] | null; likes_count: number; created_at: string; liked_by_me?: boolean;
+export type Post = {id: string; author_id?: string | null; content: string; media_urls?: string[] | null; likes_count: number; created_at: string; liked_by_me?: boolean;
   profiles?: {id?: string; display_name?: string | null; username?: string | null; avatar_url?: string | null; vibe?: string | null} | null};
 export type LoungeOuting = {id: string; host_id: string; title: string; partner: string | null; occasion_type: string | null; date_at: string | null; note: string | null; status: string};
 export type LoungeData = {me: string; members: Array<LoungeMember & {score: number}>; posts: Post[]; postsError: string | null};

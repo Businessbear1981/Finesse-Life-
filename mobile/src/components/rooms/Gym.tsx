@@ -13,6 +13,7 @@ import {track, type Side} from '@/lib/deco';
 import {ah, ahFonts, radius} from '@/lib/ah';
 import {Icon} from '@/lib/icons';
 import {failure, useLive} from '@/lib/live';
+import {RELEASE} from '@/lib/release';
 import {AHCard, AHEyebrow, AHInput, AHLiveDot, AHPill, AHTitle} from '@/components/ah';
 import {KIND_LABEL, RECOVERY_LABEL, addSession, deleteSession, deleteSet, logSet, patchSession, readRecovery, readToday, readWeek, stampRest,
   type GymToday, type GymWeek, type Recovery, type SessionKind} from '@/lib/rooms/gym';
@@ -33,11 +34,15 @@ const PLATES: Record<Side, Array<[string, string, number, number, number, number
 };
 const GAP: Record<Side, {dish: string; mac: [number, number, number, number]}> = {her: {dish: 'Cottage cheese, honey, walnuts', mac: [210, 36, 6, 4]}, him: {dish: 'Double chicken wrap, side of fruit', mac: [300, 48, 10, 6]}};
 
+// Store builds leave out Scan and Wellness until their partners exist (lib/release.ts) — no tab that can't act.
+const GYM_TABS: Array<[Tab, string]> = ([['TRAIN', 'Train'], ['EAT', 'Eat'], ['SCAN', 'Scan'], ['WELLNESS', 'Wellness']] as Array<[Tab, string]>)
+  .filter(([k]) => (k !== 'SCAN' || RELEASE.foodScan) && (k !== 'WELLNESS' || RELEASE.wellness));
+
 export function Gym({side}: {side: Side}) {
   const [tab, setTab] = useState<Tab>('TRAIN');
   return (
     <View style={{gap: 18}}>
-      <Segmented options={[['TRAIN', 'Train'], ['EAT', 'Eat'], ['SCAN', 'Scan'], ['WELLNESS', 'Wellness']]} value={tab} onChange={setTab} />
+      <Segmented options={GYM_TABS} value={tab} onChange={setTab} />
       <Animated.View key={tab} entering={FadeIn.duration(250)}>
         {tab === 'TRAIN' ? <TrainTab side={side} /> : tab === 'EAT' ? <EatTab side={side} /> : tab === 'SCAN' ? <Scan /> : <Wellness side={side} />}
       </Animated.View>
@@ -76,7 +81,7 @@ function RecoveryCard({fallback}: {fallback: Recovery}) {
         </View>
       </View>
       <Text style={s.small}>{rec.note}</Text>
-      <Text style={[s.small, {color: ah.faint}]}>From {src}. Wearables connect soon — sleep and heart rate aren’t read yet.</Text>
+      <Text style={[s.small, {color: ah.faint}]}>From {src}. Wearables aren’t connected, so sleep and heart rate aren’t read.</Text>
     </AHCard>
   );
 }
@@ -309,7 +314,7 @@ function SampleTrain({side}: {side: Side}) {
         <AHLiveDot color={ah.platinum} pulse={false} />
         <View style={{flex: 1}}>
           <Meta>Recovery · sample</Meta>
-          <Text style={[s.small, {marginTop: 2}]}>Signed in, this reads from the sets you log. Wearables connect soon.</Text>
+          <Text style={[s.small, {marginTop: 2}]}>Signed in, this reads from the sets you log. Wearables aren’t connected.</Text>
         </View>
       </AHCard>
 

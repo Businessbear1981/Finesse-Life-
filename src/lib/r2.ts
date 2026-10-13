@@ -23,6 +23,11 @@ export const r2 = new S3Client({
   credentials: {accessKeyId, secretAccessKey},
 });
 
+/** The public base every member upload is served from ('' when storage isn't configured). */
+export function r2PublicBase(): string {
+  return publicUrl.replace(/\/$/, '');
+}
+
 export function publicUrlFor(key: string): string {
   return publicUrl ? `${publicUrl.replace(/\/$/, '')}/${key}` : '';
 }

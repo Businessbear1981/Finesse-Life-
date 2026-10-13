@@ -2,8 +2,8 @@
 
 import {useState} from 'react';
 import {useRouter} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
 import {Plus, X} from 'lucide-react';
+import {useHouseRules} from '@/components/moderation';
 
 export function VipPostFabClient() {
   const [open, setOpen] = useState(false);
@@ -12,36 +12,39 @@ export function VipPostFabClient() {
   const [error, setError] = useState('');
   const router = useRouter();
 
+  const rules = useHouseRules();
+
+  const send = () => fetch('/api/vip/posts', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: content.trim()}),
+  });
+
+  // Posts go through POST /api/vip/posts (house rules, text filter, VIP check) — never straight to the table.
   const handlePost = async () => {
     const text = content.trim();
     if (!text || posting) return;
-    setPosting(true);
     setError('');
+    if (!(await rules.ensure())) return;
+    setPosting(true);
 
     try {
-      const supabase = createClient();
-      const {
-        data: {user},
-      } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Not authenticated.');
-        return;
+      let res = await send();
+      let data = (await res.json().catch(() => ({}))) as {error?: string; message?: string};
+      if (res.status === 403 && data.error === 'terms_required') {
+        if (!(await rules.require())) { setError('Accept the house rules to post. Nothing was posted.'); return; }
+        res = await send();
+        data = (await res.json().catch(() => ({}))) as {error?: string; message?: string};
       }
-
-      const {error: insertErr} = await supabase.from('vip_posts').insert({
-        author_id: user.id,
-        content: text,
-      });
-
-      if (insertErr) {
-        setError(insertErr.message);
+      if (!res.ok) {
+        setError(res.status === 401 ? 'Sign in first. Nothing was posted.' : data.message ?? 'Nothing was posted. Try again.');
       } else {
         setContent('');
         setOpen(false);
         router.refresh();
       }
     } catch {
-      setError('Failed to post. Try again.');
+      setError('The house line is down. Nothing was posted.');
     } finally {
       setPosting(false);
     }
@@ -49,6 +52,7 @@ export function VipPostFabClient() {
 
   return (
     <>
+      {rules.sheet}
       {/* Post sheet */}
       {open && (
         <div

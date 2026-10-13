@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useLocalPref } from '@/components/after-hours';
 import { NovaAction } from '@/components/nova/request-card';
+import { ModerationMenu, useHouseRules } from '@/components/moderation';
+import { createClient } from '@/lib/supabase/client';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -95,10 +97,14 @@ function ListingCard({
   listing,
   accent,
   onOffer,
+  me,
+  onBlocked,
 }: {
   listing: Listing;
   accent: string;
   onOffer: (listing: Listing) => void;
+  me?: string | null;
+  onBlocked?: (sellerId: string) => void;
 }) {
   const condColor = CONDITION_COLORS[listing.condition] ?? '#C9A961';
   const photo = listing.photo_urls?.[0];
@@ -133,11 +139,15 @@ function ListingCard({
 
       {/* Info */}
       <div className="p-3">
-        {listing.brand && (
-          <p className="font-label text-[8px] tracking-[0.2em] uppercase text-brass/60 mb-0.5">
-            {listing.brand}
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-label text-[8px] tracking-[0.2em] uppercase text-brass/60 mb-0.5 min-h-[1em]">
+            {listing.brand ?? ''}
           </p>
-        )}
+          {me && (
+            <ModerationMenu kind="listing" targetId={listing.id} memberId={listing.seller_id} name="the seller"
+              own={listing.seller_id === me} onBlocked={() => onBlocked?.(listing.seller_id)} />
+          )}
+        </div>
         <p className="font-body text-sm text-cream/80 leading-tight line-clamp-2">{listing.title}</p>
         {listing.size && (
           <p className="font-label text-[8px] tracking-[0.15em] uppercase text-cream/30 mt-1">
@@ -402,6 +412,11 @@ function BrowseTab({ accent }: { accent: string }) {
   const [priceRange, setPriceRange] = useState(PRICE_RANGES[0]);
   const [loadedKey, setLoadedKey] = useState('');
   const [offerTarget, setOfferTarget] = useState<Listing | null>(null);
+  const [me, setMe] = useState<string | null>(null);
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => setMe(data.user?.id ?? null)).catch(() => {});
+  }, []);
 
   // Loading is derived: the query key we last finished loading vs. the one on screen.
   const queryKey = `${page}|${category}|${priceRange.label}`;
@@ -496,7 +511,8 @@ function BrowseTab({ accent }: { accent: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           <AnimatePresence mode="popLayout">
             {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} accent={accent} onOffer={setOfferTarget} />
+              <ListingCard key={l.id} listing={l} accent={accent} onOffer={setOfferTarget} me={me}
+                onBlocked={(seller) => setListings((ls) => ls.filter((x) => x.seller_id !== seller))} />
             ))}
           </AnimatePresence>
         </div>
@@ -558,6 +574,8 @@ function SellTab({ accent }: { accent: string }) {
   const feeCents = Math.floor(askingCents * 0.08);
   const receiveCents = askingCents - feeCents;
 
+  const rules = useHouseRules();
+
   function setField(key: keyof typeof form, val: string) {
     setForm((f) => ({ ...f, [key]: val }));
   }
@@ -566,23 +584,31 @@ function SellTab({ accent }: { accent: string }) {
     setErr('');
     if (!form.title.trim()) { setErr('Title is required.'); return; }
     if (!askingCents || askingCents < 100) { setErr('Enter a valid price.'); return; }
+    // House rules & terms once, before a member's first listing.
+    if (!(await rules.ensure())) return;
     setSubmitLoading(true);
+    const send = () => fetch('/api/exchange/list', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: form.title.trim(),
+        brand: form.brand || undefined,
+        size: form.size || undefined,
+        condition: form.condition,
+        asking_price_cents: askingCents,
+        category: form.category,
+        description: form.description || undefined,
+      }),
+    });
     try {
-      const res = await fetch('/api/exchange/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: form.title.trim(),
-          brand: form.brand || undefined,
-          size: form.size || undefined,
-          condition: form.condition,
-          asking_price_cents: askingCents,
-          category: form.category,
-          description: form.description || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) { setErr(json.error ?? 'Failed to list.'); }
+      let res = await send();
+      let json = await res.json();
+      if (res.status === 403 && json.error === 'terms_required') {
+        if (!(await rules.require())) { setErr('Accept the house rules to list. Nothing was posted.'); return; }
+        res = await send();
+        json = await res.json();
+      }
+      if (!res.ok) { setErr(json.message ?? json.error ?? 'Failed to list.'); }
       else setDone(true);
     } catch {
       setErr('Network error. Try again.');
@@ -611,6 +637,7 @@ function SellTab({ accent }: { accent: string }) {
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
+      {rules.sheet}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="font-label text-[8px] tracking-[0.2em] uppercase text-cream/30 block mb-1">Title *</label>

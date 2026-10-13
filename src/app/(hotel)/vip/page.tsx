@@ -33,6 +33,7 @@ export default async function VipPage() {
     .select(
       `
       id,
+      author_id,
       content,
       media_urls,
       likes_count,

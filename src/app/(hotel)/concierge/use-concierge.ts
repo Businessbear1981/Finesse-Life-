@@ -2,9 +2,12 @@
 
 // Nova's behaviour: persona load/save (/api/profile + localStorage), setup flow, and /api/nova chat.
 // Moved verbatim from the old page.tsx; only the look lives elsewhere (concierge-view.tsx).
+// Nothing is sent to /api/nova until the member has agreed to AI processing once (useAiConsent →
+// member_consents 'ai_processing'); the view renders the consent sheet from `consentSheet`.
 
 import {useEffect, useRef, useState} from 'react';
 import {draftsFromToolCalls} from '@/lib/nova-request-view';
+import {useAiConsent} from '@/components/nova/ai-consent';
 import type {AvatarConfig, Message, SetupStep} from './nova-model';
 
 /** The avatar as Nova style data (never instructions). Empty fields are left out; the server validates the rest. */
@@ -30,6 +33,7 @@ export function useConcierge(initialInput = '') {
   const [input, setInput] = useState(initialInput);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const consent = useAiConsent('ai_processing');
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({behavior: 'smooth'});
@@ -112,7 +116,14 @@ export function useConcierge(initialInput = '') {
   const send = async (overrideText?: string) => {
     const text = (overrideText || input).trim();
     if (!text || sending) return;
-    if (!overrideText) setInput('');
+    // First message ever: show the AI disclosure; the message goes only after the member agrees.
+    consent.ensure(() => {
+      if (!overrideText) setInput('');
+      void deliver(text);
+    });
+  };
+
+  const deliver = async (text: string) => {
 
     const userMsg: Message = {id: crypto.randomUUID(), role: 'guest', text};
     setMessages((prev) => [...prev, userMsg]);
@@ -185,6 +196,7 @@ export function useConcierge(initialInput = '') {
     finishSetup,
     resetAvatar,
     send,
+    consentSheet: consent.sheet,
   };
 }
 

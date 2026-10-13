@@ -1,0 +1,40 @@
+/* Long-form legal / help pages in the After Hours look (privacy, terms, support, deletion). */
+.lg-meta { margin: 14px 0 0; font-size: 13px; color: var(--ah-mute); }
+.lg-note {
+  margin-top: 22px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid rgba(255, 207, 110, 0.35); background: rgba(255, 207, 110, 0.06);
+  font-size: 13.5px; line-height: 1.55; color: var(--ah-warn);
+}
+.lg-toc { margin: 26px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+.lg-toc a {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--ah-line-2); color: var(--ah-text); text-decoration: none; font-size: 13px;
+}
+.lg-toc a:hover, .lg-toc a:focus-visible { border-color: rgba(255, 255, 255, 0.3); }
+.lg-body { margin-top: 10px; }
+.lg-sec { margin-top: 34px; scroll-margin-top: 24px; }
+.lg-sec h2 {
+  margin: 0 0 12px; font-family: var(--ah-serif); font-style: italic; font-weight: 400;
+  font-size: clamp(24px, 6vw, 30px); line-height: 1.15; color: var(--ah-text);
+}
+.lg-sec h3 { margin: 18px 0 6px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ah-mute); font-weight: 600; }
+.lg-sec p, .lg-sec li { font-size: 15px; line-height: 1.65; color: rgba(237, 235, 231, 0.86); }
+.lg-sec p { margin: 0 0 12px; }
+.lg-sec ul, .lg-sec ol { margin: 0 0 12px; padding-left: 20px; }
+.lg-sec li { margin: 0 0 8px; }
+.lg-sec strong { color: var(--ah-text); font-weight: 600; }
+.lg-sec a, .lg-link { color: var(--ah-rose); text-decoration: underline; text-underline-offset: 3px; }
+.lg-table-wrap { overflow-x: auto; margin: 8px 0 14px; border: 1px solid var(--ah-line); border-radius: 14px; }
+.lg-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 14px; }
+.lg-table th, .lg-table td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ah-line); line-height: 1.5; }
+.lg-table th { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ah-mute); font-weight: 600; }
+.lg-table td { color: rgba(237, 235, 231, 0.86); }
+.lg-table tr:last-child td { border-bottom: 0; }
+.lg-card { margin-top: 14px; padding: 18px; border-radius: 18px; border: 1px solid var(--ah-line); background: var(--ah-ink-2); }
+.lg-mail { font-family: var(--ah-sans); font-size: clamp(20px, 5.4vw, 26px); color: var(--ah-text); word-break: break-all; }
+.lg-foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--ah-line); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.lg-foot a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ah-mute); text-decoration: none; font-size: 14px; }
+.lg-foot a:hover, .lg-foot a:focus-visible { color: var(--ah-text); }
+.lg-form { display: grid; gap: 16px; }
+.lg-form label { display: block; margin-bottom: 8px; }
+.lg-sec a.ah-pill { color: var(--ah-text); text-decoration: none; }

@@ -98,12 +98,22 @@ export default function LoungePage() {
   }, []);
 
   useEffect(() => {
-    fetchMembers();
-    fetchPosts();
+    // Defer to the next tick so the loading state set inside the fetchers isn't a synchronous effect update.
+    const id = setTimeout(() => {
+      void fetchMembers();
+      void fetchPosts();
+    }, 0);
+    return () => clearTimeout(id);
   }, [fetchMembers, fetchPosts]);
 
   const handleNewPost = (post: Post) => {
     setPosts((prev) => [post, ...prev]);
+  };
+
+  // Blocked from a "…" menu: drop their plate and moments now (the server already hides them on reload).
+  const handleBlocked = (memberId: string) => {
+    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    setPosts((prev) => prev.filter((p) => (p.author_id ?? p.profiles?.id) !== memberId));
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -116,6 +126,7 @@ export default function LoungePage() {
       postsLoading={postsLoading}
       userId={userId}
       onNewPost={handleNewPost}
+      onBlocked={handleBlocked}
     />
   );
 }

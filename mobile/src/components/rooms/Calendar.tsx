@@ -54,7 +54,7 @@ function DayPill({dow, date, on, dot, onPress, a11y}: {dow: string; date: number
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={a11y}
       style={({pressed}) => ({flex: 1, minHeight: 60, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)', opacity: pressed ? 0.85 : 1})}>
-      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 0.6, color: on ? '#000' : ah.mute}}>{cap(dow).slice(0, 3)}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.6, color: on ? '#000' : ah.mute}}>{cap(dow).slice(0, 3)}</Text>
       <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 16, color: on ? '#000' : ah.text, fontVariant: ['tabular-nums']}}>{date}</Text>
       <View style={{width: 4, height: 4, borderRadius: 2, backgroundColor: dot ? (on ? '#000' : dot) : 'transparent'}} />
     </Pressable>
@@ -67,7 +67,7 @@ function Hours() {
     <>
       {Array.from({length: 17}, (_, i) => (
         <View key={i} style={{position: 'absolute', top: i * 60 * PX, left: -34, right: 0, flexDirection: 'row', alignItems: 'flex-start'}}>
-          <Text style={{width: 30, fontFamily: ahFonts.sansMedium, fontSize: 10, color: ah.faint, marginTop: -6}}>{((7 + i + 11) % 12) + 1}{7 + i < 12 ? 'a' : 'p'}</Text>
+          <Text style={{width: 30, fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.faint, marginTop: -6}}>{((7 + i + 11) % 12) + 1}{7 + i < 12 ? 'a' : 'p'}</Text>
           <View style={{flex: 1, height: 1, backgroundColor: ah.line}} />
         </View>
       ))}
@@ -80,7 +80,7 @@ function Block({title, sub, bar, on, onPress, a11y, h}: {title: string; sub?: st
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={a11y}
       style={{flex: 1, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: bar, backgroundColor: on ? ah.white : 'rgba(255,255,255,0.07)', paddingHorizontal: 9, paddingVertical: 3, justifyContent: h < 30 ? 'center' : 'flex-start', overflow: 'hidden'}}>
       <Text numberOfLines={1} style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: on ? '#000' : ah.text}}>{title}</Text>
-      {sub ? <Text numberOfLines={1} style={{fontFamily: ahFonts.sans, fontSize: 10.5, color: on ? 'rgba(0,0,0,0.6)' : ah.mute}}>{sub}</Text> : null}
+      {sub ? <Text numberOfLines={1} style={{fontFamily: ahFonts.sans, fontSize: 11, color: on ? 'rgba(0,0,0,0.6)' : ah.mute}}>{sub}</Text> : null}
     </Pressable>
   );
 }
@@ -88,7 +88,7 @@ function Block({title, sub, bar, on, onPress, a11y, h}: {title: string; sub?: st
 function MonthGrid({lead, dim, isSel, isToday, onPick, dayLabel}: {lead: number; dim: number; isSel: (n: number) => boolean; isToday?: (n: number) => boolean; onPick: (n: number) => void; dayLabel?: (n: number) => string}) {
   return (
     <View style={{flexDirection: 'row', flexWrap: 'wrap'}}>
-      {DOW.map((d) => <Text key={d} style={{width: `${100 / 7}%`, textAlign: 'center', fontFamily: ahFonts.sansSemi, fontSize: 10, color: ah.faint, paddingVertical: 6}}>{d[0]}</Text>)}
+      {DOW.map((d) => <Text key={d} style={{width: `${100 / 7}%`, textAlign: 'center', fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint, paddingVertical: 6}}>{d[0]}</Text>)}
       {Array.from({length: Math.ceil((lead + dim) / 7) * 7}, (_, i) => {
         const n = i - lead + 1; const real = n >= 1 && n <= dim; const on = real && isSel(n); const today = real && !!isToday?.(n);
         return (

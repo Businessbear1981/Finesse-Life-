@@ -37,15 +37,18 @@ npm run check         # tsc --noEmit
   iOS is phone-only (`supportsTablet: false`) and declares no non-exempt encryption.
 - Icons: `assets/brand/icon.png` (1024², opaque RGB) for iOS; Android uses the adaptive
   `android-icon-foreground.png` / `android-icon-monochrome.png` (artwork inside the 66% safe zone)
-  on `#0A0406`.
+  on `#050505`.
 - `eas.json` profiles: `development` (dev client, internal), `preview` (internal APK / ad hoc),
   `production` (store; build numbers are managed remotely by EAS with `autoIncrement`).
-- **EAS must upload from the repo root.** `src/lib/registry.ts` imports `../FINESSE_31_ROOM_PROJECT.json`
-  from outside `mobile/`, so the build archive has to contain the whole git repository. Run
-  `npx eas-cli@latest build --profile <profile> --platform <ios|android>` from `mobile/` inside the git
-  checkout (EAS archives the git root and builds in `mobile/`). Do not set `EAS_NO_VCS`, copy `mobile/`
-  out on its own, or add an `.easignore` that drops `FINESSE_31_ROOM_PROJECT.json` — the bundle fails
-  without it. Metro already watches the repo root (`metro.config.js`).
+- **The room manifest lives inside `mobile/`.** `src/lib/registry.ts` imports `src/lib/room-manifest.json`, a
+  byte-for-byte copy of the repo-root `FINESSE_31_ROOM_PROJECT.json`. After editing the root manifest run
+  `node scripts/sync-room-manifest.mjs` from the repo root (`--check` only verifies);
+  `tests/room-manifest-sync.test.ts` fails when the copies drift. Builds no longer read anything outside `mobile/`.
+- **EAS Submit** (`eas.json` → `submit.production`): replace `REPLACE_WITH_ASC_APP_ID` (App Store Connect →
+  the app → App Information → Apple ID) and `REPLACE_WITH_TEAM_ID` (developer.apple.com → Membership) before
+  `eas submit -p ios`; these are read only at submit time and don't affect `eas build`. For Android put the Play
+  Console service-account JSON at `mobile/secrets/play-service-account.json` (git-ignored, never committed);
+  uploads go to the internal track as a draft.
 - Reviewers need a house code and a signed-in VIP test account in App Store Connect / Play Console notes.
   A release build refuses an entrance that the server opens in `mode: "preview"` (unconfigured server).
 

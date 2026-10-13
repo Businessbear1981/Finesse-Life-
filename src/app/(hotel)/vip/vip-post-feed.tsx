@@ -2,9 +2,11 @@
 
 import {useState} from 'react';
 import {motion, useReducedMotion} from 'framer-motion';
+import {ModerationMenu} from '@/components/moderation';
 
 export interface VipPost {
   id: string;
+  author_id?: string | null;
   content: string | null;
   media_urls: string[] | null;
   likes_count: number;
@@ -32,8 +34,10 @@ function timeAgo(dateStr: string, now: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
-export function VipPostFeed({initialPosts}: Props) {
-  const [posts] = useState<VipPost[]>(initialPosts);
+export function VipPostFeed({initialPosts, currentUserId}: Props) {
+  const [posts, setPosts] = useState<VipPost[]>(initialPosts);
+  // Blocked from the "…" menu: their posts leave the feed now (RLS keeps them out on the next load).
+  const dropAuthor = (id: string) => setPosts((p) => p.filter((x) => x.author_id !== id));
   const [now] = useState(() => Date.now());
   const reduce = useReducedMotion();
 
@@ -75,6 +79,8 @@ export function VipPostFeed({initialPosts}: Props) {
                 {post.author?.vibe && <p className="vip-post-vibe">{post.author.vibe}</p>}
               </div>
               <time className="vip-post-time ah-num" dateTime={post.created_at} suppressHydrationWarning>{timeAgo(post.created_at, now)}</time>
+              <ModerationMenu kind="vip_post" targetId={post.id} memberId={post.author_id} name={post.author?.display_name ?? post.author?.username}
+                own={post.author_id === currentUserId} onBlocked={() => { if (post.author_id) dropAuthor(post.author_id); }} />
             </div>
 
             {/* Media */}

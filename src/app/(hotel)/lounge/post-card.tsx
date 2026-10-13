@@ -4,6 +4,7 @@ import {useState} from 'react';
 import {motion} from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
+import {ModerationMenu} from '@/components/moderation';
 import {CallingCard} from './calling-card';
 
 interface Profile {
@@ -16,6 +17,7 @@ interface Profile {
 
 export interface Post {
   id: string;
+  author_id?: string | null;
   content: string;
   media_urls: string[] | null;
   like_count: number;
@@ -35,7 +37,7 @@ function timeAgo(iso: string): string {
 }
 
 /** A full post: the note, photos, and a heart (After Hours). */
-export function PostCard({post, userId, index}: {post: Post; userId: string | null; index: number}) {
+export function PostCard({post, userId, index, onBlocked}: {post: Post; userId: string | null; index: number; onBlocked?: (memberId: string) => void}) {
   const [liked, setLiked] = useState(post.liked_by_me);
   const [count, setCount] = useState(post.like_count);
   const [liking, setLiking] = useState(false);
@@ -70,6 +72,7 @@ export function PostCard({post, userId, index}: {post: Post; userId: string | nu
         vibe={profile?.vibe}
         time={timeAgo(post.created_at)}
         avatar={profile?.avatar_url}
+        menu={userId ? <PostMenu post={post} userId={userId} onBlocked={onBlocked} /> : undefined}
         footer={
           <div className="flex items-center gap-2">
             <button
@@ -111,5 +114,14 @@ export function PostCard({post, userId, index}: {post: Post; userId: string | nu
         )}
       </CallingCard>
     </motion.div>
+  );
+}
+
+/** Report / block for a Lounge post (hidden on your own). */
+export function PostMenu({post, userId, onBlocked}: {post: Post; userId: string | null; onBlocked?: (memberId: string) => void}) {
+  const authorId = post.author_id ?? post.profiles?.id ?? null;
+  return (
+    <ModerationMenu kind="post" targetId={post.id} memberId={authorId} name={post.profiles?.display_name || 'this member'}
+      own={!!userId && authorId === userId} onBlocked={() => { if (authorId) onBlocked?.(authorId); }} />
   );
 }

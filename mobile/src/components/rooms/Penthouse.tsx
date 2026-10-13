@@ -23,6 +23,9 @@ import {ActionBar, Chips, SampleNote, SectionHead, Segmented, s, sentence} from 
 import {LiveGate, RowBtn, Status} from './live';
 import {PlanWithNova} from './plan-with-nova';
 import {readVipFeed, postVip, type VipPost} from '@/lib/rooms/vip';
+import {needsTerms} from '@/lib/rooms/moderation';
+import {RELEASE} from '@/lib/release';
+import {ModerationMenu, useHouseRules} from './moderation';
 
 const SERVICES: Array<[string, string, string]> = [['chef', 'Private chef', 'Dinners at home, menus from your macros'], ['concierge', 'Human concierge', 'A person, any hour'], ['jet', 'Jet & yacht desk', 'Charters on a day’s notice'], ['art', 'Art advisor', 'Acquisitions and loans'], ['security', 'Security detail', 'Discreet, on request'], ['screen', 'Screening room', 'Private premieres'], ['cellar', 'Wine cellar', 'Allocations and storage'], ['spa', 'Wellness suite', 'In-home treatments']];
 const JOBS: Array<[string, string, string]> = [['plumbing', 'Plumbing', 'droplets'], ['electrical', 'Electrical', 'zap'], ['locks', 'Locks & doors', 'lock'], ['appliance', 'Appliances', 'refrigerator'], ['ac', 'Heat & AC', 'thermometer'], ['tv', 'TV & Wi-Fi', 'wifi'], ['car', 'Car trouble', 'car'], ['hang', 'Hang & mount', 'hammer'], ['anything', 'Anything else', 'wrench']];
@@ -35,7 +38,7 @@ function PenthouseHero() {
   const fadeId = `phf${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <View>
-      <View style={{height: H, width: '100%', overflow: 'hidden'}} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <View style={{height: H, width: '100%', overflow: 'hidden'}} aria-hidden>
         <View style={{position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center'}}><View style={{width: W, height: H}}><NightView width={W} height={H} glow={0.75} /></View></View>
         {/* glass mullions + fade into the floor */}
         {[1 / 3, 2 / 3].map((f) => <View key={f} style={{position: 'absolute', top: 0, bottom: 0, left: `${f * 100}%`, width: 1, backgroundColor: 'rgba(255,255,255,0.08)'}} />)}
@@ -59,7 +62,7 @@ function PenthouseHero() {
         <AHDisplay size={64} accessibilityRole="text" style={{marginTop: -10}}>Penthouse.</AHDisplay>
         <Text style={{marginTop: 10, fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text}}>The lift remembers you.</Text>
         <View style={{flexDirection: 'row', flexWrap: 'wrap', columnGap: 18, rowGap: 8, marginTop: 16}}>
-          {['Private care', 'Styling by appointment', 'The inner circle'].map((l) => (
+          {['Private care', 'Styling by appointment', ...(RELEASE.vip ? ['The inner circle'] : [])].map((l) => (
             <View key={l} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
               <View style={{width: 5, height: 5, borderRadius: 3, backgroundColor: ah.rose}} />
               <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.8, textTransform: 'uppercase', color: ah.mute}}>{l}</Text>
@@ -72,7 +75,9 @@ function PenthouseHero() {
 }
 
 export function PenthouseFloor() {
-  const [tab, setTab] = useState<'feed' | 'floor' | 'handy'>('feed');
+  // The VIP feed is a digital membership benefit sold on the web: hidden in the store build until in-app
+  // purchase exists (RELEASE.vip — Apple 3.1.1 / Play Billing).
+  const [tab, setTab] = useState<'feed' | 'floor' | 'handy'>(RELEASE.vip ? 'feed' : 'floor');
   const [svc, setSvc] = useState('chef');
   const [job, setJob] = useState('plumbing');
   const S = SERVICES.find((x) => x[0] === svc)!, J = JOBS.find((j) => j[0] === job)!;
@@ -80,9 +85,9 @@ export function PenthouseFloor() {
     <View style={{alignSelf: 'stretch'}}>
       <PenthouseHero />
       <View style={{gap: 12, paddingHorizontal: 20, marginTop: 30, width: '100%', maxWidth: 560, alignSelf: 'center'}}>
-      <Text style={[s.body, {fontSize: 15, lineHeight: 22, color: ah.mute}]}>Your floor. The inner circle, the services you call up, and a pro at your door.</Text>
-      <Segmented options={[['feed', 'Inner circle'], ['floor', 'Your floor'], ['handy', 'Handyman']]} value={tab} onChange={setTab} />
-      {tab === 'feed' ? <VipFeed /> : tab === 'floor' ? (
+      <Text style={[s.body, {fontSize: 15, lineHeight: 22, color: ah.mute}]}>{RELEASE.vip ? 'Your floor. The inner circle, the services you call up, and a pro at your door.' : 'Your floor. The services you call up, and a pro at your door.'}</Text>
+      <Segmented<'feed' | 'floor' | 'handy'> options={[...(RELEASE.vip ? [['feed', 'Inner circle'] as ['feed', string]] : []), ['floor', 'Your floor'], ['handy', 'Handyman']]} value={tab} onChange={setTab} />
+      {tab === 'feed' && RELEASE.vip ? <VipFeed /> : tab === 'floor' || tab === 'feed' ? (
         <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
           <SectionHead>Call up a service</SectionHead>
           <View style={{flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10}}>
@@ -143,17 +148,28 @@ function VipFeed() {
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
+  // Authors blocked from a ••• menu leave the feed at once (RLS keeps them out on the next read).
+  const [gone, setGone] = useState<string[]>([]);
+  const rules = useHouseRules();
   const post = async () => {
     if (!draft.trim()) return;
-    setBusy(true); setMsg(null);
-    const r = await postVip(draft);
+    setMsg(null);
+    // House rules & terms, once, before a member's first post.
+    if (!(await rules.ensure())) return;
+    setBusy(true);
+    let r = await postVip(draft);
+    if (needsTerms(r)) {
+      if (!(await rules.require())) { setBusy(false); setMsg({ok: false, text: 'Accept the house rules to post. Nothing was posted.'}); return; }
+      r = await postVip(draft);
+    }
     setBusy(false);
-    if (!r.ok) { setMsg({ok: false, text: r.status === 403 ? 'Only VIP key holders can post in the inner circle. Nothing was posted.' : failure(r.status, r.body, 'Nothing was posted.')}); return; }
+    if (!r.ok) { setMsg({ok: false, text: r.status === 403 && r.body.error === 'not_vip' ? 'Only VIP key holders can post in the inner circle. Nothing was posted.' : failure(r.status, r.body, 'Nothing was posted.')}); return; }
     setDraft('');
     void reload(true);
   };
   return (
     <Animated.View entering={FadeIn.duration(300)} style={{gap: 12}}>
+      {rules.sheet}
       <AHCard style={{gap: 10}}>
         <AHEyebrow color={ah.rose}>Say something to the inner circle</AHEyebrow>
         <AHInput value={draft} onChangeText={(v) => setDraft(v.slice(0, 1000))} placeholder="Only key holders see this" multiline style={{minHeight: 64, paddingTop: 12}} accessibilityLabel="Post to the inner circle" />
@@ -165,7 +181,7 @@ function VipFeed() {
           <AHCard><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>The inner circle is quiet.</Text><Text style={[s.small, {marginTop: 6}]}>Nothing posted yet — or your VIP key isn’t active. Only key holders see this feed.</Text></AHCard>
         ) : (
           <View style={{gap: 12}}>
-            {d.posts.map((p) => {
+            {d.posts.filter((p) => !p.author_id || !gone.includes(p.author_id)).map((p) => {
               const name = p.author?.display_name || p.author?.username || 'A key holder';
               return (
                 <AHCard key={p.id} pad={18} style={{gap: 10}}>
@@ -175,6 +191,8 @@ function VipFeed() {
                       <Text style={{fontFamily: ahFonts.sansBold, fontSize: 15, color: ah.text}}>{name}</Text>
                       <Text style={{fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{new Date(p.created_at).toLocaleString([], {month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'})}{p.author?.vibe ? ` · ${p.author.vibe}` : ''}</Text>
                     </View>
+                    <ModerationMenu kind="vip_post" targetId={p.id} memberId={p.author_id} name={name} own={p.author_id === d.me}
+                      onBlocked={() => { const a = p.author_id; if (a) setGone((g) => [...g, a]); void reload(true); }} />
                   </View>
                   {p.content ? <Text style={{fontFamily: ahFonts.sans, fontSize: 15, lineHeight: 22, color: ah.text}}>{p.content}</Text> : null}
                   {p.media_urls?.[0] ? <Image source={{uri: p.media_urls[0]}} style={{width: '100%', aspectRatio: 4 / 3, borderRadius: 14}} resizeMode="cover" accessibilityLabel="Attached photo" /> : null}
@@ -373,7 +391,6 @@ function Membership() {
         ))}
         {sub?.status === 'past_due' ? <Text style={[s.small, {color: ah.warn}]}>Your last membership payment didn’t go through. VIP stays open for a short grace period.</Text> : null}
         {sub?.cancelAtPeriodEnd && periodEnd ? <Text style={s.small}>Cancelled — it won’t renew. VIP stays open until {periodEnd}.</Text> : null}
-        {hasSub || vip.source === 'subscription' ? <Text style={s.small}>Manage membership at finesselife.vip</Text> : null}
       </View>
     );
   }

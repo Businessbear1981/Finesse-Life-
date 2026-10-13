@@ -5,6 +5,7 @@
 //    a pledge in `payment_requested` can be paid through Stripe Checkout in the browser (physical goods —
 //    allowed in-app). The app never marks anything paid: it re-reads the pledge when you come back.
 //  • Exchange: active listings, your listings and offers, list an item, make an offer, "Fair price" via Nova.
+//    Every listing has Report / Block (••• menu); the first listing asks for the house rules & terms.
 //    Accepting an offer needs the payment partner — the app says so instead of pretending.
 //  • Embassy: the deal pipeline (scale_deals, mapped as the web Embassy maps it) and "suggest a deal"
 //    (POST /api/embassy/deals, reviewed by the house). No partner offer is shown that doesn't exist.
@@ -23,6 +24,9 @@ import {AHCard, AHChip, AHEyebrow, AHInput, AHTitle} from '@/components/ah';
 import {ActionBar, Chips, SampleNote, Segmented} from './shared';
 import {ERR_PINK, LiveGate, OK_GREEN, RowBtn, Status} from './live';
 import {NovaAskButton} from './NovaAsk';
+import {ModerationMenu, useHouseRules} from './moderation';
+import {needsTerms} from '@/lib/rooms/moderation';
+import {useMember} from '@/lib/member';
 import {Fine, Head, Meter, Pick, Row, Step, Tag, Tile, ah, ahFonts, t} from './RoomKit';
 
 const LADDER: Array<[number, number]> = [[50, 520], [100, 460], [150, 412], [250, 360]];
@@ -281,20 +285,24 @@ function Browse({side, onOffered}: {side: Side; onOffered: () => Promise<void>})
 function BrowseList({cat, side, onOffered}: {cat: string; side: Side; onOffered: () => Promise<void>}) {
   const {live, reload} = useLive<{listings: Listing[]}>(null, () => readListings(cat));
   const [open, setOpen] = useState<string | null>(null);
+  const me = useMember()?.userId ?? null;
+  // Sellers blocked from a ••• menu leave the list at once (RLS keeps them out on the next read).
+  const [gone, setGone] = useState<string[]>([]);
   return (
     <LiveGate live={live} reload={() => void reload()} what="the Exchange">
       {(data) => data.listings.length === 0 ? (
         <AHCard pad={22}><Text style={t.voice}>Nothing listed{cat !== 'All' ? ` in ${cat.toLowerCase()}` : ''} yet.</Text><Fine style={{marginTop: 8}}>Be the first — list a piece from the Sell tab.</Fine></AHCard>
       ) : (
         <View style={{gap: 12}}>
-          {data.listings.map((l) => <ListingCard key={l.id} l={l} side={side} open={open === l.id} onToggle={() => setOpen(open === l.id ? null : l.id)} onOffered={onOffered} />)}
+          {data.listings.filter((l) => !gone.includes(l.seller_id)).map((l) => <ListingCard key={l.id} l={l} side={side} me={me} open={open === l.id} onToggle={() => setOpen(open === l.id ? null : l.id)} onOffered={onOffered}
+            onBlocked={() => { setGone((g) => [...g, l.seller_id]); void reload(true); }} />)}
         </View>
       )}
     </LiveGate>
   );
 }
 
-function ListingCard({l, side, open, onToggle, onOffered}: {l: Listing; side: Side; open: boolean; onToggle: () => void; onOffered: () => Promise<void>}) {
+function ListingCard({l, side, me, open, onToggle, onOffered, onBlocked}: {l: Listing; side: Side; me: string | null; open: boolean; onToggle: () => void; onOffered: () => Promise<void>; onBlocked: () => void}) {
   const [amt, setAmt] = useState('');
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -320,6 +328,7 @@ function ListingCard({l, side, open, onToggle, onOffered}: {l: Listing; side: Si
           <Text style={t.small}>{COND_LABEL[l.condition ?? ''] ?? l.condition ?? ''} · listed {ago(l.created_at)}</Text>
         </View>
         <Text style={{fontFamily: ahFonts.serif, fontSize: 24, color: ah.text}}>{dollars(l.asking_price_cents)}</Text>
+        <ModerationMenu kind="listing" targetId={l.id} memberId={l.seller_id} name="the seller" own={!!me && l.seller_id === me} onBlocked={onBlocked} />
       </View>
       {l.description ? <Text style={[t.small, {marginTop: 10}]} numberOfLines={open ? undefined : 2}>{l.description}</Text> : null}
       <View style={{flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap'}}>
@@ -351,9 +360,18 @@ function Sell({side, onListed}: {side: Side; onListed: () => Promise<void>}) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
   const cents = parseDollars(price) ?? 0;
+  const rules = useHouseRules();
   const list = async () => {
-    setBusy(true); setMsg(null);
-    const r = await listItem({title, brand, size, condition: CONDITIONS.find(([, l]) => l === cond)?.[0] ?? 'excellent', asking_price_cents: cents, category: cat, description: desc});
+    setMsg(null);
+    // House rules & terms, once, before a member's first listing.
+    if (!(await rules.ensure())) return;
+    setBusy(true);
+    const send = () => listItem({title, brand, size, condition: CONDITIONS.find(([, l]) => l === cond)?.[0] ?? 'excellent', asking_price_cents: cents, category: cat, description: desc});
+    let r = await send();
+    if (needsTerms(r)) {
+      if (!(await rules.require())) { setBusy(false); setMsg({ok: false, text: 'Accept the house rules to list. Nothing was posted.'}); return; }
+      r = await send();
+    }
     setBusy(false);
     if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing was posted.')}); return; }
     setTitle(''); setBrand(''); setSize(''); setPrice(''); setDesc('');
@@ -362,6 +380,7 @@ function Sell({side, onListed}: {side: Side; onListed: () => Promise<void>}) {
   };
   return (
     <AHCard style={{gap: 10}}>
+      {rules.sheet}
       <AHEyebrow>List a piece</AHEyebrow>
       <AHInput value={title} onChangeText={setTitle} placeholder="What are you selling?" accessibilityLabel="Title" />
       <AHInput value={brand} onChangeText={setBrand} placeholder="Brand" accessibilityLabel="Brand" />

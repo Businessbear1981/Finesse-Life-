@@ -81,7 +81,7 @@ function ToolRow({t: tool, last}: {t: Tool; last?: boolean}) {
       </View>
       <View style={{alignItems: 'flex-end', gap: 3}}>
         <Text style={[t.name, {fontSize: 13}]}>Open ↗</Text>
-        <Text style={[t.meta, {fontSize: 10.5, color: ah.faint}]}>Not linked</Text>
+        <Text style={[t.meta, {fontSize: 11, color: ah.faint}]}>Not linked</Text>
       </View>
     </Pressable>
   );

@@ -56,7 +56,7 @@ function ScrapbookLive({side, entries, reload}: {side: Side; entries: Entry[]; r
                       </>
                     )}
                   </View>
-                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{cur![0].slice(0, 3).toUpperCase()} · {String(i + 1).padStart(2, '0')}</Text>
+                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{cur![0].slice(0, 3).toUpperCase()} · {String(i + 1).padStart(2, '0')}</Text>
                 </Pressable>
               );
             })}
@@ -66,7 +66,7 @@ function ScrapbookLive({side, entries, reload}: {side: Side; entries: Entry[]; r
           <View>
             {cur![1].map((e, i) => (
               <NumRow key={e.id} n={i + 1} title={e.title} sub={e.description ?? undefined} meta={ENTRY_LABEL[e.entry_type as EntryType] ?? e.entry_type} last={i === cur![1].length - 1}
-                right={e.video_status === 'ready' ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10.5, letterSpacing: 1.2, color: ah.rose}}>FILM</Text> : undefined} />
+                right={e.video_status === 'ready' ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.rose}}>FILM</Text> : undefined} />
             ))}
           </View>
         </>
@@ -91,7 +91,7 @@ function Film({side, entry, onChange}: {side: Side; entry: Entry; onChange: () =
     setBusy(true); setMsg(null);
     const r = await filmStatus(entry.id);
     setBusy(false);
-    if (r.status === 401) { setMsg({ok: false, text: 'Film status is checked on the web for now. Open the Scrapbook at finesselife.vip.'}); return; }
+    if (r.status === 401) { setMsg({ok: false, text: 'Your session has ended. Sign in again to check on this film.'}); return; }
     if (!r.ok) { setMsg({ok: false, text: failure(r.status, r.body, 'Nothing changed.')}); return; }
     setMsg({ok: r.body.status === 'ready', text: r.body.status === 'ready' ? 'Your film is ready.' : r.body.status === 'failed' ? 'The studio couldn’t finish this film.' : 'Still developing.'});
     void onChange();
@@ -186,7 +186,7 @@ function ScrapbookSample() {
       <View>
         {SEASONS[season].map(([n, title, d, k], i) => (
           <NumRow key={title} n={n} title={title} sub={d} last={i === SEASONS[season].length - 1}
-            right={<Text style={{fontFamily: ahFonts.sansSemi, fontSize: 10.5, letterSpacing: 1.2, color: ah.mute}}>{k} ITEMS</Text>} />
+            right={<Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.mute}}>{k} ITEMS</Text>} />
         ))}
       </View>
       <SampleNote>Sample seasons · signed out · your own moments and films appear once you sign in</SampleNote>

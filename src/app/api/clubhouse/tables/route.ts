@@ -4,6 +4,8 @@ import {parseBody} from '@/lib/api/validate';
 import {dbFailure, json, requireMember} from '@/lib/api/room';
 import {GAME_INFO, GAMES} from '@/lib/clubhouse';
 import {boardRow, clubFailure} from '../_shared';
+import {screenFields} from '@/lib/moderation';
+import {contentRejected, postingGate} from '@/lib/moderation-server';
 
 const create = z.object({
   game: z.enum(GAMES),
@@ -29,6 +31,11 @@ export async function POST(req: NextRequest) {
   const parsed = await parseBody(req, create);
   if (parsed.error) return parsed.error;
   const b = parsed.data;
+  // Member safety: house rules accepted, and the table name / note pass the text filter.
+  const gate = await postingGate(ctx.supabase, ctx.userId);
+  if (gate) return gate;
+  const verdict = screenFields([b.title, b.note], 'table');
+  if (verdict.verdict === 'reject') return contentRejected(verdict);
   const {data, error} = await ctx.supabase.from('club_tables').insert({
     host_id: ctx.userId, game: b.game, title: b.title, note: b.note || null, starts_at: b.starts_at, seats: b.seats ?? GAME_INFO[b.game].defaultSeats,
   }).select('id').single();

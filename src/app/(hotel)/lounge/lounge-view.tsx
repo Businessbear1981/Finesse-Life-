@@ -9,7 +9,8 @@ import Link from 'next/link';
 import {motion} from 'framer-motion';
 import type {ReactNode} from 'react';
 import {AHChip, AHDisplay, AHEyebrow, AHRoom, AHSkeleton, AHSmoke, AHTopBar} from '@/components/after-hours';
-import {PostCard, type Post} from './post-card';
+import {ModerationMenu} from '@/components/moderation';
+import {PostCard, PostMenu, type Post} from './post-card';
 import {CallingCard, VIBE_COLORS, initials} from './calling-card';
 
 export {CallingCard, VIBE_COLORS, initials};
@@ -107,13 +108,18 @@ export function LoungeSectionTitle({children}: {children: string}) {
 }
 
 /* ─── The floor: members ─────────────────────────────────────────────────── */
-export function MemberPlate({member, index}: {member: ScoredMember; index: number}) {
+export function MemberPlate({member, index, userId, onBlocked}: {member: ScoredMember; index: number; userId?: string | null; onBlocked?: (memberId: string) => void}) {
   const vibeColor = VIBE_COLORS[member.vibe || ''] || 'var(--ah-rose)';
   const ring = member.glowStrength === 'strong'
     ? 'conic-gradient(from 200deg,#f4f4f2,#b76e79,#e8b4a0,#8e9298,#f4f4f2)'
     : member.glowStrength === 'medium' ? 'linear-gradient(135deg,#8e9298,#3a3a40)' : '#26262b';
   return (
-    <motion.div initial={{opacity: 0, y: 12}} animate={{opacity: 1, y: 0}} transition={{delay: 0.1 + index * 0.05, duration: 0.5}}>
+    <motion.div initial={{opacity: 0, y: 12}} animate={{opacity: 1, y: 0}} transition={{delay: 0.1 + index * 0.05, duration: 0.5}} style={{position: 'relative'}}>
+      {userId && userId !== member.id && (
+        <div style={{position: 'absolute', top: 8, right: 14, zIndex: 2}}>
+          <ModerationMenu kind="profile" targetId={member.id} memberId={member.id} name={member.display_name || 'this member'} onBlocked={() => onBlocked?.(member.id)} />
+        </div>
+      )}
       <Link
         href={member.username ? `/entourage?u=${member.username}` : '/entourage'}
         className="ah-card ah-focus"
@@ -160,11 +166,12 @@ export function FloorSkeleton() {
 }
 
 /* ─── Moments ────────────────────────────────────────────────────────────── */
-export function MomentCard({post, index}: {post: Post; index: number}) {
+export function MomentCard({post, index, userId, onBlocked}: {post: Post; index: number; userId?: string | null; onBlocked?: (memberId: string) => void}) {
   const profile = post.profiles;
   return (
     <motion.div initial={{opacity: 0, y: 10}} animate={{opacity: 1, y: 0}} transition={{delay: 0.1 + index * 0.05, duration: 0.5}}>
-      <CallingCard name={profile?.display_name || 'A Member'} vibe={profile?.vibe} time={timeAgo(post.created_at)} avatar={profile?.avatar_url}>
+      <CallingCard name={profile?.display_name || 'A Member'} vibe={profile?.vibe} time={timeAgo(post.created_at)} avatar={profile?.avatar_url}
+        menu={userId ? <PostMenu post={post} userId={userId} onBlocked={onBlocked} /> : undefined}>
         <p className="line-clamp-4" style={{margin: 0, fontSize: 15, lineHeight: 1.5}}>{post.content}</p>
       </CallingCard>
     </motion.div>
@@ -216,6 +223,7 @@ export function LoungeRoom({
   postsLoading,
   userId,
   onNewPost,
+  onBlocked,
   composerOpen = false,
 }: {
   members: ScoredMember[];
@@ -224,6 +232,8 @@ export function LoungeRoom({
   postsLoading: boolean;
   userId: string | null;
   onNewPost: (post: Post) => void;
+  /** A member was blocked from a "…" menu — drop their plate and posts straight away. */
+  onBlocked?: (memberId: string) => void;
   composerOpen?: boolean;
 }) {
   const floorLabel = membersLoading ? 'Checking the floor…' : members.length > 0 ? `${members.length} on the floor` : 'The floor is quiet';
@@ -246,7 +256,7 @@ export function LoungeRoom({
           <FloorSkeleton />
         ) : members.length > 0 ? (
           <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12}}>
-            {members.map((member, i) => <MemberPlate key={member.id} member={member} index={i} />)}
+            {members.map((member, i) => <MemberPlate key={member.id} member={member} index={i} userId={userId} onBlocked={onBlocked} />)}
           </div>
         ) : (
           <LoungeEmpty cta={!userId ? {href: '/signup', label: 'Request an invitation'} : undefined}>No one on the floor yet.</LoungeEmpty>
@@ -266,8 +276,8 @@ export function LoungeRoom({
           <MomentsSkeleton />
         ) : posts.length > 0 ? (
           <div style={{display: 'grid', gap: 12}}>
-            {posts.slice(0, 8).map((post, i) => <MomentCard key={post.id} post={post} index={i} />)}
-            {posts.slice(8).map((post, i) => <PostCard key={post.id} post={post} userId={userId} index={i} />)}
+            {posts.slice(0, 8).map((post, i) => <MomentCard key={post.id} post={post} index={i} userId={userId} onBlocked={onBlocked} />)}
+            {posts.slice(8).map((post, i) => <PostCard key={post.id} post={post} userId={userId} index={i} onBlocked={onBlocked} />)}
           </div>
         ) : (
           <LoungeEmpty cta={!userId ? {href: '/signup', label: 'Join to post'} : undefined}>No moments yet. Be the first.</LoungeEmpty>
