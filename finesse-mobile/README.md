@@ -35,6 +35,7 @@ To build (the app has dev fallbacks so it runs without them):
 - `GET /api/style-read` → `{headline, palette[], tags[], posts}` built from connected accounts.
 - `PUT /api/check-in` `{answers, nova, shopper}` → upserts `interview_answers` and `member_staff` in Postgres for the authenticated user.
 - `POST /api/uploads/sign` `{contentType}` → `{uploadUrl, key}` — presigned R2 PUT URL; store `key` as `closet_items.image_key`.
+- The Closet persists through the existing `POST /v1/data` (RLS-bound `closet_items`: select / insert, `source` stored lowercase) and `GET /v1/me`; photos go via `/api/uploads/sign` first. See `listClosetItems` / `addClosetItem` in `src/lib/api.ts`.
 
 Auth: WorkOS (passkeys + step-up). The app sends `Authorization: Bearer <token>` (`src/lib/auth.ts` keeps it in SecureStore). The Worker verifies the WorkOS JWT and sets Postgres session claims so row-level security applies.
 
