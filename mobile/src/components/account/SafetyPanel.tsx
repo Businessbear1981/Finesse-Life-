@@ -9,7 +9,7 @@ import {Linking, Pressable, Text, View} from 'react-native';
 import {ah, ahFonts} from '@/lib/ah';
 import {failure} from '@/lib/live';
 import {AHCard, AHEyebrow} from '@/components/ah';
-import {AI_PROCESSOR, PRIVACY_URL, listConsents, withdrawConsent, type ConsentKind, type ConsentRow} from '@/lib/consents';
+import {AI_PROCESSOR, VIDEO_PROCESSOR, PRIVACY_URL, listConsents, withdrawConsent, type ConsentKind, type ConsentRow} from '@/lib/consents';
 import {REPORT_NOUN, REPORT_REASONS, readBlocks, readMyReports, unblockMember, type MyReport} from '@/lib/rooms/moderation';
 
 const CONSENT_COPY: Record<ConsentKind, {title: string; body: string; after: string}> = {
@@ -22,6 +22,11 @@ const CONSENT_COPY: Record<ConsentKind, {title: string; body: string; after: str
     title: 'Nova may send photos I choose to the AI provider',
     body: `Photos you ask Nova or the Camera to read go to ${AI_PROCESSOR}.`,
     after: 'Withdrawn. No photo goes to the AI provider until you agree again.',
+  },
+  video_ai: {
+    title: 'Nova may send a memory to the video provider',
+    body: `The title and description of a memory you turn into a Scrapbook film go to ${VIDEO_PROCESSOR}.`,
+    after: 'Withdrawn. No memory goes to the video provider until you agree again.',
   },
   // A confirmation, not a permission to process anything — shown, not withdrawable (delete the account instead).
   age_18: {title: 'I confirmed I am 18 or older', body: 'Recorded when you first signed in.', after: ''},
@@ -119,7 +124,7 @@ export function SafetyPanel() {
 
       <Part title="Your consents">
         <Loading load={consents}>
-          {(rows) => (['ai_processing', 'photo_ai', 'age_18'] as ConsentKind[]).map((kind) => {
+          {(rows) => (['ai_processing', 'photo_ai', 'video_ai', 'age_18'] as ConsentKind[]).map((kind) => {
             const row = rows.find((c) => c.kind === kind);
             return (
               <View key={kind} style={{flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4}}>

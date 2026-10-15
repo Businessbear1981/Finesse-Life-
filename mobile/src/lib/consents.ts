@@ -7,11 +7,13 @@ import {api, apiUpload} from './api';
 import {secureStorage} from './secure-storage';
 import {supabase} from './supabase';
 
-export type ConsentKind = 'ai_processing' | 'photo_ai' | 'age_18';
+export type ConsentKind = 'ai_processing' | 'photo_ai' | 'video_ai' | 'age_18';
 type Cached = Partial<Record<ConsentKind, {at: string; synced: boolean}>>;
 
 /** Named in every AI disclosure. Keep in step with src/lib/ai.ts and /privacy#ai. */
 export const AI_PROCESSOR = 'Anthropic (Claude)';
+/** Named in the video_ai disclosure. Keep in step with the generate-video route. */
+export const VIDEO_PROCESSOR = 'Higgsfield';
 export const PRIVACY_URL = 'https://finesselife.vip/privacy';
 export const TERMS_URL = 'https://finesselife.vip/terms';
 export const SUPPORT_URL = 'https://finesselife.vip/support';
@@ -51,7 +53,7 @@ export async function hasConsent(kind: ConsentKind): Promise<boolean> {
   if (!r.ok || !Array.isArray(r.body.consents)) return false;
   const next: Cached = {...cache};
   for (const c of r.body.consents) {
-    if (c.kind === 'ai_processing' || c.kind === 'photo_ai' || c.kind === 'age_18') next[c.kind] = {at: c.accepted_at, synced: true};
+    if (c.kind === 'ai_processing' || c.kind === 'photo_ai' || c.kind === 'video_ai' || c.kind === 'age_18') next[c.kind] = {at: c.accepted_at, synced: true};
   }
   await writeCache(uid, next);
   return Boolean(next[kind]);
@@ -74,7 +76,7 @@ export async function recordConsent(kind: ConsentKind): Promise<{ok: boolean; sy
 // app/_layout.tsx) to show the sheet; if the member agrees, the same request is sent again and its answer returned.
 // If they decline — or no host is mounted — the original 403 comes back and the caller shows its usual error text.
 
-export type AIConsentKind = Extract<ConsentKind, 'ai_processing' | 'photo_ai'>;
+export type AIConsentKind = Extract<ConsentKind, 'ai_processing' | 'photo_ai' | 'video_ai'>;
 type Asker = (kind: AIConsentKind) => Promise<boolean>;
 let asker: Asker | null = null;
 
@@ -94,7 +96,7 @@ export function askForConsent(kind: AIConsentKind): Promise<boolean> {
 /** The AI kind a server reply refused for, or null. */
 export function consentRefusal(r: {status: number; body?: {error?: unknown; kind?: unknown} | null}): AIConsentKind | null {
   if (r.status !== 403 || r.body?.error !== 'consent_required') return null;
-  return r.body.kind === 'photo_ai' ? 'photo_ai' : 'ai_processing';
+  return r.body.kind === 'photo_ai' ? 'photo_ai' : r.body.kind === 'video_ai' ? 'video_ai' : 'ai_processing';
 }
 
 /** Plain words when the member said "Not now". */
@@ -102,7 +104,7 @@ export const CONSENT_DECLINED_TEXT = 'Nova needs your OK before it can help with
 
 async function withConsentRetry<R extends {status: number; body?: {error?: unknown; kind?: unknown} | null}>(send: () => Promise<R>): Promise<R> {
   let r = await send();
-  // At most two asks (ai_processing, then photo_ai) so a server that keeps refusing can't loop.
+  // At most two asks (ai_processing, then photo_ai or video_ai) so a server that keeps refusing can't loop.
   for (let i = 0; i < 2; i += 1) {
     const kind = consentRefusal(r);
     if (!kind || !(await askForConsent(kind))) return r;
@@ -127,7 +129,7 @@ export type ConsentRow = {kind: ConsentKind; accepted_at: string; version: strin
 export async function listConsents(): Promise<{ok: boolean; status: number; consents: ConsentRow[]; message?: string}> {
   const r = await api<{consents?: ConsentRow[]}>('/api/account/consents');
   if (!r.ok) return {ok: false, status: r.status, consents: [], message: r.body.message};
-  return {ok: true, status: r.status, consents: Array.isArray(r.body.consents) ? r.body.consents.filter((c) => c.kind === 'ai_processing' || c.kind === 'photo_ai' || c.kind === 'age_18') : []};
+  return {ok: true, status: r.status, consents: Array.isArray(r.body.consents) ? r.body.consents.filter((c) => c.kind === 'ai_processing' || c.kind === 'photo_ai' || c.kind === 'video_ai' || c.kind === 'age_18') : []};
 }
 
 /**
