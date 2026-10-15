@@ -181,7 +181,7 @@ function MissingPieces({data, gap, setGap, busy, setBusy, setMsg, reload}: {data
       <Meta>The missing piece</Meta>
       {data.missingPieces.length ? data.missingPieces.map((m, i) => (
         <View key={m.id} style={{flexDirection: 'row', gap: 10}}>
-          <Text style={{width: 22, fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint, marginTop: 2}}>{String(i + 1).padStart(2, '0')}</Text>
+          <Text style={{width: 22, fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.faint, marginTop: 2}}>{String(i + 1).padStart(2, '0')}</Text>
           <Text style={[s.small, {flex: 1, fontSize: 13, color: ah.text}]}>{m.description}{m.route_to ? <Text style={{color: ah.mute}}> · marked for the {m.route_to}</Text> : null}</Text>
         </View>
       )) : <Text style={s.small}>Nothing missing on file.</Text>}
@@ -203,7 +203,7 @@ function ClosetSample() {
             <View key={d} style={{flex: 1, gap: 6}}>
               <View style={{alignSelf: 'center', width: 1.5, height: 12, backgroundColor: ah.platinum, opacity: 0.6}} />
               <View style={{aspectRatio: 3 / 4, borderRadius: 8, borderWidth: 1, borderColor: ah.line2, backgroundColor: '#141215'}} />
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.mute, textAlign: 'center'}}>{d}</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.mute, textAlign: 'center'}}>{d}</Text>
             </View>
           ))}
         </View>

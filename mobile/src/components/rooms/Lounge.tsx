@@ -1,12 +1,12 @@
 // The Lounge — After Hours (mirrors web src/app/(hotel)/lounge/lounge-view.tsx): "Who's out." with the
-// city-tonight card, members on the floor in chrome/rose rings with score bars, the house rules, and the
-// moments feed with a glass composer. Signed in it is live, from the same sources as the web Lounge page
-// (lib/rooms/lounge.ts): members from profiles ranked by the same compat score, moments from /api/posts with
-// likes, the composer POST /api/posts, and the open outings members host. Every member post, profile and outing
-// carries Report / Block (components/rooms/moderation.tsx) and the first post asks for the house rules & terms.
-// After Dark and the Score have no service yet: dev builds show them as "opening soon", the store build hides the
-// tabs (RELEASE.loungeAfterDark / loungeScore). No sample dating profiles or named "score" people exist anywhere.
-// Signed out, the room is the labelled sample.
+// city-tonight card, members on the floor in chrome/rose rings, the house rules, and the moments feed with a
+// glass composer. Signed in it is live, from the same sources as the web Lounge page (lib/rooms/lounge.ts):
+// members from profiles, moments from /api/posts with likes, the composer POST /api/posts, and the open
+// outings members host. No compatibility score, proximity or location is shown or claimed anywhere. Every
+// member post, profile and outing carries Report / Block (components/rooms/moderation.tsx) and the first post
+// asks for the house rules & terms. After Dark and the Score have no service yet: dev builds show them as
+// "opening soon", the store build hides the tabs (RELEASE.loungeAfterDark / loungeScore). Signed out, the
+// room is the labelled sample: illustrative people, with no distances and no scores.
 import {useState, type ReactNode} from 'react';
 import {Pressable, ScrollView, Share, Text, TextInput, View, type StyleProp, type ViewStyle} from 'react-native';
 import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
@@ -96,32 +96,28 @@ function HouseRules() {
   );
 }
 
-/** A card in the floor grid: ring, name, line, score bar. */
-function MemberCard({name, score, dist, on, onPress, width}: {name: string; score: number; dist: string; on: boolean; onPress: () => void; width: number}) {
+/** A card in the floor grid: ring, name, one line of context. */
+function MemberCard({name, line, on, onPress, width}: {name: string; line: string; on: boolean; onPress: () => void; width: number}) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${name}, ${dist}, match ${score}`} accessibilityState={{selected: on}}
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={line ? `${name}, ${line}` : name} accessibilityState={{selected: on}}
       style={({pressed}) => ({width, alignItems: 'center', paddingTop: 18, paddingBottom: 14, paddingHorizontal: 12, borderRadius: radius.card,
         backgroundColor: on ? 'rgba(183,110,121,0.12)' : ah.ink2, borderWidth: 1, borderColor: on ? 'rgba(232,180,160,0.5)' : ah.line, opacity: pressed ? 0.85 : 1})}>
       <Ring name={name} size={60} on={on} />
       <Text numberOfLines={1} style={{marginTop: 10, fontFamily: ahFonts.serif, fontSize: 21, lineHeight: 23, color: ah.text}}>{name}</Text>
-      <Text style={{marginTop: 2, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{dist}</Text>
-      <View style={{marginTop: 12, alignSelf: 'stretch'}}><Bar value={score} /></View>
-      <Text style={{marginTop: 6, fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.8, color: ah.rose}}>Match {score}</Text>
+      {line ? <Text numberOfLines={1} style={{marginTop: 2, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{line}</Text> : null}
     </Pressable>
   );
 }
 
 /* ───────────────────────── data ───────────────────────── */
 type Mode = 'social' | 'outings' | 'dating' | 'score';
-type Person = [string, number, string, string];
+type Person = [string, string];
 const CLUSTERS: Array<[string, string, string, Person[]]> = [
-  ['Your circle', 'Friends', ah.ok, [['Maya', 92, '0.3 mi', 'Friends since 2024 · both at the Jazz Club tonight'], ['Theo', 88, '1.1 mi', 'Friends · saved you a seat in the Ballroom'], ['Sana', 85, '2 mi', 'Friends · arriving 9:30']]],
-  ['Like-minded', 'Same style + interests', ah.rose, [['Inès', 90, '0.8 mi', 'Both: Old Hollywood, gold hardware, jazz'], ['Kofi', 84, '1.4 mi', 'Both: vintage watches, first editions'], ['Lena', 81, '2.2 mi', 'Both: tailoring, gallery openings'], ['Ravi', 79, '3 mi', 'Both: travel, quiet luxury']]],
-  ['You might bump into', 'Nearby, not yet met', ah.platinum, [['Noor', 76, '0.2 mi', 'Two tables over at Lucian'], ['Elio', 72, '0.5 mi', 'At the bar downstairs'], ['Ada', 70, '0.9 mi', 'Leaving the gallery on Peachtree']]],
+  ['Your circle', 'Friends', ah.ok, [['Maya', 'Friends since 2024'], ['Theo', 'Friends · Jazz Club tonight'], ['Sana', 'Friends · arriving 9:30']]],
+  ['Like-minded', 'Same style + interests', ah.rose, [['Inès', 'Old Hollywood, gold hardware, jazz'], ['Kofi', 'Vintage watches, first editions'], ['Lena', 'Tailoring, gallery openings'], ['Ravi', 'Travel, quiet luxury']]],
+  ['The wider room', 'Members you have not met', ah.platinum, [['Noor', 'Old Hollywood, jazz'], ['Elio', 'Vintage watches'], ['Ada', 'Gallery openings']]],
 ];
-const GEO = {NEARBY: 'Buckhead · 3 mi', CITY: 'Atlanta', ANYWHERE: 'All houses'} as const;
-type Rad = keyof typeof GEO;
-const CHAT: Array<[string, string, boolean]> = [['MAYA · 8:12 PM', 'Who’s at Lucian? The bar is perfect right now.', false], ['KOFI · 8:20 PM', 'Jazz Club late set starts 10:30. Worth it.', false], ['INÈS · 8:31 PM', 'Gallery on Peachtree has the after-party upstairs.', false]];
+const CHAT: Array<[string, string, boolean]> = [['MAYA · 8:12 PM', 'The bar at Lucian is perfect right now.', false], ['KOFI · 8:20 PM', 'Jazz Club late set starts 10:30. Worth it.', false], ['INÈS · 8:31 PM', 'The gallery after-party is upstairs.', false]];
 const PLACES = ['Lucian', 'Jazz Club', 'Gallery on Peachtree', 'Rooftop at Lumen'];
 const VIS = ['Circle', 'Like-minded', 'Room'];
 const OUTINGS: Array<[string, string, string, string, number, number, string]> = [
@@ -242,7 +238,7 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
             <AHCard><Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: ah.text}}>The floor is quiet tonight.</Text><Text style={[s.small, {marginTop: 6}]}>No other member is in the Lounge yet.</Text></AHCard>
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 8}} style={{marginHorizontal: -2}}>
-              {members.map((m) => <MemberCard key={m.id} name={memberName(m)} score={m.score} dist={m.city ?? (m.vibe ?? 'Member')} on={m.id === sel?.id} width={148} onPress={() => setPick(m.id)} />)}
+              {members.map((m) => <MemberCard key={m.id} name={memberName(m)} line={[m.city, m.vibe].filter(Boolean).join(' · ') || 'Member'} on={m.id === sel?.id} width={148} onPress={() => setPick(m.id)} />)}
             </ScrollView>
           )}
           {sel ? (
@@ -257,10 +253,6 @@ function LoungeLive({data, reload}: {data: LoungeData; reload: () => Promise<voi
                   <ModerationMenu kind="profile" targetId={sel.id} memberId={sel.id} name={memberName(sel)} own={sel.id === data.me} onBlocked={() => blocked(sel.id)} />
                 </View>
                 {sel.interests?.length ? <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6}}>{sel.interests.slice(0, 6).map((i) => <AHChip key={i} label={i} tone="outline" />)}</View> : null}
-                <View style={{gap: 6}}>
-                  <Bar value={sel.score} />
-                  <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.mute}}>Match {sel.score} · from shared vibe, city and interests</Text>
-                </View>
                 {IS_STORE_BUILD ? null : <Text style={s.small}>Introductions open soon. Until then, say hello in the moments below.</Text>}
               </AHCard>
             </Animated.View>
@@ -339,7 +331,6 @@ function LiveOutings({me}: {me: string}) {
 /* ───────────────────────── signed-out: the labelled sample ───────────────────────── */
 function LoungeSample() {
   const [mode, setMode] = useState<Mode>('social');
-  const [rad, setRad] = useState<Rad>('NEARBY');
   const [pick, setPick] = useState('Inès');
   const [hellos, setHellos] = useState<string[]>([]);
   const [msgs, setMsgs] = useState<string[]>([]);
@@ -350,9 +341,8 @@ function LoungeSample() {
   const [mine, setMine] = useState(false);
   const [ins, setIns] = useState<string[]>([]);
 
-  const geo = GEO[rad];
-  let sel: Person = CLUSTERS[1][3][0];
-  CLUSTERS.forEach((c) => c[3].forEach((p) => { if (p[0] === pick) sel = p; }));
+  const allPeople = CLUSTERS.flatMap((c) => c[3]);
+  const sel: Person = allPeople.find((p) => p[0] === pick) ?? allPeople[0];
   const send = () => { const t = draft.trim().slice(0, 140); if (t) { setMsgs((m) => [...m, t]); setDraft(''); } };
   const outings = [...(mine ? [['Fri · 9:30 PM', 'You', `Late table at ${place}`, `${place} · open to ${vis.toLowerCase()}`, 0, 6, ''] as (typeof OUTINGS)[number]] : []), ...OUTINGS];
   const feed: Array<[string, string, boolean]> = [...msgs.map((t) => ['YOU · NOW', t, true] as [string, string, boolean]).reverse(), ...CHAT];
@@ -368,7 +358,7 @@ function LoungeSample() {
         <AHDisplay size={52} style={{marginTop: 8}}>Who’s out.</AHDisplay>
         <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8}}>
           <AHLiveDot />
-          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: ah.mute}}>42 in the room tonight · sample</Text>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1, textTransform: 'uppercase', color: ah.mute}}>A preview of the room · sample</Text>
         </View>
       </View>
 
@@ -388,7 +378,6 @@ function LoungeSample() {
 
       {mode === 'social' ? (
         <Animated.View entering={FadeIn.duration(350)} style={{gap: 14}}>
-          <Segmented options={(Object.keys(GEO) as Rad[]).map((k) => [k, sentence(k)] as [Rad, string])} value={rad} onChange={setRad} />
           {CLUSTERS.map(([label, why, color, people], ci) => (
             <Animated.View key={label} entering={FadeInDown.delay(ci * 90).duration(400)} style={{gap: 12}}>
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10}}>
@@ -397,7 +386,7 @@ function LoungeSample() {
                 <Text style={{fontFamily: ahFonts.sans, fontSize: 12, color: ah.faint}}>· {why}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 12, paddingRight: 8}} style={{marginHorizontal: -2}}>
-                {people.map(([name, score, dist]) => <MemberCard key={name} name={name} score={score} dist={dist} on={name === pick} width={148} onPress={() => setPick(name)} />)}
+                {people.map(([name, line]) => <MemberCard key={name} name={name} line={line} on={name === pick} width={148} onPress={() => setPick(name)} />)}
               </ScrollView>
             </Animated.View>
           ))}
@@ -407,15 +396,11 @@ function LoungeSample() {
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 14}}>
                 <Ring name={sel[0]} size={64} on />
                 <View style={{flex: 1}}>
-                  <AHEyebrow>Selected · {sel[2]}</AHEyebrow>
+                  <AHEyebrow>Selected</AHEyebrow>
                   <Text style={{marginTop: 2, fontFamily: ahFonts.serif, fontSize: 30, lineHeight: 32, color: ah.text}}>{sel[0]}</Text>
                 </View>
               </View>
-              <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 19, lineHeight: 24, color: ah.text}}>{sel[3]}</Text>
-              <View style={{gap: 6}}>
-                <Bar value={sel[1]} />
-                <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.mute}}>Match {sel[1]} · from shared style and interests</Text>
-              </View>
+              <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 19, lineHeight: 24, color: ah.text}}>{sel[1]}</Text>
               {/* Introductions have no service yet: the store build leaves the sample control out. */}
               {IS_STORE_BUILD ? null : <AHPill block variant={hellos.includes(sel[0]) ? 'ghost' : 'solid'} label={hellos.includes(sel[0]) ? `Hello sent to ${sel[0]}` : 'Say hello'} onPress={() => setHellos((h) => toggle(h, sel[0]))} />}
             </AHCard>
@@ -423,7 +408,7 @@ function LoungeSample() {
 
           <View style={{marginTop: 10}}><HouseRules /></View>
 
-          <Eyebrow>{`Moments · ${geo}`}</Eyebrow>
+          <Eyebrow>Moments</Eyebrow>
           {/* glass composer */}
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, borderRadius: radius.card, backgroundColor: 'rgba(22,22,24,0.78)', borderWidth: 1, borderColor: ah.line2}}>
             <TextInput value={draft} onChangeText={(v) => setDraft(v.slice(0, 140))} onSubmitEditing={send} placeholder="Share a moment with the lounge…" placeholderTextColor={ah.faint} selectionColor={ah.rose} accessibilityLabel="Message"
@@ -492,6 +477,3 @@ function LoungeSample() {
   );
 }
 
-// Shared with the Concierge room: the After Hours solid pill.
-export const btn = {minHeight: 52, paddingHorizontal: 22, borderRadius: 999, alignItems: 'center' as const, justifyContent: 'center' as const, backgroundColor: ah.white};
-export const btnText = {fontFamily: ahFonts.sansSemi, fontSize: 15, letterSpacing: 0.2, color: '#000'};

@@ -59,7 +59,7 @@ function Frame({h, label, icon, children}: {h: number; label?: string; icon?: st
     <View style={{height: h, alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: ah.ink3, borderBottomWidth: 1, borderColor: ah.line}}>
       {icon ? <Icon name={icon} size={34} color={ah.faint} strokeWidth={1.1} /> : null}
       {children}
-      {label ? <Text style={[t.eyebrow, {color: ah.faint, fontSize: 11}]}>{label}</Text> : null}
+      {label ? <Text style={[t.eyebrow, {color: ah.faint, fontSize: 12}]}>{label}</Text> : null}
     </View>
   );
 }
@@ -358,7 +358,7 @@ function DayStrip({kd, setKd}: {kd: number; setKd: (n: number) => void}) {
         return (
           <Pressable key={d} onPress={() => setKd(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={d}
             style={{flex: 1, minHeight: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)'}}>
-            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 0.4, color: on ? '#000' : ah.mute}}>{cap(d)}</Text>
+            <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 0.4, color: on ? '#000' : ah.mute}}>{cap(d)}</Text>
           </Pressable>
         );
       })}
@@ -387,7 +387,7 @@ function MealLine({when, children, right}: {when: string; children: React.ReactN
   return (
     <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 64, paddingVertical: 12, borderBottomWidth: 1, borderColor: ah.line}}>
       <View style={{flex: 1, gap: 3}}>
-        <Text style={[t.eyebrow, {fontSize: 11, color: ah.blush}]}>{when}</Text>
+        <Text style={[t.eyebrow, {fontSize: 12, color: ah.blush}]}>{when}</Text>
         {children}
       </View>
       {right}

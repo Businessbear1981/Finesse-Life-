@@ -146,8 +146,8 @@ function JazzLive({data, acc}: {data: JazzData; acc: string}) {
           const canReplay = x.replay_until && new Date(x.replay_until) > new Date() && x.state !== 'live' && new Date(x.starts_at) < new Date();
           return (
             <NumRow key={x.id} n={i + 1} meta={when(x.starts_at)} title={x.title} last={i === data.sessions.length - 1}
-              sub={!x.performers?.length && !x.licensing_note ? undefined : <>{x.performers?.length ? x.performers.join(', ') : ''}{x.licensing_note ? <Text style={{color: ah.faint, fontSize: 11}}>{x.performers?.length ? '\n' : ''}{x.licensing_note}</Text> : null}</>}
-              right={canReplay ? <RowBtn label="Replay" onPress={() => replay(x)} disabled={busy} /> : <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: x.state === 'live' ? OK_GREEN : ah.mute}}>{x.state}</Text>} />
+              sub={!x.performers?.length && !x.licensing_note ? undefined : <>{x.performers?.length ? x.performers.join(', ') : ''}{x.licensing_note ? <Text style={{color: ah.faint, fontSize: 12}}>{x.performers?.length ? '\n' : ''}{x.licensing_note}</Text> : null}</>}
+              right={canReplay ? <RowBtn label="Replay" onPress={() => replay(x)} disabled={busy} /> : <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: x.state === 'live' ? OK_GREEN : ah.mute}}>{x.state}</Text>} />
           );
         })}
       </View>

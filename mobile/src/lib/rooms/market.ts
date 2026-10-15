@@ -6,6 +6,7 @@
 import {api} from '../api';
 import {supabase} from '../supabase';
 import {asMember, ok, pgFail, viaRoute, type Res} from './db';
+import {screenFields} from './moderation';
 import {dealTier, pipelineStatus, savingsPct, type ScaleDeal} from './logic';
 import type {Side} from '../deco';
 
@@ -69,7 +70,12 @@ export function listItem(x: NewListing): Promise<Res<{id?: string; platform_fee_
 
 /** An offer (POST /api/exchange/offer) — with the route's own checks when it runs as the member. */
 export function makeOffer(listing: Listing, offerCents: number, message?: string): Promise<Res<{id?: string}>> {
-  const json = {listing_id: listing.id, offer_price_cents: offerCents, message: message?.trim() || undefined};
+  const trimmed = message?.trim() || undefined;
+  // Screen before we send: the direct-insert fallback (used when the cookie-only route doesn't see this
+  // device's session) would otherwise store the message without the route's text filter running.
+  const screened = screenFields([trimmed], 'listing');
+  if (screened.verdict === 'reject') return Promise.resolve({ok: false, status: 422, body: {message: screened.message, error: 'content_rejected'}});
+  const json = {listing_id: listing.id, offer_price_cents: offerCents, message: trimmed};
   return viaRoute<{id?: string}>('/api/exchange/offer', {method: 'POST', json}, async (uid) => {
     if (offerCents < 100) return {ok: false, status: 400, body: {message: 'Minimum offer is $1.'}};
     const {data: l, error: le} = await supabase.from('exchange_listings').select('seller_id, status').eq('id', listing.id).single();

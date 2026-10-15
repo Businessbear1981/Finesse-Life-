@@ -32,7 +32,7 @@ export function StatusChip({status}: {status: RequestStatus}) {
     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, borderWidth: 1, borderColor: `${tone}66`}}
       accessibilityLabel={`Status: ${STATUS_LABEL[status]}`}>
       {status === 'running' ? <ActivityIndicator size="small" color={tone} style={{transform: [{scale: 0.6}], width: 10, height: 10}} /> : null}
-      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: tone}}>{STATUS_LABEL[status]}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.1, textTransform: 'uppercase', color: tone}}>{STATUS_LABEL[status]}</Text>
     </View>
   );
 }
@@ -68,15 +68,15 @@ export function RequestResult({request}: {request: NovaRequest}) {
     return (
       <View>
         <View style={{flexDirection: 'row', paddingBottom: 6}}>
-          <Text style={[t.eyebrow, {flex: 1, fontSize: 11}]}>Where</Text>
-          <Text style={[t.eyebrow, {width: 84, textAlign: 'right', fontSize: 11}]}>Price</Text>
-          <Text style={[t.eyebrow, {width: 84, textAlign: 'right', fontSize: 11}]}>You save</Text>
+          <Text style={[t.eyebrow, {flex: 1, fontSize: 12}]}>Where</Text>
+          <Text style={[t.eyebrow, {width: 84, textAlign: 'right', fontSize: 12}]}>Price</Text>
+          <Text style={[t.eyebrow, {width: 84, textAlign: 'right', fontSize: 12}]}>You save</Text>
         </View>
         {v.prices.map((p, i) => (
           <View key={`${p.source}-${i}`} style={{flexDirection: 'row', alignItems: 'center', paddingVertical: 9, borderTopWidth: 1, borderColor: ah.line}}>
             <View style={{flex: 1, gap: 2}}>
               {p.url ? <Link label={p.source} url={p.url} /> : <Text style={t.name}>{p.source}</Text>}
-              {p.members ? <Text style={[t.eyebrow, {color: ah.rose, fontSize: 11}]}>Members</Text> : null}
+              {p.members ? <Text style={[t.eyebrow, {color: ah.rose, fontSize: 12}]}>Members</Text> : null}
             </View>
             <Text style={[t.num, {width: 84, textAlign: 'right'}]}>{formatCents(p.price_cents)}</Text>
             <Text style={[t.num, {width: 84, textAlign: 'right', color: ah.mute}]}>{p.savings_cents > 0 ? formatCents(p.savings_cents) : '—'}</Text>
@@ -140,7 +140,7 @@ export function RequestCard({request, onChange}: {request: NovaRequest; onChange
       style={{gap: 10, padding: 16, borderRadius: radius.input, borderWidth: 1,
         borderColor: drafted ? 'rgba(232,180,160,0.45)' : ah.line2, backgroundColor: drafted ? 'rgba(232,180,160,0.06)' : 'rgba(255,255,255,0.03)'}}>
       <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10}}>
-        <Text style={[t.eyebrow, {fontSize: 11, flexShrink: 1}]}>{drafted ? 'Ready when you are' : KIND_LABEL[req.kind]}</Text>
+        <Text style={[t.eyebrow, {fontSize: 12, flexShrink: 1}]}>{drafted ? 'Ready when you are' : KIND_LABEL[req.kind]}</Text>
         <StatusChip status={req.status} />
       </View>
       <Text style={t.titleI}>{req.title}</Text>

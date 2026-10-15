@@ -153,10 +153,10 @@ export function NumRow({n, title, sub, meta, right, last, style}: {n: number | s
   return (
     <View style={[{flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderColor: ah.line}, style]}>
       {typeof n === 'number'
-        ? <Text style={{width: 26, fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint}}>{String(n).padStart(2, '0')}</Text>
+        ? <Text style={{width: 26, fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.faint}}>{String(n).padStart(2, '0')}</Text>
         : <Text style={{width: 30, fontFamily: ahFonts.serifItalic, fontSize: 20, color: ah.rose}}>{n}</Text>}
       <View style={{flex: 1, gap: 2}}>
-        {meta ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: ah.mute}}>{meta}</Text> : null}
+        {meta ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: ah.mute}}>{meta}</Text> : null}
         <Text style={{fontFamily: ahFonts.serif, fontSize: 22, lineHeight: 25, color: ah.text}}>{title}</Text>
         {sub ? <Text style={{fontFamily: ahFonts.sans, fontSize: 12.5, lineHeight: 17, color: ah.mute}}>{sub}</Text> : null}
       </View>
@@ -167,5 +167,5 @@ export function NumRow({n, title, sub, meta, right, last, style}: {n: number | s
 
 /** Uppercase-free little caption used above cards (sentence case, tracked). */
 export function Meta({children, color = ah.mute, style}: {children: ReactNode; color?: string; style?: object}) {
-  return <Text style={[{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.4, textTransform: 'uppercase', color}, style]}>{children}</Text>;
+  return <Text style={[{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.4, textTransform: 'uppercase', color}, style]}>{children}</Text>;
 }

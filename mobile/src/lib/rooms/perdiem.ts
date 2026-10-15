@@ -30,7 +30,6 @@ export const dollars = (cents: number) => `$${Math.round(cents / 100).toLocaleSt
 
 export const readNight = (date: string) => api<{date?: string; plan?: PerDiemPlan | null} & Err>(`/api/per-diem?date=${date}`);
 export const toggleStop = (id: string, index: number, done: boolean) => api<{plan?: PerDiemPlan} & Err>(`/api/per-diem/${id}`, {method: 'PATCH', json: {toggle: {index, done}}});
-export const closeNight = (id: string, status: 'done' | 'cancelled' | 'draft') => api<{plan?: PerDiemPlan} & Err>(`/api/per-diem/${id}`, {method: 'PATCH', json: {status}});
 
 /** Save the night's budget, ask Nova for the evening, and attach her plan (parsed server-side). */
 export async function planNight(date: string, budgetCents: number, occasion: string): Promise<{ok: true; plan: PerDiemPlan} | {ok: false; text: string; saved: boolean}> {

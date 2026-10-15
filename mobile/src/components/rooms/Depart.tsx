@@ -61,8 +61,8 @@ function Pass({from, fromCity, to, toCity, label, stub}: {from: string; fromCity
       </View>
     }>
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 11, letterSpacing: 3.5, color: 'rgba(237,235,231,0.85)'}}>FINESSE</Text>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, color: ah.mute}}>{label}</Text>
+        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 12, letterSpacing: 3.5, color: 'rgba(237,235,231,0.85)'}}>FINESSE</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2, color: ah.mute}}>{label}</Text>
       </View>
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
         <View style={{flex: 1}}>

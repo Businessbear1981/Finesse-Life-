@@ -65,7 +65,7 @@ function PenthouseHero() {
           {['Private care', 'Styling by appointment', ...(RELEASE.vip ? ['The inner circle'] : [])].map((l) => (
             <View key={l} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
               <View style={{width: 5, height: 5, borderRadius: 3, backgroundColor: ah.rose}} />
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.8, textTransform: 'uppercase', color: ah.mute}}>{l}</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.8, textTransform: 'uppercase', color: ah.mute}}>{l}</Text>
             </View>
           ))}
         </View>
@@ -234,7 +234,7 @@ function Portrait({name, avatar, line}: {name: string; avatar?: string | null; l
       <View style={{alignItems: 'flex-start', gap: 10}}>
         {avatar ? <Image source={{uri: avatar}} style={{width: 92, height: 92, borderRadius: 46, borderWidth: 2, borderColor: ah.rose}} accessibilityLabel="Your portrait" /> : <AHRing name={name} size={92} label={false} />}
         <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 42, lineHeight: 44, color: ah.white}}>{name}</Text>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)'}}>{line}</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)'}}>{line}</Text>
       </View>
     </AHSmoke>
   );
@@ -325,7 +325,7 @@ function ProfileLive({data, side, reload, msg, setMsg}: {data: IdentityData; sid
         {Object.keys(data.publicView).length === 0 ? <Text style={s.small}>Nothing. You are a closed door.</Text> : Object.entries(data.publicView).map(([k, v]) => (
           <Text key={k} style={{fontFamily: ahFonts.sans, fontSize: 13, color: ah.text}} numberOfLines={2}><Text style={{color: ah.mute}}>{FIELD_LABEL[k] ?? k} · </Text>{show(v)}</Text>
         ))}
-        <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.faint}}>Computed by the house from your saved choices</Text>
+        <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.faint}}>Computed by the house from your saved choices</Text>
       </AHCard>
 
       <SectionHead>Audience</SectionHead>

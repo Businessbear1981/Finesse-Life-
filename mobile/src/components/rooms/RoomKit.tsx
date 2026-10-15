@@ -14,7 +14,7 @@ const tap = () => { void Haptics.selectionAsync().catch(() => {}); };
 
 /** Type scale used across the rooms. */
 export const t = StyleSheet.create({
-  eyebrow: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: ah.mute},
+  eyebrow: {fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: ah.mute},
   meta: {fontFamily: ahFonts.sansMedium, fontSize: 12, lineHeight: 16, color: ah.mute},
   title: {fontFamily: ahFonts.serif, fontSize: 22, lineHeight: 25, color: ah.text, letterSpacing: -0.2},
   titleI: {fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 26, color: ah.text},
@@ -25,11 +25,6 @@ export const t = StyleSheet.create({
   big: {fontFamily: ahFonts.serif, fontSize: 44, lineHeight: 46, color: ah.text, letterSpacing: -0.8},
   voice: {fontFamily: ahFonts.serifItalic, fontSize: 22, lineHeight: 28, color: ah.text},
 });
-
-/** The room's opening line — serif italic, one breath. */
-export function Lede({children, style}: {children: ReactNode; style?: StyleProp<TextStyle>}) {
-  return <Text style={[{fontFamily: ahFonts.serifItalic, fontSize: 24, lineHeight: 28, color: ah.text, letterSpacing: -0.2}, style]}>{children}</Text>;
-}
 
 /** Eyebrow with an optional right-hand action/meta. */
 export function Head({children, right, style}: {children: ReactNode; right?: ReactNode; style?: StyleProp<ViewStyle>}) {
@@ -89,7 +84,7 @@ export function TextBtn({label, onPress, on, a11y, tone}: {label: string; onPres
 export function Tag({children, tone = ah.mute, fill}: {children: ReactNode; tone?: string; fill?: boolean}) {
   return (
     <View style={{alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill, backgroundColor: fill ? tone : 'rgba(255,255,255,0.07)'}}>
-      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.1, textTransform: 'uppercase', color: fill ? '#000' : tone}}>{children}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.1, textTransform: 'uppercase', color: fill ? '#000' : tone}}>{children}</Text>
     </View>
   );
 }
@@ -119,17 +114,7 @@ export function Row({children, last, style}: {children: ReactNode; last?: boolea
 
 /** Two-digit index used for numbered lists. */
 export function Num({n, on}: {n: number; on?: boolean}) {
-  return <Text style={{width: 24, fontFamily: ahFonts.sansSemi, fontSize: 11, color: on ? ah.rose : ah.faint, fontVariant: ['tabular-nums']}}>{String(n).padStart(2, '0')}</Text>;
-}
-
-/** Key figure (label over value). */
-export function Stat({k, v, tone, align = 'flex-start'}: {k: string; v: string; tone?: string; align?: 'flex-start' | 'center' | 'flex-end'}) {
-  return (
-    <View style={{flex: 1, gap: 4, alignItems: align}}>
-      <Text style={t.eyebrow}>{k}</Text>
-      <Text style={{fontFamily: ahFonts.serif, fontSize: 26, lineHeight: 28, color: tone ?? ah.text}}>{v}</Text>
-    </View>
-  );
+  return <Text style={{width: 24, fontFamily: ahFonts.sansSemi, fontSize: 12, color: on ? ah.rose : ah.faint, fontVariant: ['tabular-nums']}}>{String(n).padStart(2, '0')}</Text>;
 }
 
 /** Round 44pt icon/text button. */

@@ -1,137 +1,43 @@
 // NightVision, the Game Room and Per Diem — After Hours skin. Signed in, each is the member's real data:
 //  · NightVision: a read-only view of the member's OWN taste profile and behaviour signals
 //    (/api/nightvision/profile, /api/nightvision/behavioral) — built only from what they do inside Finesse.
-//    The pre-meet "brief" on other members is a labelled sample shown signed out only: it is consent-based
-//    by design and never pulls outside accounts or private activity.
+//    Nothing about other members is shown, and nothing outside Finesse is pulled.
 //  · Game Room: tables members host and seats they take (/api/clubhouse/tables; the seat cap is enforced by
 //    the database). Points only — no money moves, and no sportsbook/fantasy partner or sports feed is connected.
 //  · Per Diem: the member's night for a date (/api/per-diem), drawn by Nova through the hub (plan · evening);
 //    stops are ticked off as the night goes. Nothing is reserved or paid.
 import {useMemo, useState} from 'react';
-import {Pressable, Text, View} from 'react-native';
-import Animated, {FadeIn, FadeInDown, LinearTransition} from 'react-native-reanimated';
-import Svg, {Circle, Line} from 'react-native-svg';
+import {Text, View} from 'react-native';
+import Animated, {FadeInDown, LinearTransition} from 'react-native-reanimated';
 import {deco, track, type Side} from '@/lib/deco';
-import {useAvailableWidth} from '@/lib/layout';
 import {AHCard, AHChip, AHEyebrow, AHInput, AHSmoke, AHTitle} from '@/components/ah';
-import {radius} from '@/lib/ah';
 import {failure, useLive} from '@/lib/live';
 import {
   GAMES, GAME_INFO, clubErrorText, closeTable, hostTable, joinTable, leaveTable, readBoard, readNightVision, topAffinities,
   type ClubTable, type Game, type NightVisionData,
 } from '@/lib/rooms/clubhouse';
 import {dollars, planNight, readNight, toggleStop, totals, type PerDiemPlan} from '@/lib/rooms/perdiem';
-import {ActionBar, Chips, SampleNote, Segmented} from './shared';
+import {ActionBar, Chips, SampleNote} from './shared';
 import {LiveGate, Status, Tick} from './live';
 import {ModerationMenu, useHouseRules} from './moderation';
 import {needsTerms} from '@/lib/rooms/moderation';
-import {Fine, Head, Meter, Num, Pick, Row, Step, Tag, TextBtn, ah, ahFonts, t} from './RoomKit';
+import {Fine, Head, Meter, Pick, Step, Tag, TextBtn, ah, ahFonts, t} from './RoomKit';
 import {useAIConsent} from './AIConsent';
 import {NovaReport} from './NovaReport';
 
 /* ─────────────── NightVision ─────────────── */
-type Kind = 'center' | 'mutual' | 'work' | 'close' | 'public';
-const COL: Record<Kind, string> = {center: ah.white, mutual: ah.ok, work: '#8FB8FF', close: ah.rose, public: ah.faint};
-const SIG: Record<string, string> = {ok: ah.ok, note: ah.warn};
-type Brief = {label: string; title: string; summary: string; shared: string[]; conf: string; signals: Array<[string, string, string]>; talk: string[]; nodes: Array<[string, number, number, Kind, string?]>};
-const NV: Record<string, Brief> = {
-  marcus: {label: 'Marcus · After Dark', title: 'Marcus, 34', summary: 'Founder in fintech, Atlanta. On his Finesse profile: golf, jazz and a close college crew.', shared: ['HIS PROFILE', 'VERIFIED ID', 'MUTUALS'], conf: 'MEMBER-SHARED',
-    signals: [['ok', 'VERIFIED', 'ID and photo verified by the house.'], ['ok', 'VOUCHED', 'Kofi, in your circle, has met him twice and vouches.'], ['note', 'SHOWS UP', 'Attended 9 of the 10 outings he said yes to.']],
-    talk: ['He listed the Savannah golf trip as a yearly ritual', 'You both save the late set at the Jazz Club', 'Ask about the company he founded — it’s on his profile'],
-    nodes: [['Marcus', 0, 0, 'center'], ['Kofi', 40, 60, 'mutual', 'In your circle. Has met Marcus twice; vouches.'], ['College crew', 100, 95, 'close', 'Six friends he lists on his profile.'], ['Golf club', 220, 60, 'public', 'Member since 2021, on his profile.'], ['Co-founders', 300, 95, 'work', 'His company, as he describes it.']]},
-  group: {label: 'New group · Inès’s friends', title: 'Inès’s friends, Saturday brunch', summary: 'Four members you haven’t met. Gallery and design crowd, mostly Westside. Two are couples.', shared: ['MEMBER PROFILES', 'INÈS’S NOTE'], conf: '4 MEMBERS',
-    signals: [['ok', 'COMMON GROUND', 'Three of the four list the same galleries you do.'], ['note', 'GOOD TO KNOW', 'Léa and Sam shared their engagement on Finesse — congratulate them.'], ['ok', 'HOSTED BY A FRIEND', 'Inès invited you personally.']],
-    talk: ['The Westside gallery walk most of them joined', 'Léa and Sam’s engagement', 'Your Amalfi season — two of them went last summer'],
-    nodes: [['The table', 0, 0, 'center'], ['Inès', 30, 60, 'mutual', 'Your friend and the host.'], ['Léa', 120, 70, 'close', 'Engaged to Sam; architect.'], ['Sam', 200, 70, 'close', 'Engaged to Léa; chef.'], ['Noor', 290, 90, 'public', 'Gallery assistant; new member.']]},
-};
-
-function NetMap({b, sel, onPick}: {b: Brief; sel: number; onPick: (i: number) => void}) {
-  const W = Math.min(useAvailableWidth(), 400), H = W * 0.78, cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.38;
-  const pts = b.nodes.map(([, deg, len, kind], i) => (i === 0 ? {x: cx, y: cy, kind} : {x: cx + Math.cos((deg * Math.PI) / 180) * (len / 100) * R, y: cy + Math.sin((deg * Math.PI) / 180) * (len / 100) * R, kind}));
-  return (
-    <View style={{width: W, height: H, alignSelf: 'center', backgroundColor: ah.ink2, borderRadius: radius.card, borderWidth: 1, borderColor: ah.line, overflow: 'hidden'}}>
-      <Svg width={W} height={H} style={{position: 'absolute'}}>
-        {[0.35, 0.7, 1].map((k) => <Circle key={k} cx={cx} cy={cy} r={R * k} stroke="rgba(255,255,255,0.07)" fill="none" />)}
-        {pts.slice(1).map((p, i) => <Line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={COL[p.kind]} strokeOpacity={0.55} />)}
-      </Svg>
-      {pts.map((p, i) => {
-        const c = i === 0, on = i === sel, size = c ? 30 : 18;
-        return (
-          <Pressable key={i} disabled={c} onPress={() => onPick(i)} accessibilityRole="button" accessibilityLabel={b.nodes[i][0]} accessibilityState={{selected: on}} hitSlop={14}
-            style={{position: 'absolute', left: p.x - size / 2, top: p.y - size / 2, alignItems: 'center'}}>
-            <View style={{width: size, height: size, borderRadius: size / 2, borderWidth: 1.5, borderColor: COL[p.kind], backgroundColor: c ? COL.center : on ? COL[p.kind] : ah.ink2, shadowColor: COL[p.kind], shadowOpacity: on || c ? 0.9 : 0, shadowRadius: 8}} />
-            <Text style={{position: 'absolute', top: size + 4, width: 90, textAlign: 'center', fontFamily: ahFonts.sansMedium, fontSize: 11, color: on ? ah.white : ah.mute}}>{b.nodes[i][0]}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 function NightVisionSample() {
-  const [key, setKey] = useState('marcus');
-  const [tab, setTab] = useState<'map' | 'dossier'>('map');
-  const [sel, setSel] = useState(1);
-  const b = NV[key];
-  const node = b.nodes[sel] ?? b.nodes[1];
   return (
     <View style={{gap: 14}}>
       <View style={{gap: 6}}>
         <AHTitle size={30}>Your quiet analyst.</AHTitle>
-        <Fine>A low-key brief on members you’re about to meet: a date, a new group, a meeting, a lunch.</Fine>
+        <Fine>A read-only view of your own taste profile and behaviour signals — built only from what you do inside Finesse.</Fine>
       </View>
-      <Chips options={Object.values(NV).map((v) => v.label)} value={b.label} onChange={(l) => { setKey(Object.keys(NV).find((k) => NV[k].label === l)!); setSel(1); }} />
-      <Segmented options={[['map', 'The map'], ['dossier', 'Dossier']]} value={tab} onChange={setTab} />
-      {tab === 'map' ? (
-        <Animated.View key={key} entering={FadeIn.duration(350)} style={{gap: 12}}>
-          <NetMap b={b} sel={sel} onPick={setSel} />
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center'}}>
-            {(['mutual', 'work', 'close', 'public'] as Kind[]).map((k) => (
-              <View key={k} style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                <View style={{width: 7, height: 7, borderRadius: 4, backgroundColor: COL[k]}} />
-                <Text style={t.meta}>{k.charAt(0).toUpperCase() + k.slice(1)}</Text>
-              </View>
-            ))}
-          </View>
-          <AHCard pad={18} style={{borderColor: COL[node[3]] + '55'}}>
-            <Tag tone={COL[node[3]]}>{node[3]}</Tag>
-            <Text style={[t.title, {fontSize: 26, lineHeight: 28, marginTop: 10}]}>{node[0]}</Text>
-            <Text style={[t.small, {marginTop: 4}]}>{node[4] ?? ''}</Text>
-          </AHCard>
-        </Animated.View>
-      ) : (
-        <Animated.View key={key + 'd'} entering={FadeIn.duration(350)} style={{gap: 14}}>
-          <AHCard pad={20} style={{backgroundColor: ah.ink3}}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8}}>
-              <AHEyebrow>Analyst brief</AHEyebrow>
-              <Tag tone={ah.ok}>{b.conf}</Tag>
-            </View>
-            <AHTitle size={30} italic={false} style={{marginTop: 10}}>{b.title}</AHTitle>
-            <Text style={[t.body, {color: ah.mute, marginTop: 8}]}>{b.summary}</Text>
-            <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 14}}>{b.shared.map((x) => <AHChip key={x} label={x} tone="outline" />)}</View>
-          </AHCard>
-          <Head>Signals</Head>
-          <View>
-            {b.signals.map(([c, label, x], i) => (
-              <Row key={label} last={i === b.signals.length - 1} style={{alignItems: 'flex-start'}}>
-                <View style={{width: 8, height: 8, borderRadius: 4, marginTop: 6, backgroundColor: SIG[c]}} />
-                <View style={{flex: 1, gap: 2}}><Text style={[t.eyebrow, {color: SIG[c]}]}>{label}</Text><Text style={t.body}>{x}</Text></View>
-              </Row>
-            ))}
-          </View>
-          <Head>Before you meet</Head>
-          <View>
-            {b.talk.map((x, i) => (
-              <Row key={x} last={i === b.talk.length - 1}>
-                <Num n={i + 1} />
-                <Text style={[t.title, {flex: 1, fontSize: 20, lineHeight: 24}]}>{x}</Text>
-              </Row>
-            ))}
-          </View>
-        </Animated.View>
-      )}
-      <Fine>Built only from what members choose to share in Finesse — their profile, verification, mutual connections and vouches. No outside accounts are pulled, nothing private is surfaced, and members can see that a brief was opened on them.</Fine>
-      <SampleNote>Sample briefs · Illustrative members</SampleNote>
+      <AHCard pad={20} style={{gap: 10}}>
+        <AHEyebrow>Read-only · only you</AHEyebrow>
+        <Text style={t.body}>When you sign in, your style DNA, the categories and brands you lean to, and your pace appear here. Nothing about another member is shown, and nothing outside Finesse is pulled.</Text>
+      </AHCard>
+      <SampleNote>Sign in to see your own NightVision. No sample profiles of other members are shown.</SampleNote>
     </View>
   );
 }
@@ -467,7 +373,7 @@ export function GameRoom({side}: {side: Side}) {
   return (
     <View style={{gap: 14}}>
       <AHTitle size={30}>Pull up a chair.</AHTitle>
-      <Fine>Poker, Spades, Dominoes, Rummy and the Book are played for points between members — no real money changes hands in the app.</Fine>
+      <Fine>Poker, Spades, Dominoes, Rummy and the Pool are played for points between members — no real money changes hands in the app.</Fine>
       <LiveGate live={live} reload={() => void reload()} what="the Game Room" signedOut={<GameRoomSample />}>
         {(d) => <Board tables={d.tables ?? []} acc={acc} reload={() => void reload(true)} />}
       </LiveGate>

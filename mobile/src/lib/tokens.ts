@@ -10,8 +10,3 @@ export const colors = {
   finessePink: '#E8B4A0',
   carpeLamp: '#C9CCD2',
 } as const;
-
-export const motionMs = { press: 180, room: 450, arrival: 900, doors: 1250 } as const;
-export const touchTarget = 44;
-export const trackAccent = (track: 'finesse' | 'carpe_diem') =>
-  track === 'finesse' ? colors.finessePink : colors.carpeLamp;

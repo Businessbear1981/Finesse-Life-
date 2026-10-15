@@ -11,7 +11,7 @@ export const GAME_INFO: Record<Game, {label: string; maxSeats: number; defaultSe
   spades: {label: 'Spades', maxSeats: 4, defaultSeats: 4, blurb: 'Partners, books to 500'},
   dominoes: {label: 'Dominoes', maxSeats: 4, defaultSeats: 4, blurb: 'Bones to 150'},
   rummy: {label: 'Rummy', maxSeats: 6, defaultSeats: 2, blurb: 'Gin rummy, best of three'},
-  book: {label: 'The Book', maxSeats: 40, defaultSeats: 12, blurb: 'Members’ picks for points — no wagers'},
+  book: {label: 'The Pool', maxSeats: 40, defaultSeats: 12, blurb: 'Members’ picks for points — no wagers'},
 };
 
 export type ClubTable = {id: string; game: Game; title: string; note: string | null; starts_at: string; seats: number; seats_taken: number; seated: boolean; is_host: boolean; host_name: string};
