@@ -6,15 +6,16 @@ import {TERMS_VERSION} from '@/lib/moderation';
 export const dynamic = 'force-dynamic';
 
 const notOpen = () => reply({error: 'room_not_open', message: 'The house rules can be accepted once member safety is switched on.'}, 503);
-const missingColumn = (e: {code?: string; message?: string}) => e.code === '42703' || /column .* does not exist/i.test(e.message ?? '');
+const missingColumn = (e: {code?: string; message?: string}) => e.code === '42703' || /column .* does not exist/i.test(e.message ?? '') || /could not find the function/i.test(e.message ?? '');
 
 // GET /api/account/accept-terms → {accepted, accepted_at, version, current_version}
 export async function GET() {
   const m = await sessionMember();
   if (!m) return unauthorized();
-  const {data, error} = await m.supabase.from('profiles').select('terms_accepted_at, terms_version').eq('id', m.userId).maybeSingle();
+  // Own row via the SECURITY DEFINER helper (20261020_s4 revokes the private columns).
+  const {data, error} = await m.supabase.rpc('get_own_profile');
   if (error) return missingColumn(error) ? notOpen() : reply({error: 'unavailable'}, 500);
-  const row = (data ?? {}) as {terms_accepted_at?: string | null; terms_version?: string | null};
+  const row = (data?.[0] ?? {}) as {terms_accepted_at?: string | null; terms_version?: string | null};
   return reply({accepted: Boolean(row.terms_accepted_at), accepted_at: row.terms_accepted_at ?? null, version: row.terms_version ?? null, current_version: TERMS_VERSION});
 }
 

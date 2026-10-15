@@ -27,11 +27,9 @@ export async function signIn(
   } = await supabase.auth.getUser();
 
   if (user) {
-    const {data: profile} = await supabase
-      .from('profiles')
-      .select('intake_complete')
-      .eq('id', user.id)
-      .single();
+    // Own row via the SECURITY DEFINER helper (intake_complete is not SELECT-granted, 20261020_s4).
+    const {data: rows} = await supabase.rpc('get_own_profile');
+    const profile = rows?.[0] as {intake_complete?: boolean | null} | undefined;
 
     if (!profile?.intake_complete) {
       redirect('/intake');

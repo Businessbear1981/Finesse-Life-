@@ -14,12 +14,16 @@ export default async function VipPage() {
 
   if (!user) redirect('/login');
 
-  // Verify VIP — middleware handles redirect but double-check server-side
-  const {data: profile} = await supabase
-    .from('profiles')
-    .select('is_vip, vip_expires_at, username, telegram_handle')
-    .eq('id', user.id)
-    .single();
+  // Verify VIP — middleware handles redirect but double-check server-side.
+  // Own row via the SECURITY DEFINER helper (is_vip/vip_expires_at/telegram_handle are not
+  // SELECT-granted to members, 20261020_s4).
+  const {data: rows} = await supabase.rpc('get_own_profile');
+  const profile = (rows?.[0] ?? null) as {
+    is_vip?: boolean | null;
+    vip_expires_at?: string | null;
+    username?: string | null;
+    telegram_handle?: string | null;
+  } | null;
 
   if (
     !profile?.is_vip ||

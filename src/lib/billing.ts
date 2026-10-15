@@ -428,13 +428,15 @@ export type BillingStatus = {
 /** GET /api/billing/status — read with the member's own client (owner-read RLS). */
 export async function billingStatus(memberDb: MemberDb, userId: string, cfg: BillingConfig, now: Date = new Date()): Promise<BillingStatus> {
   const [prof, grants, subs] = await Promise.all([
-    memberDb.from('profiles').select('is_vip, vip_expires_at').eq('id', userId).maybeSingle(),
+    // Own row via the SECURITY DEFINER helper — is_vip / vip_expires_at are not SELECT-granted (20261020_s4).
+    memberDb.rpc('get_own_profile'),
     memberDb.from('vip_grants').select('source, expires_at, revoked_at').eq('user_id', userId),
     memberDb.from('billing_subscriptions').select('status, current_period_end, cancel_at_period_end')
       .eq('user_id', userId).order('updated_at', {ascending: false}).limit(1),
   ]);
-  const expiresAt = (prof.data?.vip_expires_at as string | null | undefined) ?? null;
-  const active = prof.data?.is_vip === true && (expiresAt === null || new Date(expiresAt) > now);
+  const profRow = (prof.data?.[0] ?? null) as {is_vip?: boolean | null; vip_expires_at?: string | null} | null;
+  const expiresAt = (profRow?.vip_expires_at ?? null);
+  const active = profRow?.is_vip === true && (expiresAt === null || new Date(expiresAt) > now);
   const decisive = active && !grants.error ? pickVipGrant((grants.data ?? []) as GrantRow[], now) : null;
   const s = subs.error ? null : subs.data?.[0];
   return {

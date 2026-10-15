@@ -1,5 +1,6 @@
 import {NextRequest, NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
+import {createServiceClient} from '@/lib/supabase/service';
 
 export async function GET(req: NextRequest) {
   const username = req.nextUrl.searchParams.get('username')?.trim();
@@ -9,7 +10,9 @@ export async function GET(req: NextRequest) {
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
-  const {data: profile} = await supabase
+  // Cross-member read: profiles.gender is no longer SELECT-granted to members (20261020_s4),
+  // so look the other member up with the service-role client, after the auth check above.
+  const {data: profile} = await createServiceClient()
     .from('profiles')
     .select('display_name, gender, vibe, city')
     .ilike('display_name', username)

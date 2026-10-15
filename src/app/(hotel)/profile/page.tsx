@@ -1,6 +1,7 @@
 import {redirect} from 'next/navigation';
 import Link from 'next/link';
 import {createClient} from '@/lib/supabase/server';
+import {createServiceClient} from '@/lib/supabase/service';
 import {VipAccessSection} from './vip-access-section';
 import {ProfileTabs} from './profile-tabs';
 
@@ -144,13 +145,17 @@ export default async function ProfilePage({
   // Determine whose profile to show: ?u=username → someone else, else own
   const targetUsername = params.u ?? null;
 
+  // Profiles carry private/VIP columns that are not SELECT-granted to members (20261020_s4).
+  // This is a server component: read with the service-role client; presentation stays gated by
+  // `canSeePrivate` / `isOwnProfile` below.
+  const service = createServiceClient();
   const [viewerProfileResult, targetProfileResult, postsResult] = await Promise.all([
     // Viewer's own profile (for VIP check)
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
+    service.from('profiles').select('*').eq('id', user.id).single(),
     // Target profile
     targetUsername
-      ? supabase.from('profiles').select('*').eq('username', targetUsername).single()
-      : supabase.from('profiles').select('*').eq('id', user.id).single(),
+      ? service.from('profiles').select('*').eq('username', targetUsername).single()
+      : service.from('profiles').select('*').eq('id', user.id).single(),
     // Posts from the target (we'll know the ID after)
     Promise.resolve({data: [] as Post[]}),
   ]);

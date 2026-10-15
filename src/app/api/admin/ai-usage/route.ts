@@ -23,8 +23,10 @@ async function isAdmin(): Promise<boolean> {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return false;
-  const {data: profile} = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  return !!profile && ['admin', 'owner'].includes(profile.role);
+  // Own role via the SECURITY DEFINER helper (role is not SELECT-granted to members, 20261020_s4).
+  const {data} = await supabase.rpc('get_own_profile');
+  const role = data?.[0]?.role;
+  return role === 'admin' || role === 'owner';
 }
 
 // GET /api/admin/ai-usage?days=30 — aggregate token usage (counts + estimated cost only).

@@ -1,7 +1,7 @@
 # Finesse Life — State
 
 > **Status:** PRE-LAUNCH (demand-gated — build weight stays low until the founding-cohort / anchor-partner side is confirmed)
-> **Last updated:** 2026-10-09 (backend security floor + full frontend/backend maps — see `docs/FRONTEND_MAP.md`, `docs/BACKEND_MAP.md`) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
+> **Last updated:** 2026-10-14 (`sean/rebuild-plan` — After Hours RN rebuild + profiles column privacy #3, incl. the full reader repoint; see the 2026-10-13 section) · **Last verified:** 2026-07-14 (live URLs, repo tree; deep audit facts date to 2026-06-23)
 > **One-liner:** Luxury hotel-styled social/lifestyle PWA with AI concierge, curated commerce, and a member rebate card program — live at finesselife.vip, membership not yet transacting.
 > **Current state:** UI + concierge are real; **no payment path exists** (no checkout, no subscriptions). The gate to the transact sprint is demand confirmation, not engineering.
 > **Links:** `AGENTS.md` (charter/SOP) · `docs/decisions/` (ADRs) · `CONTEXT.md` (glossary) · `OPS.md` (runbook) · GitHub Issues (work tracking)
@@ -142,3 +142,21 @@ Processor decided: **Stripe** (founder; account application in progress). Built 
 | Vault funding via Stripe | **not built** — Finesse never holds member funds; Vault stays frozen until the card partner signs |
 
 Verified: web tsc, 109 unit tests, `test:db` 35 + 40 + 67, eslint, `next build`; mobile tsc. Not run against real Stripe test keys yet.
+
+## 2026-10-13 — After Hours rebuild + profiles column privacy (`sean/rebuild-plan`, stacked on `sean/after-hours`)
+
+Nothing committed yet; working-tree changes only. `asserted` from source unless noted; not deployed, migrations **not applied**.
+
+| Change | Where | Truth |
+|---|---|---|
+| RN audit tail: remove Continental dead code (15 files + `design.tsx`, 6 font deps), "The Book"→"The Pool", Exchange filter, small-text bump | `mobile/` | wired (grep-verified; **not run on a device**) |
+| Dead-code removal (~190 lines / 9 files, grep-verified unused) | `mobile/src/lib/*` | wired |
+| Two real bug fixes: `penthouse.tsx` floating promise, `Lounge.tsx` picker | `mobile/src/app/penthouse.tsx:56-72`, `mobile/src/components/rooms/Lounge.tsx:344` | wired |
+| `video_ai` consent end-to-end (Higgsfield video processor) | `src/lib/{consents,ai-consent-gate}.ts`, `src/app/api/{scrapbook/generate-video,account/consents}/route.ts`, `mobile/src/lib/consents.ts`, `mobile/src/components/rooms/{AIConsent,Scrapbook}.tsx`, `20261020_s3_consents_video_ai.sql` | wired — **migration draft, not applied** (recording `video_ai` fails until applied) |
+| Device glitch-hunt checklist | `docs/DEVICE_PASS.md` | written |
+| **#3 profiles column-level privacy**: revoke table-wide SELECT, grant 12 public cols, `get_own_profile()` + `current_member_is_vip()` SECURITY DEFINER RPCs, **rewrite 5 VIP RLS policies** to the helper | `20261020_s4_profiles_column_rls.sql` + `docs/decisions/0007-profiles-column-rls.md` | wired — **one-way door, draft, not applied**; `tests/db/s4-profiles-rls.mjs` **25/25 passing** (PGlite) |
+| #3 **reader repoint** — every `profiles` reader the column revoke would break now goes through the helper `get_own_profile()`/`current_member_is_vip()` or the service-role client (~20 server routes/libs + 8 web pages); mobile re-scanned → public columns only, **no change** | `src/lib/{admin,billing,vip-lift,moderation-server}.ts`, `src/lib/supabase/middleware.ts`, `src/app/**`, `src/app/(hotel)/**`, `src/components/account/ai-safety-panel.tsx` | wired — **code + migration must ship together** (UNRUN against a live DB) |
+
+Decisive finding (PGlite, `verified` 2026-10-13): Postgres **enforces column privileges on columns referenced inside an RLS policy expression**, evaluated as the invoking role. Five VIP policies (`vip_posts_vip_read`/`_insert`, `vip_post_likes_vip_read`/`_insert`, `vip_exclusives_vip_read`) sub-selected `profiles.is_vip`/`vip_expires_at`; revoking those columns would have thrown `permission denied for table profiles` and broken the VIP rooms. The migration now recreates those policies against a SECURITY DEFINER helper. Branches: `sean/rebuild-plan`. Gate: apply only with sign-off, and ship code + migration together.
+
+Reader repoint ran 2026-10-14 (`asserted`, working tree; nothing committed). Repoint rule: own-row non-public reads → `get_own_profile()` on the caller's session client; boolean VIP gate → `current_member_is_vip()`; cross-member / admin-by-`role` / arbitrary private-column reads → `createServiceClient()`. Web-shell `video_ai` twin restored on `ai-safety-panel.tsx` (the earlier revert had left `Record<ConsentKind>` unsatisfied → the tree no longer type-checked). Verified: web `tsc --noEmit` **clean**; eslint **clean on every touched file** (2 pre-existing `react-hooks/set-state-in-effect` errors in `vault/page.tsx` + 2 unused-arg warnings remain elsewhere, untouched); `npm run test:db` **15 suites green** (incl. `s4-profiles-rls` 25/25). `npm test` = 185/188 passing: the 3 `tests/ai-rate-limit.test.ts` failures are 5s-timeout/environmental, and `tests/mobile-rooms-wire.test.ts` cannot run without `mobile/node_modules` — **none touch `profiles`**.

@@ -60,11 +60,9 @@ export default function VaultPage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setAccessIssue('signed_out'); setIsVip(false); return; }
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('display_name, is_vip')
-          .eq('id', user.id)
-          .maybeSingle();
+        // Own row via the SECURITY DEFINER helper (is_vip is not SELECT-granted, 20261020_s4).
+        const { data: rows, error } = await supabase.rpc('get_own_profile');
+        const profile = rows?.[0];
         if (error && !profile) {
           setAccessIssue('error');
           setIsVip(false);

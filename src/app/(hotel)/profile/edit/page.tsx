@@ -286,13 +286,9 @@ export default function EditProfilePage() {
       }
       setUserId(user.id);
 
-      const {data} = await supabase
-        .from('profiles')
-        .select(
-          'display_name, bio, city, vibe, telegram_handle, avatar_url, public_photos, public_links, is_vip, vip_expires_at, private_display_name, private_bio, private_vibe, private_avatar_url, private_photos, has_private_profile',
-        )
-        .eq('id', user.id)
-        .single();
+      // Own row via the SECURITY DEFINER helper (private/VIP columns are not SELECT-granted, 20261020_s4).
+      const {data: rows} = await supabase.rpc('get_own_profile');
+      const data = rows?.[0];
 
       if (data) {
         const vipActive =

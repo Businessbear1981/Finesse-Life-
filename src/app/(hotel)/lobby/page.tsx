@@ -25,13 +25,14 @@ export default function LobbyPage() {
         return;
       }
       const [profileRes, guestsRes, eventRes] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        // Own row via the SECURITY DEFINER helper (private/VIP columns are not SELECT-granted, 20261020_s4).
+        supabase.rpc('get_own_profile'),
         supabase.from('profiles').select('id, display_name, username, avatar_url, check_in')
           .neq('id', user.id).order('check_in', {ascending: false, nullsFirst: false}).limit(10),
         supabase.from('map_events').select('title, venue, starts_at, ends_at')
           .gt('ends_at', new Date().toISOString()).order('starts_at').limit(1),
       ]);
-      const profile = (profileRes.data ?? {}) as Profile;
+      const profile = ((profileRes.data ?? [])[0] ?? {}) as Profile;
       let balanceCents: number | null = null;
       if (vipActive(profile)) {
         try {
