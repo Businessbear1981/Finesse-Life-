@@ -1,49 +1,32 @@
 -- ================================================================================================
--- 20261020_s4_profiles_column_rls.sql   ·   Backend step #3 — profiles column-level privacy
+-- 20261020_s4a_profiles_rls_policies.sql   ·   Backend step #3 (part A of 2) — helpers + VIP policies
 -- ================================================================================================
--- DRAFT ONLY — NOT APPLIED. This is a one-way door: it changes which columns any given role may
--- read. Apply only with principal approval, only after tests/db is extended to cover the new
--- grants/RPCs/policies and is green. Run with:
---   SUPABASE_DB_PASSWORD=... npm run db:migrate supabase/migrations/20261020_s4_profiles_column_rls.sql
+-- DRAFT ONLY — NOT APPLIED. This part is BACKWARD-COMPATIBLE: it creates two SECURITY DEFINER
+-- helpers and rewrites the five VIP policies to call one of them. It does NOT touch the table-wide
+-- SELECT grant, so the currently deployed code keeps reading is_vip/vip_expires_at normally.
 --
--- THE HOLE
---   20261009_security_floor.sql:57-62 replaced the anonymous read with
---     create policy "profiles_member_read" on public.profiles for select to authenticated using (true);
---   which fixed *row* visibility but left table-wide *column* grants in place. So any signed-in
---   member can read any other member's email, telegram_chat_id, private_*, nightvision_data,
---   style_dna, is_vip, vip_expires_at, role, terms_accepted_at, posting_suspended_at — with just
---   the public anon key and their own session, e.g. `from('profiles').select('*')`.
---   The security_floor comment at :57-59 named this the next step.
+-- Safe rollout (see docs/decisions/0007-profiles-column-rls.md):
+--   1. apply THIS file (s4a)                 — non-breaking
+--   2. apply 20261020_s3_consents_video_ai.sql
+--   3. build + deploy the branch that calls the helpers
+--   4. apply 20261020_s4b_profiles_column_grants.sql (the revoke/regrant) — breaking for old code
 --
--- THE FIX
---   1. Rewrite every RLS policy that references a non-public profiles column so it calls a
---      SECURITY DEFINER helper instead (see THE COLUMN-PRIVILEGE TRAP below).
---   2. Revoke table-wide SELECT; grant only the public columns.
---   3. Owner-only SECURITY DEFINER RPC for the member's own complete row.
---   4. SECURITY DEFINER helper so server code can read the caller's own VIP entitlement without
---      table-wide access.
---   Existing per-row policies (own read / member read) are unchanged — RLS still gates *which
---   rows*; grants now additionally gate *which columns*.
---
--- THE COLUMN-PRIVILEGE TRAP (why step 1 exists — verified on PGlite, 2026-10-13)
+-- THE HOLE (closed by part B) and THE COLUMN-PRIVILEGE TRAP (why these policies are rewritten here):
 --   Postgres enforces column privileges on columns referenced *inside an RLS policy expression*,
---   evaluated as the role executing the query. Five VIP policies selected p.is_vip/p.vip_expires_at
---   from public.profiles in a subquery. Revoking SELECT on those columns from `authenticated`
---   therefore made those policies throw `permission denied for table profiles` — breaking the VIP
---   rooms for everyone, not just leaking. A SECURITY DEFINER helper reads the same columns as its
---   owner, so the policy no longer touches an unprotected column at all.
---   Also: a policy that has no `to` clause applies to `anon` too; if it calls a function `anon`
---   may not execute, `anon` gets `permission denied for function` instead of an empty result. The
---   two original read policies had no `to` clause (public scope). They are recreated `to
---   authenticated` — VIP content is authenticated-only, and `anon` was already denied by having no
---   row policy. This keeps `anon` off the helper entirely.
---
--- See docs/decisions/0007-profiles-column-rls.md for the full per-route repoint table.
+--   evaluated as the role executing the query. The five VIP policies sub-selected
+--   p.is_vip/p.vip_expires_at from public.profiles. Revoking SELECT on those columns from
+--   `authenticated` (part B) would make them throw `permission denied for table profiles` — breaking
+--   the VIP rooms for everyone. A SECURITY DEFINER helper reads those columns as its owner, so the
+--   rewritten policies touch no unprotected column. Verified on PGlite (2026-10-13).
+--   Also: a policy with no `to` clause applies to `anon` too; calling a function `anon` may not
+--   execute yields `permission denied for function`, not an empty result. The two original VIP read
+--   policies had no `to` clause (public scope); they are recreated `to authenticated` — VIP content is
+--   authenticated-only and `anon` was already denied by having no row policy.
 -- ================================================================================================
 
 -- ── 1. Owner-only SECURITY DEFINER read paths (created first — the policies below call them) ──────
 -- The member's own complete row (profile editor, identity export, nightvision editor). Runs as the
--- function owner, so it reads all columns regardless of the grants in §3, but only ever for
+-- function owner, so it reads all columns regardless of the part-B grants, but only ever for
 -- auth.uid(). Other members cannot call it and get someone else's row.
 create or replace function public.get_own_profile()
 returns setof public.profiles
@@ -97,24 +80,13 @@ drop policy if exists "vip_exclusives_vip_read" on public.vip_exclusives;
 create policy "vip_exclusives_vip_read" on public.vip_exclusives
   for select to authenticated using (public.current_member_is_vip());
 
--- ── 3. Public columns any authenticated member may read on any profile row ────────────────────────
--- Revoke the table-wide grant first (a table grant makes column grants meaningless).
-revoke select on public.profiles from anon, authenticated;
-
-grant select (
-  id, display_name, username, avatar_url, vibe, bio, city, interests,
-  created_at, public_photos, public_links, check_in
-) on public.profiles to authenticated;
--- anon: intentionally not granted. No anon row policy exists, so anonymous reads stay closed.
-
--- Make PostgREST pick up the new functions + column grants + policy changes without a restart.
+-- Make PostgREST pick up the new functions + policy changes without a restart.
 notify pgrst, 'reload schema';
 
 -- ------------------------------------------------------------------------------------------------
 -- ROLLBACK (run manually as a direct query; the migration runner executes the whole file as one
 -- statement-batch, so this is commented out on purpose):
 --
---   -- restore the original VIP policies (drop the helper-based ones, recreate the subquery form)
 --   drop policy if exists "vip_posts_vip_read" on public.vip_posts;
 --   create policy "vip_posts_vip_read" on public.vip_posts for select to authenticated using (
 --     exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_vip = true
@@ -123,5 +95,4 @@ notify pgrst, 'reload schema';
 --   --   vip_exclusives_vip_read (see §2 above for the exact original quals)…
 --   drop function if exists public.current_member_is_vip();
 --   drop function if exists public.get_own_profile();
---   grant select on public.profiles to anon, authenticated;
 -- ------------------------------------------------------------------------------------------------

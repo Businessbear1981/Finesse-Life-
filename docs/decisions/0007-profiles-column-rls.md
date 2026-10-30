@@ -2,7 +2,9 @@
 
 - **Status:** Proposed — migration written (incl. VIP-policy rewrites) + `tests/db/s4-profiles-rls.mjs` green, **NOT applied**. Needs principal sign-off.
 - **Date:** 2026-10-13
-- **Migration:** `supabase/migrations/20261020_s4_profiles_column_rls.sql` (draft)
+- **Migration:** split into two files for a staged rollout (both draft):
+  - `supabase/migrations/20261020_s4a_profiles_rls_policies.sql` — helpers + the 5 VIP-policy rewrites (**non-breaking**)
+  - `supabase/migrations/20261020_s4b_profiles_column_grants.sql` — revoke table SELECT + public-column grants (**breaking for old code**; apply after deploy)
 - **Test:** `tests/db/s4-profiles-rls.mjs` (25 checks, in `npm run test:db`)
 - **Depends on:** `20261009_security_floor.sql` (row policy), `20260803_member_profiles.sql`
 - **Supersedes nothing.** Companion to ADR-0001 (Next.js `/api` canonical).
@@ -77,6 +79,7 @@ content is authenticated-only and `anon` was already denied by having no row pol
 - ✅ Closes the cross-member PII leak at the database, independent of any client.
 - ✅ VIP rooms keep working (helper-based policies), verified by `tests/db/s4-profiles-rls.mjs`.
 - ⚠️ **One-way door** — apply only with sign-off and a green `test:db`.
+- ✅ **Staged rollout** (why split): apply `s4a` (non-breaking) → apply `s3` → deploy the branch → apply `s4b` (the revoke). No window where deploy and migrate fight each other.
 - ⚠️ Any reader still doing `select('*')` or selecting an ungranted column now gets only granted
   columns (PostgREST) or a 400/403 for an explicit ungranted column. Every reader below must be
   repointed **in the same release** as the migration.

@@ -1,4 +1,5 @@
-// Behaviour test for supabase/migrations/20261020_s4_profiles_column_rls.sql on PGlite (Postgres
+// Behaviour test for supabase/migrations/20261020_s4a_profiles_rls_policies.sql +
+// 20261020_s4b_profiles_column_grants.sql on PGlite (Postgres
 // compiled to WASM). Builds a minimal fixture that mirrors the pre-migration production state —
 // table-wide SELECT on profiles plus the original VIP policies that read p.is_vip/p.vip_expires_at
 // directly — then applies the migration and simulates member / VIP / anon / service_role requests
@@ -70,7 +71,11 @@ await db.exec(`
   grant usage on schema public to anon, authenticated, service_role;
   grant all on all tables in schema public to anon, authenticated, service_role;`);
 
-await db.exec(fs.readFileSync(`${REPO}/supabase/migrations/20261020_s4_profiles_column_rls.sql`, 'utf8'));
+const S4_PARTS = ['20261020_s4a_profiles_rls_policies.sql', '20261020_s4b_profiles_column_grants.sql'];
+const applyS4 = async () => {
+  for (const f of S4_PARTS) await db.exec(fs.readFileSync(`${REPO}/supabase/migrations/${f}`, 'utf8'));
+};
+await applyS4();
 
 await db.exec(`
   insert into public.profiles (id, username, display_name, email, is_vip, vip_expires_at, role, private_bio)
@@ -163,7 +168,7 @@ r = await as('service_role', null, () => exec(`select * from public.profiles whe
 check('service role still reads every column', !r.error && r.r.rows[0].email === 'b@x.com', r.error);
 
 // ── idempotent re-apply ─────────────────────────────────────────────────────────────────────
-try { await db.exec(fs.readFileSync(`${REPO}/supabase/migrations/20261020_s4_profiles_column_rls.sql`, 'utf8')); r = {}; } catch (e) { r = {error: e.message}; }
+try { await applyS4(); r = {}; } catch (e) { r = {error: e.message}; }
 check('migration re-applies cleanly', !r.error, r.error);
 
 for (const x of results) console.log(`${x.ok ? 'PASS' : 'FAIL'}  ${x.name}${x.ok ? '' : '  — ' + x.detail}`);
