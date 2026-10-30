@@ -190,7 +190,7 @@ function ActivityGroup({label, total, open, expanded, rows, onPress}: {label: st
                 {st ? (
                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                     <View style={{width: 6, height: 6, borderRadius: 3, backgroundColor: STATE[st]}} />
-                    <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.mute}}>{st.charAt(0) + st.slice(1).toLowerCase()}</Text>
+                    <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.mute}}>{st.charAt(0) + st.slice(1).toLowerCase()}</Text>
                   </View>
                 ) : null}
               </View>

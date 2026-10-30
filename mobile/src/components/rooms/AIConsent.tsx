@@ -1,18 +1,18 @@
 // One-time AI disclosure + consent (Apple 5.1.2(i): name the third party and get permission before personal data
 // goes to an AI service; Google Play AI-generated content policy). `ai_processing` before the first message to
-// Nova, `photo_ai` before the first photo Nova reads. The acceptance is stored server-side (member_consents)
-// and cached on the phone (lib/consents.ts), so the sheet shows once per member.
+// Nova, `photo_ai` before the first photo Nova reads, `video_ai` before the first Scrapbook film. The acceptance is
+// stored server-side (member_consents) and cached on the phone (lib/consents.ts), so the sheet shows once per member.
 //
 // <AIConsentHost/> is mounted once (app/_layout.tsx). It shows the sheet for every `ensure()` and for every AI call
 // the server refuses with 403 consent_required (lib/consents.ts aiApi/aiUpload), so rooms don't each re-implement it.
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {Linking, Modal, Pressable, Text, View} from 'react-native';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
-import {AI_PROCESSOR, PRIVACY_URL, askForConsent, consentHostMounted, hasConsent, recordConsent, setConsentAsker, type ConsentKind} from '@/lib/consents';
+import {AI_PROCESSOR, VIDEO_PROCESSOR, PRIVACY_URL, askForConsent, consentHostMounted, hasConsent, recordConsent, setConsentAsker, type ConsentKind} from '@/lib/consents';
 import {AHPill} from '@/components/ah';
 import {ah, ahFonts} from './RoomKit';
 
-type AIKind = Extract<ConsentKind, 'ai_processing' | 'photo_ai'>;
+type AIKind = Extract<ConsentKind, 'ai_processing' | 'photo_ai' | 'video_ai'>;
 
 const COPY: Record<AIKind, {title: string; lines: string[]; agree: string}> = {
   ai_processing: {
@@ -33,6 +33,14 @@ const COPY: Record<AIKind, {title: string; lines: string[]; agree: string}> = {
       'The read can be wrong — you review it before anything is saved.',
     ],
     agree: 'Agree and read the photo',
+  },
+  video_ai: {
+    title: 'Nova will turn this memory into a film.',
+    lines: [
+      `To make a Scrapbook film, Finesse sends the memory’s title and description to ${VIDEO_PROCESSOR}, a video model, to render the clip. Only that memory is sent, and only when you ask.`,
+      'The film is generated, not a recording — it can look wrong, and it is never shown to anyone unless you choose to.',
+    ],
+    agree: 'Agree and make the film',
   },
 };
 
@@ -55,9 +63,10 @@ export function useAIConsent() {
     }
     next.current = run; setNote(null); setOpen(kind);
   }, []);
-  // A photo read is still an AI call: the server wants ai_processing as well as photo_ai.
+  // A photo read or a film is still an AI call: the server wants ai_processing as well as the specific kind.
   const ensure = useCallback(async (kind: AIKind, run: () => void) => {
     if (kind === 'photo_ai') return ensureOne('ai_processing', () => void ensureOne('photo_ai', run));
+    if (kind === 'video_ai') return ensureOne('ai_processing', () => void ensureOne('video_ai', run));
     return ensureOne(kind, run);
   }, [ensureOne]);
 
@@ -119,7 +128,7 @@ function ConsentSheet({kind, busy, note, onAgree, onDecline}: {kind: AIKind | nu
         <View style={{width: '100%', maxWidth: 460, alignSelf: 'center', paddingHorizontal: 12, paddingBottom: insets.bottom + 12}}>
           {c ? (
             <View accessibilityViewIsModal style={{borderRadius: 28, padding: 22, gap: 12, backgroundColor: '#161618', borderWidth: 1, borderColor: ah.line2}}>
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: ah.rose}}>Before you start</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: ah.rose}}>Before you start</Text>
               <Text accessibilityRole="header" style={{fontFamily: ahFonts.serifItalic, fontSize: 32, lineHeight: 35, color: ah.text}}>{c.title}</Text>
               {c.lines.map((l) => (
                 <View key={l} style={{flexDirection: 'row', gap: 10}}>

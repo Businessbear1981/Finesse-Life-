@@ -16,9 +16,10 @@ export const TERMS_REQUIRED_MESSAGE = 'Accept the house rules & terms before you
  * 403 terms_required → the client shows the house rules & terms sheet, then retries.
  */
 export async function postingGate(supabase: Db, userId: string): Promise<NextResponse | null> {
-  const {data, error} = await supabase.from('profiles').select('terms_accepted_at, posting_suspended_at').eq('id', userId).maybeSingle();
+  // Own row via the SECURITY DEFINER helper (terms/accepted columns are not SELECT-granted, 20261020_s4).
+  const {data, error} = await supabase.rpc('get_own_profile');
   if (error) {
-    if (error.code === '42703' || /column .* does not exist/i.test(error.message ?? '')) {
+    if (error.code === '42703' || /column .* does not exist/i.test(error.message ?? '') || /could not find the function/i.test(error.message ?? '')) {
       return NextResponse.json(
         {error: 'room_not_open', message: 'Posting opens once the house finishes switching on member safety. Nothing was posted.'},
         {status: 503, headers: NO_STORE},
@@ -27,13 +28,19 @@ export async function postingGate(supabase: Db, userId: string): Promise<NextRes
     console.error('[moderation] posting gate read failed', error.code);
     return NextResponse.json({error: 'unavailable', message: 'Something went wrong on the house side. Nothing was posted.'}, {status: 500, headers: NO_STORE});
   }
-  if (data?.posting_suspended_at) {
+  const row = (data?.[0] ?? null) as {id?: string; terms_accepted_at?: string | null; posting_suspended_at?: string | null} | null;
+  // get_own_profile is auth.uid()-scoped; if the session's own row isn't the expected member, fail closed.
+  if (row && row.id && row.id !== userId) {
+    console.error('[moderation] posting gate identity mismatch');
+    return NextResponse.json({error: 'unavailable', message: 'Something went wrong on the house side. Nothing was posted.'}, {status: 500, headers: NO_STORE});
+  }
+  if (row?.posting_suspended_at) {
     return NextResponse.json(
       {error: 'posting_suspended', message: 'Posting is paused on your account while the house reviews a report. Nothing was posted.'},
       {status: 403, headers: NO_STORE},
     );
   }
-  if (!data?.terms_accepted_at) {
+  if (!row?.terms_accepted_at) {
     return NextResponse.json({error: 'terms_required', message: TERMS_REQUIRED_MESSAGE}, {status: 403, headers: NO_STORE});
   }
   return null;

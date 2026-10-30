@@ -12,7 +12,7 @@ export function Segmented<T extends string>({options, value, onChange}: {options
         return (
           <Pressable key={k} onPress={() => onChange(k)} accessibilityRole="tab" accessibilityState={{selected: on}}
             style={[s.segItem, {backgroundColor: on ? ah.white : 'transparent'}]}>
-            <Text numberOfLines={1} style={[s.segText, options.length >= 4 && {fontSize: 11}, {color: on ? '#000' : ah.mute, textAlign: 'center'}]}>{label}</Text>
+            <Text numberOfLines={1} style={[s.segText, options.length >= 4 && {fontSize: 12}, {color: on ? '#000' : ah.mute, textAlign: 'center'}]}>{label}</Text>
           </Pressable>
         );
       })}
@@ -44,16 +44,6 @@ export function Monogram({name, size = 44, ring = ah.rose, fill = '#1B1B1F'}: {n
       <Text style={{fontFamily: ahFonts.serifItalic, fontSize: size * 0.46, color: ah.text}}>{name.slice(0, 1)}</Text>
     </View>
   );
-}
-
-/** Hairline divider (was the gold rule). */
-export function GoldRule() {
-  return <View style={{height: 1, backgroundColor: ah.line2}} />;
-}
-
-/** Framed panel (was the polished gold frame): a quiet chrome hairline with rounded corners. */
-export function GoldFrame({children, pad = 6, style}: {children: ReactNode; pad?: number; style?: object}) {
-  return <View style={[{padding: pad, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', backgroundColor: ah.ink2, overflow: 'hidden'}, style]}>{children}</View>;
 }
 
 /** Primary action: a full-width pill with an arrow. `color` tints it (white by default). */
@@ -90,8 +80,8 @@ export const s = StyleSheet.create({
   segText: {fontFamily: ahFonts.sansSemi, fontSize: 13},
   cta: {minHeight: 52, paddingHorizontal: 22, borderRadius: 999, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'},
   ctaText: {fontFamily: ahFonts.sansSemi, fontSize: 15},
-  section: {fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: ah.mute, marginTop: 4},
-  sample: {fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.3, color: ah.faint},
+  section: {fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: ah.mute, marginTop: 4},
+  sample: {fontFamily: ahFonts.sansMedium, fontSize: 12, letterSpacing: 0.3, color: ah.faint},
   body: {fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: ah.text},
   small: {fontFamily: fonts.body, fontSize: 12, lineHeight: 17, color: ah.mute},
 });

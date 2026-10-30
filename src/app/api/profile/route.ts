@@ -1,12 +1,8 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
+import {createServiceClient} from '@/lib/supabase/service';
 import {screenFields} from '@/lib/moderation';
 import {contentRejected} from '@/lib/moderation-server';
-
-async function getServiceClient() {
-
-  return await createClient();
-}
 
 function isR2Url(v: unknown): boolean {
   if (typeof v !== 'string') return false;
@@ -38,19 +34,35 @@ export async function GET() {
       return NextResponse.json({profile: null});
     }
 
-    const serviceClient = await getServiceClient();
-    const {data: profile, error} = await serviceClient
-      .from('profiles')
-      .select('id, display_name, username, avatar_url, gender, is_vip, vip_expires_at')
-      .eq('id', user.id)
-      .single();
+    // Own row via the SECURITY DEFINER helper — gender/is_vip/vip_expires_at are no longer
+    // SELECT-granted to the member role (20261020_s4).
+    const {data: rows, error} = await anonClient.rpc('get_own_profile');
+    const row = (rows?.[0] ?? null) as {
+      id: string;
+      display_name: string | null;
+      username: string | null;
+      avatar_url: string | null;
+      gender: string | null;
+      is_vip: boolean | null;
+      vip_expires_at: string | null;
+    } | null;
 
-    if (error) {
-      console.error('[GET /api/profile]', error);
+    if (error || !row) {
+      if (error) console.error('[GET /api/profile]', error);
       return NextResponse.json({profile: null});
     }
 
-    return NextResponse.json({profile});
+    return NextResponse.json({
+      profile: {
+        id: row.id,
+        display_name: row.display_name,
+        username: row.username,
+        avatar_url: row.avatar_url,
+        gender: row.gender,
+        is_vip: row.is_vip,
+        vip_expires_at: row.vip_expires_at,
+      },
+    });
   } catch (e) {
     console.error('[GET /api/profile] unexpected', e);
     return NextResponse.json({profile: null});
@@ -131,17 +143,8 @@ export async function PATCH(request: Request) {
       has_private_profile !== undefined;
 
     if (touchesPrivate) {
-      const serviceClient = await getServiceClient();
-      const {data: currentProfile} = await serviceClient
-        .from('profiles')
-        .select('is_vip, vip_expires_at')
-        .eq('id', user.id)
-        .single();
-
-      const isVipActive =
-        currentProfile?.is_vip === true &&
-        (currentProfile.vip_expires_at === null ||
-          new Date(currentProfile.vip_expires_at) > new Date());
+      // is_vip / vip_expires_at are no longer SELECT-granted (20261020_s4); ask the helper.
+      const {data: isVipActive} = await anonClient.rpc('current_member_is_vip');
 
       if (!isVipActive) {
         return NextResponse.json(
@@ -186,12 +189,12 @@ export async function PATCH(request: Request) {
     if (has_private_profile !== undefined)
       update.has_private_profile = Boolean(has_private_profile);
 
-    const serviceClient = await getServiceClient();
-
-    const {data: profile, error} = await serviceClient
+    // Private/VIP columns are not SELECT-granted to members (20261020_s4), so the write + read-back
+    // go through the service-role client (identity is the verified auth.uid above).
+    const {data: profile, error} = await createServiceClient()
       .from('profiles')
       .upsert({id: user.id, ...update}, {onConflict: 'id'})
-      .select()
+      .select('id, display_name, username, avatar_url, gender, is_vip, vip_expires_at')
       .single();
 
     if (error) {

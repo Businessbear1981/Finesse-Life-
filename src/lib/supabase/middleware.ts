@@ -98,29 +98,19 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (isVipRoute && user) {
-    // Query as the signed-in member (their JWT, RLS applies). The previous version
-    // sent the anon key as the bearer, which RLS answers with [] → every VIP was
-    // bounced to /profile?upgrade=true.
-    const {data: profile, error} = await supabase
-      .from('profiles')
-      .select('is_vip, vip_expires_at')
-      .eq('id', user.id)
-      .single();
+    // Ask the database whether the signed-in member is an active VIP. The column-level RLS
+    // migration (20261020_s4) revokes SELECT on profiles.is_vip/vip_expires_at, so this must go
+    // through the SECURITY DEFINER helper. Runs as the member's JWT (RLS applies to the helper's
+    // caller check). On a read error the page's own server-side check (vip/page.tsx) still gates.
+    const {data: isVip, error} = await supabase.rpc('current_member_is_vip');
 
-    if (!error) {
-      const isVip =
-        profile?.is_vip === true &&
-        (!profile.vip_expires_at || new Date(profile.vip_expires_at) > new Date());
-
-      if (!isVip) {
-        const url = request.nextUrl.clone();
-        url.pathname = '/profile';
-        url.search = '';
-        url.searchParams.set('upgrade', 'true');
-        return NextResponse.redirect(url);
-      }
+    if (!error && !isVip) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/profile';
+      url.search = '';
+      url.searchParams.set('upgrade', 'true');
+      return NextResponse.redirect(url);
     }
-    // On a read error the page's own server-side check (vip/page.tsx) still gates.
   }
 
   // /intake without auth → send to /login

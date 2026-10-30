@@ -28,4 +28,3 @@ export type Room = {
 
 export const rooms = project.rooms as Room[];
 export const roomById = (id: string): Room | undefined => rooms.find((room) => room.id === id);
-export const vipDestination = project.accessFlow.vipPenthouseElevator.destination;

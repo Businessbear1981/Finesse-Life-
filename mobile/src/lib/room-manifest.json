@@ -94,10 +94,10 @@
       "carpeLamp": "#FFA96B"
     },
     "typography": {
-      "display": "Playfair Display or Cormorant Garamond",
-      "label": "Cinzel",
-      "body": "Cormorant Garamond",
-      "uiFallback": "Georgia, system-serif"
+      "display": "Instrument Serif (italic)",
+      "label": "Inter Tight",
+      "body": "Inter Tight",
+      "uiFallback": "system-ui, sans-serif"
     },
     "motion": {
       "routineMs": "180-450",

@@ -4,7 +4,8 @@ import {parseBody} from '@/lib/api/validate';
 import {reply, sessionMember, unauthorized} from '@/app/api/billing/_member';
 import {CONSENT_KINDS, CONSENT_VERSION, isConsentKind, type Consent} from '@/lib/consents';
 
-// Member consents — AI processing, photo AI, 18+ (supabase/migrations/20261017_s2_consents.sql).
+// Member consents — AI processing, photo AI, video AI, 18+ (supabase/migrations/20261017_s2_consents.sql,
+// 20261020_s3_consents_video_ai.sql).
 //   GET    → {consents: [{kind, accepted_at, version}]}
 //   POST   {kind, platform?} → {consent} (accepting again keeps the original row)
 //   DELETE ?kind=… → {withdrawn: true}

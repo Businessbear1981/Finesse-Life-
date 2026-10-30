@@ -8,7 +8,8 @@ export async function GET() {
   if (!('userId' in ctx)) return ctx;
   const own = (table: string, col = 'user_id') => ctx.supabase.from(table).select('*').eq(col, ctx.userId);
   const tables: Record<string, PromiseLike<{data: unknown; error: {message: string} | null}>> = {
-    profile: ctx.supabase.from('profiles').select('*').eq('id', ctx.userId),
+    // Own row via the SECURITY DEFINER helper — private columns are not SELECT-granted (20261020_s4).
+    profile: ctx.supabase.rpc('get_own_profile'),
     identity_projections: own('identity_projections'),
     diary_items: own('diary_items'),
     ballroom_evenings: own('ballroom_evenings'),

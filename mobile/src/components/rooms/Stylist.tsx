@@ -62,7 +62,7 @@ export function Stylist({side}: {side: Side}) {
     <View style={{gap: 16}}>
       <AHSmoke aspect={1 / 0.82} top={<AHEyebrow color="rgba(242,201,184,0.85)">The dressing room</AHEyebrow>}>
         <AHTitle size={30} style={{lineHeight: 33}}>“Show me what you’re thinking of wearing. I’ll tell you what to keep, swap or add.”</AHTitle>
-        <Text style={{marginTop: 12, fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,235,231,0.7)'}}>— A note on the mirror</Text>
+        <Text style={{marginTop: 12, fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,235,231,0.7)'}}>— A note on the mirror</Text>
       </AHSmoke>
 
       <View style={{flexDirection: 'row', gap: 10}}>
@@ -90,7 +90,7 @@ export function Stylist({side}: {side: Side}) {
                     </Pressable>
                   ) : null}
                 </View>
-                <Meta color={x.state === 'sent' ? OK_GREEN : x.state === 'failed' ? ERR_PINK : ah.mute} style={{fontSize: 11, letterSpacing: 0.8}}>
+                <Meta color={x.state === 'sent' ? OK_GREEN : x.state === 'failed' ? ERR_PINK : ah.mute} style={{fontSize: 12, letterSpacing: 0.8}}>
                   {x.state === 'sent' ? `Sent · ${x.occasion}` : x.state === 'failed' ? (x.msg ?? 'Not sent') : x.state === 'sending' ? 'Sending…' : 'Ready'}
                 </Meta>
               </Animated.View>

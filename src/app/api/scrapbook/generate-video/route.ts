@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {createClient as createSessionClient} from '@/lib/supabase/server';
+import {requireAiConsent} from '@/lib/ai-consent-gate';
 
 const HIGGSFIELD_BASE = 'https://platform.higgsfield.ai/v1';
 const HIGGSFIELD_KEY_ID = process.env.HIGGSFIELD_API_KEY_ID!;
@@ -19,6 +20,10 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    // The member's words are sent to a third-party video model — gate before anything leaves.
+    const refusal = await requireAiConsent(supabase, user.id, {video: true});
+    if (refusal) return refusal;
 
     const { entry_id } = await req.json();
     if (!entry_id) {

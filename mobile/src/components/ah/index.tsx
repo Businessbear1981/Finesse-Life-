@@ -52,7 +52,7 @@ export function AHTopBar({left, right}: {left?: ReactNode; right?: ReactNode}) {
 }
 
 export function AHEyebrow({children, style, color = ah.mute}: {children: ReactNode; style?: StyleProp<TextStyle>; color?: string}) {
-  return <Text style={[{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color}, style]}>{children}</Text>;
+  return <Text style={[{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2, textTransform: 'uppercase', color}, style]}>{children}</Text>;
 }
 
 /**
@@ -143,7 +143,7 @@ export function AHChip({label, live, tone = 'glass', style}: {label: string; liv
       backgroundColor: tone === 'glass' ? 'rgba(255,255,255,0.1)' : tone === 'rose' ? 'rgba(232,180,160,0.16)' : 'transparent',
       borderWidth: tone === 'outline' ? 1 : 0, borderColor: ah.line2}, style]}>
       {live && <AHLiveDot />}
-      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: tone === 'rose' ? ah.blush : ah.text}}>{label}</Text>
+      <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase', color: tone === 'rose' ? ah.blush : ah.text}}>{label}</Text>
     </View>
   );
 }
@@ -202,7 +202,7 @@ export function AHRing({name, size = 60, label = true, quiet, onPress}: {name: s
   return (
     <View style={{width: size, alignItems: 'center'}}>
       {onPress ? <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={name}>{ring}</Pressable> : ring}
-      {label && <Text numberOfLines={1} style={{marginTop: 6, maxWidth: size + 8, fontFamily: ahFonts.sans, fontSize: 11, color: ah.mute}}>{name}</Text>}
+      {label && <Text numberOfLines={1} style={{marginTop: 6, maxWidth: size + 8, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{name}</Text>}
     </View>
   );
 }
@@ -216,12 +216,12 @@ export function AHIndex({items}: {items: AHIndexItem[]}) {
       {items.map((it, i) => (
         <Pressable key={it.key} onPress={it.onPress} accessibilityRole="button" accessibilityLabel={`${it.name}${it.sub ? `, ${it.sub}` : ''}`}
           style={({pressed}) => ({flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 13, borderBottomWidth: 1, borderColor: ah.line, opacity: pressed ? 0.7 : 1})}>
-          <Text style={{width: 26, fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint}}>{String(it.number ?? i + 1).padStart(2, '0')}</Text>
+          <Text style={{width: 26, fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.faint}}>{String(it.number ?? i + 1).padStart(2, '0')}</Text>
           <View style={{flex: 1}}>
             <Text style={{fontFamily: ahFonts.serif, fontSize: 24, lineHeight: 26, color: ah.text}}>{it.name}</Text>
             {it.sub ? <Text style={{marginTop: 2, fontFamily: ahFonts.sans, fontSize: 12, color: ah.mute}}>{it.sub}</Text> : null}
           </View>
-          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: it.tagTone === 'live' ? ah.ok : it.tagTone === 'key' ? ah.rose : ah.mute}}>{it.tag ?? '→'}</Text>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: it.tagTone === 'live' ? ah.ok : it.tagTone === 'key' ? ah.rose : ah.mute}}>{it.tag ?? '→'}</Text>
         </Pressable>
       ))}
     </View>
@@ -253,14 +253,14 @@ export function AHMemberCard({finish, big, label, right, holder, style}: {finish
         <Rect x="0.5" y="0.5" width="99.6%" height="99.4%" rx="20" fill="none" stroke="rgba(255,255,255,0.14)" />
       </Svg>
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 11, letterSpacing: 3.5, color: f.ink}}>FINESSE</Text>
+        <Text style={{fontFamily: ahFonts.sansBold, fontSize: 12, letterSpacing: 3.5, color: f.ink}}>FINESSE</Text>
         <View style={{width: 34, height: 26, borderRadius: 6, backgroundColor: '#C4C7CC'}} />
       </View>
       {big != null && (typeof big === 'string'
         ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 30, letterSpacing: -0.6, color: f.ink}}>{big}</Text>
         : big)}
       <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 2.6, color: f.inkSoft}}>{(holder ?? label ?? f.label).toUpperCase()}</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 2.6, color: f.inkSoft}}>{(holder ?? label ?? f.label).toUpperCase()}</Text>
         {right ? <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 22, color: f.ink}}>{right}</Text> : null}
       </View>
     </View>
@@ -311,11 +311,3 @@ export function AHInput(props: TextInputProps & {label?: string}) {
   );
 }
 
-export function AHDivider({style}: {style?: StyleProp<ViewStyle>}) {
-  return <View style={[{height: 1, backgroundColor: ah.line}, style]} />;
-}
-
-/** Note for sample/preview content (honesty). */
-export function AHSampleNote({children}: {children: ReactNode}) {
-  return <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, letterSpacing: 0.4, color: ah.faint}}>{children}</Text>;
-}

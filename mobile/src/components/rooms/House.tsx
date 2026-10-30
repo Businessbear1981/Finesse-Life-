@@ -339,7 +339,7 @@ function EveningCard({ev, reload}: {ev: Evening; reload: () => Promise<void>}) {
           {STAGES.map((x, i) => (
             <View key={x} style={{flex: 1, gap: 6}}>
               <View style={{height: 3, borderRadius: 2, backgroundColor: i <= stage ? (i === 2 ? ah.ok : ah.white) : ah.line2}} />
-              <Text style={[t.eyebrow, {fontSize: 11, letterSpacing: 1, color: i <= stage ? ah.text : ah.faint}]}>{x}</Text>
+              <Text style={[t.eyebrow, {fontSize: 12, letterSpacing: 1, color: i <= stage ? ah.text : ah.faint}]}>{x}</Text>
             </View>
           ))}
         </View>

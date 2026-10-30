@@ -59,7 +59,7 @@ function ScrapbookLive({side, entries, reload}: {side: Side; entries: Entry[]; r
                       </>
                     )}
                   </View>
-                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{cur![0].slice(0, 3).toUpperCase()} · {String(i + 1).padStart(2, '0')}</Text>
+                  <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, color: ah.mute, textAlign: 'center'}}>{cur![0].slice(0, 3).toUpperCase()} · {String(i + 1).padStart(2, '0')}</Text>
                 </Pressable>
               );
             })}
@@ -69,7 +69,7 @@ function ScrapbookLive({side, entries, reload}: {side: Side; entries: Entry[]; r
           <View>
             {cur![1].map((e, i) => (
               <NumRow key={e.id} n={i + 1} title={e.title} sub={e.description ?? undefined} meta={ENTRY_LABEL[e.entry_type as EntryType] ?? e.entry_type} last={i === cur![1].length - 1}
-                right={e.video_status === 'ready' ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.rose}}>FILM</Text> : undefined} />
+                right={e.video_status === 'ready' ? <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, color: ah.rose}}>FILM</Text> : undefined} />
             ))}
           </View>
         </>
@@ -83,6 +83,7 @@ function Film({side, entry, onChange}: {side: Side; entry: Entry; onChange: () =
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ok: boolean; text: string} | null>(null);
   const status = entry.video_status ?? 'none';
+  const consent = useAIConsent();
   const start = async () => {
     setBusy(true); setMsg(null);
     const r = await makeFilm(entry.id);
@@ -118,7 +119,7 @@ function Film({side, entry, onChange}: {side: Side; entry: Entry; onChange: () =
         <View style={{gap: 8}}>
           {status === 'failed' ? <Meta color={ah.danger}>The last film didn’t finish</Meta> : null}
           <Text style={s.small}>Turns this moment into a short cinematic film.</Text>
-          <ActionBar label={busy ? 'Starting…' : status === 'failed' ? 'Try the film again' : 'Make a film'} color={track[side].acc} onPress={() => void start()} disabled={busy} />
+          <ActionBar label={busy ? 'Starting…' : status === 'failed' ? 'Try the film again' : 'Make a film'} color={track[side].acc} onPress={() => void consent.ensure('video_ai', () => void start())} disabled={busy} />
         </View>
       )}
       <Status msg={msg} />
@@ -193,7 +194,7 @@ function ScrapbookSample() {
       <View>
         {SEASONS[season].map(([n, title, d, k], i) => (
           <NumRow key={title} n={n} title={title} sub={d} last={i === SEASONS[season].length - 1}
-            right={<Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, color: ah.mute}}>{k} ITEMS</Text>} />
+            right={<Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, color: ah.mute}}>{k} ITEMS</Text>} />
         ))}
       </View>
       <SampleNote>Sample seasons · signed out · your own moments and films appear once you sign in</SampleNote>

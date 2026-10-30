@@ -18,14 +18,13 @@ export async function getVipEntitlement(): Promise<Entitlement> {
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return {state: 'signed_out'};
-  const {data: profile} = await supabase
-    .from('profiles')
-    .select('is_vip, vip_expires_at')
-    .eq('id', user.id)
-    .single();
+  // profiles.is_vip / vip_expires_at are revoked from the member role (20261020_s4);
+  // read the caller's own row through the SECURITY DEFINER helper.
+  const {data: rows} = await supabase.rpc('get_own_profile');
+  const profile = (rows?.[0] ?? null) as {is_vip?: boolean | null; vip_expires_at?: string | null} | null;
   if (!profile?.is_vip) return {state: 'not_entitled', userId: user.id};
   if (profile.vip_expires_at && new Date(profile.vip_expires_at) <= new Date()) return {state: 'expired', userId: user.id};
-  return {state: 'entitled', userId: user.id, vipExpiresAt: profile.vip_expires_at};
+  return {state: 'entitled', userId: user.id, vipExpiresAt: profile.vip_expires_at ?? null};
 }
 
 export const liftReady = () => Boolean(keylockSecret() && hasServiceRole());

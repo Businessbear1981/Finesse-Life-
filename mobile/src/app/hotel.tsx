@@ -44,7 +44,7 @@ const L_HER = [
 ];
 const L_HIM = [L_HER[0], L_HER[1], L_HER[2], RM('perdiem', 'Per Diem', 'wallet', 'PRIVATE LIFE', 'Date and event planner, built around your budget.', 'PLAN THE NIGHT'), L_HER[4],
   RM('market', 'Market', 'store', 'PUBLIC FLOOR', 'Partner market, disclosed offers, honest prices.', 'BROWSE'),
-  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Book.', 'TAKE A SEAT'), L_HER[5], L_HER[7], L_HER[8]];
+  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Pool.', 'TAKE A SEAT'), L_HER[5], L_HER[7], L_HER[8]];
 const R_HER = [
   RM('archive', 'Scrapbook', 'clapperboard', 'PRIVATE LIFE', 'Seasons and chapters of your life.', 'OPEN THE SCRAPBOOK'),
   RM('lounge', 'Lounge', 'martini', 'PUBLIC FLOOR'),
@@ -53,7 +53,7 @@ const R_HER = [
   RM('starmaker', 'Starmaker', 'mic', 'PUBLIC FLOOR'),
   RM('switchboard', 'Switchboard', 'phone', 'ARRIVAL', 'Connected accounts and consent.', 'CONNECT AN ACCOUNT'),
   RM('calendar', 'Calendar', 'calendardays', 'PRIVATE LIFE', 'Nova finds time and moves things.', 'OPEN THE DAY'),
-  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Book.', 'TAKE A SEAT'),
+  RM('clubhouse', 'Game Room', 'gamepad2', 'PUBLIC FLOOR', 'Poker, Spades, Dominoes, Rummy and the Pool.', 'TAKE A SEAT'),
   RM('departures', 'Depart', 'plane', 'ARRIVAL', 'Boarding pass, composed itinerary, live weather.', 'COMPOSE A DEPARTURE'),
 ];
 const R_HIM = [R_HER[0], R_HER[1], R_HER[2], R_HER[3], R_HER[4], R_HER[5], R_HER[6],

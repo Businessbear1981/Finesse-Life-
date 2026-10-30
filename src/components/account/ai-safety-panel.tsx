@@ -8,7 +8,7 @@
 // The app's twin is mobile/src/components/account/SafetyPanel.tsx.
 import Link from 'next/link';
 import {useCallback, useEffect, useState, type ReactNode} from 'react';
-import {AI_PROCESSOR, type Consent, type ConsentKind} from '@/lib/consents';
+import {AI_PROCESSOR, VIDEO_PROCESSOR, type Consent, type ConsentKind} from '@/lib/consents';
 import {REPORT_REASON_LABELS, type ReportKind} from '@/lib/moderation';
 import {readBlocks, readMyReports, safetyFailure, unblockMember, type MyReport} from '@/lib/moderation-client';
 
@@ -22,6 +22,11 @@ const CONSENT_COPY: Record<ConsentKind, {title: string; body: string; after: str
     title: 'Nova may send photos I choose to the AI provider',
     body: `Photos you ask Nova or the Camera to read go to ${AI_PROCESSOR}.`,
     after: 'Withdrawn. No photo goes to the AI provider until you agree again.',
+  },
+  video_ai: {
+    title: 'Nova may send a memory to the video provider',
+    body: `The title and description of a memory you turn into a Scrapbook film go to ${VIDEO_PROCESSOR}.`,
+    after: 'Withdrawn. No memory goes to the video provider until you agree again.',
   },
   // A confirmation, not a permission to process anything — shown, not withdrawable (delete the account instead).
   age_18: {
@@ -127,7 +132,7 @@ export function AiSafetyPanel() {
           : consents.state === 'error' ? <p role="alert" className="font-body text-sm" style={{color: '#FF4D7D'}}>{consents.text}</p>
           : (
             <ul className="space-y-3">
-              {(['ai_processing', 'photo_ai', 'age_18'] as ConsentKind[]).map((kind) => {
+              {(['ai_processing', 'photo_ai', 'video_ai', 'age_18'] as ConsentKind[]).map((kind) => {
                 const row = consents.data.find((c) => c.kind === kind);
                 return (
                   <li key={kind} className="flex items-start gap-3">

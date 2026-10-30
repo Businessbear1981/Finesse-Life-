@@ -149,7 +149,7 @@ function ItemCard({item, acc, reload, onDeleted}: {item: Item; acc: string; relo
         <View style={{flexDirection: 'row', gap: 14}}>
           <View style={{width: 92}}>
             <Reticle small resolved={item.state === 'identified' || item.state === 'catalogued' || item.state === 'routed'}>
-              {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 11, color: ah.faint}}>No preview</Text>}
+              {item.viewUrl ? <Image source={{uri: item.viewUrl}} style={{position: 'absolute', width: '100%', height: '100%'}} resizeMode="cover" accessibilityLabel={item.label ?? 'Your photo'} /> : <Text style={{fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.faint}}>No preview</Text>}
             </Reticle>
           </View>
           <View style={{flex: 1, gap: 6}}>

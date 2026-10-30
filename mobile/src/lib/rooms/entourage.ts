@@ -27,10 +27,6 @@ export function isIsoDate(s: string) {
 
 export const lovesFrom = (s: string) => [...new Set(s.split(',').map((x) => x.trim().slice(0, 50)).filter(Boolean))].slice(0, 12);
 
-export function daysLabel(days: number) {
-  return days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`;
-}
-
 export function giftQuery(p: Pick<Person, 'relation' | 'loves'>) {
   const loves = p.loves.filter(Boolean).slice(0, 6).join(', ');
   return [`a thoughtful gift for my ${p.relation.toLowerCase() || 'friend'}`, loves ? `who loves ${loves}` : ''].filter(Boolean).join(' ').slice(0, 200);

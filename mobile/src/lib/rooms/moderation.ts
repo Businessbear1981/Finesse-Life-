@@ -53,3 +53,116 @@ export const acceptTerms = () => api<{accepted?: boolean} & Err>('/api/account/a
 
 /** True when a write failed only because the member hasn't accepted the house rules yet. */
 export const needsTerms = (r: {status: number; body: Err}) => r.status === 403 && r.body.error === 'terms_required';
+
+// ─── Text filter (port of src/lib/moderation.ts `screenText` / `screenFields`) ─────────────────────────────
+// The routes run these rules server-side; the app runs the same rules before an Exchange offer is sent, so an
+// offer that falls back to a direct insert can't carry text the house would have rejected. Keep in step with the web.
+export type FilterReason = 'slur' | 'abuse' | 'sexual' | 'threat' | 'contact' | 'spam';
+export type FilterVerdict = {verdict: 'ok'} | {verdict: 'reject'; reason: FilterReason; message: string};
+
+const FILTER_MESSAGES: Record<FilterReason, string> = {
+  slur: 'That wording isn’t allowed in the house. Nothing was posted.',
+  abuse: 'That reads as abuse toward someone. Nothing was posted.',
+  sexual: 'Sexual solicitation isn’t allowed in the house. Nothing was posted.',
+  threat: 'Threats aren’t allowed in the house. Nothing was posted.',
+  contact: 'Keep phone numbers, emails and outside handles out of public posts. Nothing was posted.',
+  spam: 'That looks like spam. Nothing was posted.',
+};
+
+/** Lower-case, strip accents and zero-width marks, undo common character swaps, squeeze long repeats. */
+export function normalizeForFilter(text: string): string {
+  const swaps: Record<string, string> = {'0': 'o', '1': 'i', '!': 'i', '|': 'i', '3': 'e', '4': 'a', '@': 'a', '5': 's', '$': 's', '7': 't', '+': 't', '8': 'b'};
+  const swap = (c: string) => swaps[c] ?? c;
+  return text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f\u200b-\u200f\u2060\ufeff]/g, '')
+    .toLowerCase()
+    // Only swap look-alikes that lead into a letter ("n1gg", "k!ll", "$lut") or digits that end a word
+    // ("nigg4"), so "go die!", prices and times stay as typed.
+    .replace(/[0134578!|@$+]+(?=[a-z])/g, (m) => [...m].map(swap).join(''))
+    .replace(/(?<=[a-z])[013458]+(?![0-9])/g, (m) => [...m].map(swap).join(''))
+    .replace(/(.)\1{2,}/g, '$1$1');
+}
+
+/** "k y s", "k.y.s", "k-y-s" → "kys" (single letters split by separators). */
+function joinSpaced(s: string): string {
+  return s.replace(/\b(?:[a-z][\s._*-]+){2,}[a-z]\b/g, (m) => m.replace(/[\s._*-]+/g, ''));
+}
+
+// Word-boundary patterns over the normalized text. Kept deliberately to high-confidence terms.
+const SLURS = [
+  /\bn+[i1]+gg+(?:e+r+|a+h?|uh)s?\b/, /\bf+a+gg?(?:o+t+)?s?\b/, /\bk+[iy]+k+e+s?\b/, /\bsp[i1]c+k?s?\b/,
+  /\bwetbacks?\b/, /\btr+a+nn+(?:y|ie)s?\b/, /\bretards?\b/, /\bg[o0]{2}ks?\b/, /\bcoons?\b/, /\braghead/, /\bsandn[i1]gg/,
+];
+const ABUSE = [
+  /\bkys\b/, /\bkill (?:your ?self|urself|yo ?self)\b/, /\bgo die\b(?!-)/, /\b(?:you|u) should die\b/, /\bhope (?:you|u) die\b/,
+  /\bneck (?:your ?self|urself)\b/, /\bdrink bleach\b/, /\bworthless (?:piece of )?(?:shit|trash)\b/,
+];
+const SEXUAL = [
+  /\bsend (?:me )?(?:nudes|noods|pics of your|pussy|dick)\b/, /\bnudes? for (?:sale|cash|money)\b/, /\b(?:selling|buy) (?:my )?(?:nudes|content|feet pics)\b/,
+  /\b(?:escort|hookup|hook up) (?:service|available|rates?)\b/, /\bsugar ?(?:daddy|baby|mommy) (?:wanted|needed|available|here)\b/,
+  /\b(?:pay|paid) for (?:sex|a night|company)\b/, /\bonlyfans\.com\b/, /\bonly ?fans link\b/, /\bfull service\b.*\b(?:rate|donation|incall|outcall)\b/,
+  /\b(?:incall|outcall)s?\b/, /\b(?:bbbj|gfe)\b/, /\bdm (?:me )?for (?:spicy|nudes|content|rates)\b/,
+];
+const THREATS = [
+  /\b(?:i ?(?:will|'ll|ll|am going to|m going to|m gonna|ma|mma)|im gonna|gonna|going to) (?:kill|shoot|stab|murder|rape|hurt|beat up|beat) (?:you|u|ya|him|her|them)\b/,
+  /\bi know where (?:you|u) live\b/, /\b(?:you|u)(?:'re| are| r) (?:dead|gonna die|going to die)\b/, /\bwatch your back\b/, /\bbomb (?:the|this|your)\b/,
+  /\bshoot (?:up )?(?:the|this) (?:place|school|club|party|lounge)\b/,
+];
+const APPS = '(?:whats ?app|telegram|snap(?:chat)?|kik|wickr|signal|cash ?app|venmo|zelle|insta(?:gram)?|ig|tg)';
+const OFF_PLATFORM = [
+  new RegExp(`\\b${APPS}\\s*(?:me\\s*)?(?:at\\s*|is\\s*)?[:@]\\s*@?[a-z0-9_.]{3,}`, 'i'),
+  new RegExp(`\\b(?:add|hit|text|dm|message|find|follow)\\s+me\\s+(?:up\\s+)?(?:on|at)\\s+${APPS}\\b`, 'i'),
+  /\bpaypal\.me\/\S+/i,
+];
+const EMAIL = /[a-z0-9._%+-]+\s*(?:@|\(at\)|\[at\])\s*[a-z0-9.-]+\s*(?:\.|\(dot\)|\[dot\])\s*[a-z]{2,}/i;
+const PHONE = /(?:\+?\d[\s().-]*){10,}/;
+const LINK = /\b(?:https?:\/\/|www\.)\S+|\b[a-z0-9-]+\.(?:com|net|org|io|co|me|ly|gg|xyz|link|app|site|shop|biz|info|ru|top)\b(?:\/\S*)?/gi;
+
+/**
+ * Screen member text. `kind` adjusts the contact rule: Exchange listings may say "DM me" but still may
+ * not carry phone numbers or emails (deals stay on the platform).
+ */
+export function screenText(input: string | null | undefined, kind: 'post' | 'listing' | 'table' = 'post'): FilterVerdict {
+  const raw = (input ?? '').trim();
+  if (!raw) return {verdict: 'ok'};
+  const n = normalizeForFilter(raw);
+  const joined = joinSpaced(n);
+  const nospace = n.replace(/[^a-z]/g, '');
+  const any = (list: RegExp[]) => list.some((re) => re.test(n) || re.test(joined));
+  const reject = (reason: FilterReason): FilterVerdict => ({verdict: 'reject', reason, message: FILTER_MESSAGES[reason]});
+
+  if (any(SLURS) || /n[i]gg(?:er|a)/.test(nospace)) return reject('slur');
+  if (any(THREATS)) return reject('threat');
+  if (any(ABUSE)) return reject('abuse');
+  if (any(SEXUAL)) return reject('sexual');
+
+  if (EMAIL.test(raw) || PHONE.test(raw.replace(/\b(?:19|20)\d{2}\b/g, ''))) return reject('contact');
+  if (kind !== 'listing' && OFF_PLATFORM.some((re) => re.test(raw))) return reject('contact');
+
+  // Spam heuristics: link dumps, walls of repeats, shouting.
+  const links = raw.match(LINK) ?? [];
+  if (links.length >= 2 || (links.length === 1 && kind === 'table')) return reject('spam');
+  const words = n.split(/\s+/).filter(Boolean);
+  if (words.length >= 8) {
+    const counts = new Map<string, number>();
+    for (const w of words) counts.set(w, (counts.get(w) ?? 0) + 1);
+    const top = Math.max(...counts.values());
+    if (top / words.length > 0.5) return reject('spam');
+  }
+  const letters = raw.replace(/[^A-Za-z]/g, '');
+  if (letters.length >= 40 && letters.replace(/[^A-Z]/g, '').length / letters.length > 0.85) return reject('spam');
+  if (/(.)\1{9,}/.test(raw)) return reject('spam');
+  if (/\b(?:free money|crypto giveaway|double your|guaranteed returns?|click (?:the )?link in (?:my )?bio|investment opportunity)\b/.test(n)) return reject('spam');
+
+  return {verdict: 'ok'};
+}
+
+/** First rejection across several fields (title + description, etc.). */
+export function screenFields(fields: Array<string | null | undefined>, kind: 'post' | 'listing' | 'table' = 'post'): FilterVerdict {
+  for (const f of fields) {
+    const v = screenText(f, kind);
+    if (v.verdict === 'reject') return v;
+  }
+  return {verdict: 'ok'};
+}

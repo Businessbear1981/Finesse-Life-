@@ -110,7 +110,7 @@ function SalonLive({bookings, side, acc, reload}: {bookings: SalonBooking[]; sid
             return (
               <Pressable key={i} onPress={() => setDay(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={d.toDateString()}
                 style={{minWidth: 56, minHeight: 56, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)'}}>
-                <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, color: on ? '#000' : ah.mute}}>{d.toLocaleDateString([], {weekday: 'short'})}</Text>
+                <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: on ? '#000' : ah.mute}}>{d.toLocaleDateString([], {weekday: 'short'})}</Text>
                 <Text style={{fontFamily: ahFonts.serif, fontSize: 20, color: on ? '#000' : ah.text}}>{d.getDate()}</Text>
               </Pressable>
             );

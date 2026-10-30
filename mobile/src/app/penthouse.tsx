@@ -67,7 +67,7 @@ function PenthouseElevator() {
       } else if (r.status !== 0 && r.status !== 408) {
         await liftToken.clear(); // inactive, expired or refused — an offline or timed-out check keeps it for later
       }
-    })();
+    })().catch(() => {});
     return () => { live = false; };
   }, [doors, floor]);
 

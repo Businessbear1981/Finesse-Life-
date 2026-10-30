@@ -258,8 +258,8 @@ function WeekPlan({acc}: {acc: string}) {
           return (
             <Pressable key={d} onPress={() => setDay(i)} accessibilityRole="button" accessibilityState={{selected: on}} accessibilityLabel={`${DOW[i]}${trained.has(d) ? ', trained' : ''}`}
               style={{flex: 1, minHeight: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? ah.white : 'rgba(255,255,255,0.05)'}}>
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, color: on ? '#000' : ah.mute}}>{DOW[i]}</Text>
-              <Text style={{fontSize: 11, color: trained.has(d) ? (on ? '#000' : OK_GREEN) : on ? '#555' : ah.faint}}>{trained.has(d) ? '✓' : '·'}</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, color: on ? '#000' : ah.mute}}>{DOW[i]}</Text>
+              <Text style={{fontSize: 12, color: trained.has(d) ? (on ? '#000' : OK_GREEN) : on ? '#555' : ah.faint}}>{trained.has(d) ? '✓' : '·'}</Text>
             </Pressable>
           );
         })}
@@ -328,7 +328,7 @@ function SampleTrain({side}: {side: Side}) {
           const on = mine.includes(i);
           return (
             <View key={i} style={{flexDirection: 'row', alignItems: 'center', minHeight: 64, gap: 10, borderBottomWidth: i < sets.length - 1 ? 1 : 0, borderColor: ah.line}}>
-              <Text style={{width: 28, fontFamily: ahFonts.sansSemi, fontSize: 11, color: ah.faint}}>{String(i + 1).padStart(2, '0')}</Text>
+              <Text style={{width: 28, fontFamily: ahFonts.sansSemi, fontSize: 12, color: ah.faint}}>{String(i + 1).padStart(2, '0')}</Text>
               <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 24, color: on ? ah.mute : ah.text}}>{kg}<Text style={{fontFamily: ahFonts.sans, fontSize: 13, color: ah.mute}}> kg</Text></Text>
               <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 24, color: on ? ah.mute : ah.text}}>{reps}<Text style={{fontFamily: ahFonts.sans, fontSize: 13, color: ah.mute}}> reps</Text></Text>
               <Tick on={on} onPress={() => toggle(i)} label={`Set ${i + 1} done`} />

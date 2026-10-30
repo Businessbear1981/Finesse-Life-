@@ -10,15 +10,8 @@ export async function POST(req: NextRequest) {
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) return NextResponse.json({error: 'Unauthorized'}, {status: 401});
 
-  // Check VIP status
-  const {data: profile} = await supabase
-    .from('profiles')
-    .select('is_vip, vip_expires_at')
-    .eq('id', user.id)
-    .single();
-
-  const isVip = profile?.is_vip &&
-    (profile.vip_expires_at === null || new Date(profile.vip_expires_at) > new Date());
+  // Check VIP status (is_vip / vip_expires_at are revoked from the member role, 20261020_s4)
+  const {data: isVip} = await supabase.rpc('current_member_is_vip');
 
   if (!isVip) return NextResponse.json({error: 'VIP required'}, {status: 403});
 

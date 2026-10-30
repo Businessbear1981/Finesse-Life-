@@ -51,7 +51,7 @@ function PageLine({time, title, label, tone, last, children}: {time: string; tit
       <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
         <Text style={{width: 66, fontFamily: ahFonts.sansMedium, fontSize: 12, color: ah.mute}}>{time}</Text>
         <Text style={{flex: 1, fontFamily: ahFonts.serif, fontSize: 21, lineHeight: 24, color: ah.text}}>{title}</Text>
-        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase', color: tone ?? ah.faint}}>{sentence(label)}</Text>
+        <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.2, textTransform: 'uppercase', color: tone ?? ah.faint}}>{sentence(label)}</Text>
       </View>
       {children}
     </Animated.View>
@@ -91,7 +91,7 @@ export function Diary({side}: {side: Side}) {
         <ArrowBtn dir="‹" label="Previous day" onPress={() => setDay((x) => addDays(x, -1))} />
         <Pressable onPress={() => setDay(today)} accessibilityRole="button" accessibilityLabel={`${weekday} ${date}. Go to today`} style={{flex: 1, alignItems: 'center', minHeight: 56, justifyContent: 'center'}}>
           <Text style={{fontFamily: ahFonts.serifItalic, fontSize: 30, lineHeight: 32, color: ah.text}}>{weekday}</Text>
-          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: day !== today ? ah.rose : ah.mute}}>{date}{day !== today ? ' · tap for today' : ''}</Text>
+          <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: day !== today ? ah.rose : ah.mute}}>{date}{day !== today ? ' · tap for today' : ''}</Text>
         </Pressable>
         <ArrowBtn dir="›" label="Next day" onPress={() => setDay((x) => addDays(x, 1))} />
       </View>

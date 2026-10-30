@@ -22,23 +22,21 @@ export async function GET() {
       return NextResponse.json({error: 'Unauthorized'}, {status: 401});
     }
 
-    const {data, error} = await supabase
-      .from('profiles')
-      .select('nightvision_data')
-      .eq('id', user.id)
-      .maybeSingle();
+    // Own row via the SECURITY DEFINER helper (nightvision_data is not SELECT-granted, 20261020_s4).
+    const {data: rows, error} = await supabase.rpc('get_own_profile');
 
     if (error) {
-      // Column may not exist yet — treat as no profile
+      // Column/function may not exist yet — treat as no profile
       console.warn('[GET /api/nightvision/profile] query error:', error.message);
       return NextResponse.json({profile: null});
     }
 
-    if (!data || !data.nightvision_data) {
+    const nv = (rows?.[0] as {nightvision_data?: NightvisionData | null} | undefined)?.nightvision_data;
+    if (!nv) {
       return NextResponse.json({profile: null});
     }
 
-    return NextResponse.json({profile: data.nightvision_data as NightvisionData});
+    return NextResponse.json({profile: nv as NightvisionData});
   } catch (err) {
     console.error('[GET /api/nightvision/profile]', err);
     return NextResponse.json({error: 'Internal server error'}, {status: 500});

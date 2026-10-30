@@ -27,7 +27,7 @@ function Sheet({visible, onClose, title, eyebrow, children}: {visible: boolean; 
           <View accessibilityViewIsModal style={{maxHeight: maxH, borderRadius: 28, backgroundColor: '#161618', borderWidth: 1, borderColor: ah.line2, overflow: 'hidden'}}>
             <ScrollView contentContainerStyle={{padding: 22}} keyboardShouldPersistTaps="handled">
               <View style={{width: 40, height: 4, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.2)', alignSelf: 'center', marginTop: -6, marginBottom: 16}} />
-              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 11, letterSpacing: 1.6, textTransform: 'uppercase', color: ah.mute}}>{eyebrow}</Text>
+              <Text style={{fontFamily: ahFonts.sansSemi, fontSize: 12, letterSpacing: 1.6, textTransform: 'uppercase', color: ah.mute}}>{eyebrow}</Text>
               <Text accessibilityRole="header" style={{marginTop: 6, fontFamily: ahFonts.serifItalic, fontSize: 30, lineHeight: 33, color: ah.text}}>{title}</Text>
               {children}
             </ScrollView>

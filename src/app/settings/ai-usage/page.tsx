@@ -50,8 +50,9 @@ export default async function AiUsagePage({searchParams}: {searchParams: Promise
   const supabase = await createClient();
   const {data: {user}} = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const {data: profile} = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
-  if (!profile || !['admin', 'owner'].includes(profile.role)) {
+  const {data: roleRows} = await supabase.rpc('get_own_profile');
+  const role = roleRows?.[0]?.role;
+  if (role !== 'admin' && role !== 'owner') {
     return (
       <main className="p-8 bg-ink text-brass-highlight min-h-screen">
         <h1 className="text-2xl">403</h1>
